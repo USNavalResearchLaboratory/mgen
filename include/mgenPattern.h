@@ -63,6 +63,11 @@ class MgenPattern
             double range = max - min;
             return (((((double)rand()) * range) / ((double)RAND_MAX)) + min); 
         }
+        static unsigned int UniformRandUnsigned(unsigned int min, unsigned int max)
+        {
+            unsigned int range = max - min + 1;
+            return ((unsigned int)rand() % range + min);
+        }
          
         static double ExponentialRand(double mean)
         {
@@ -76,7 +81,8 @@ class MgenPattern
         Type            type;
         double          interval_ave;
         double          interval_remainder;
-        unsigned int    pkt_size;
+        unsigned int    pkt_size_min;
+        unsigned int    pkt_size_max;
         double          jitter_min;  // = jitterFraction * interval_ave
         double          jitter_max;  // = interval_ave + jitterFraction
         Burst           burst_type;
@@ -85,7 +91,7 @@ class MgenPattern
         double          burst_duration_ave;
         double          burst_duration;
         struct timeval  last_time;
-	bool            unlimitedRate;
+	    bool            unlimitedRate;
 
 #ifdef _HAVE_PCAP
         pcap_t*         pcap_device;

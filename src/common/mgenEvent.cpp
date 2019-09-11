@@ -15,7 +15,7 @@ MgenBaseEvent::MgenBaseEvent(Category theCategory)
 
 MgenEvent::MgenEvent()
  : MgenBaseEvent(MGEN), flow_id(0), event_type(INVALID_TYPE), src_port(0),
-   payload(0), count(-1),protocol(INVALID_PROTOCOL), tos(0), ttl(255),option_mask(0),
+   payload(0), count(-1),protocol(INVALID_PROTOCOL), tos(0), ttl(255),option_mask(0),df(DF_DEFAULT),
    queue(0),connect(false)
 {
     interface_name[0] = '\0';
@@ -131,6 +131,7 @@ const StringMapper MgenEvent::OPTION_LIST[] =
     {"RSVP", RSVP},
     {"INTERFACE", INTERFACE},
     {"TTL", TTL},
+    {"DF",DF},
     {"SEQUENCE", SEQUENCE},
     {"LABEL",LABEL},
     {"TXBUFFER",TXBUFFER},
@@ -442,6 +443,35 @@ bool MgenEvent::InitFromString(const char* string)
               while ((' ' == *ptr) || ('\t' == *ptr)) ptr++;
               break;
           }
+        case DF:  // df/fragmentation on or off
+        {
+            if (1 != sscanf(ptr, "%s", fieldBuffer))
+            {
+                DMSG(0, "MgenEvent::InitFromString() DF Error: missing {on|off}\n");
+                return false;   
+            }
+            FragmentationStatus dfValue;
+            unsigned int len = strlen(fieldBuffer);
+            unsigned int i;
+            for (i = 0 ; i < len; i++)
+                fieldBuffer[i] = toupper(fieldBuffer[i]);
+            fieldBuffer[i] = '\0';
+            if(!strncmp("ON", fieldBuffer, len))
+                dfValue = DF_ON;
+            else if(!strncmp("OFF", fieldBuffer, len))
+                dfValue = DF_OFF;
+            else
+            {
+                DMSG(0, "MgenEvent::InitFromString() DF Error: %s is neither on nor off\n", fieldBuffer);
+                return false;
+            }
+            df = dfValue;
+            // Set ptr to next field, skipping any white space
+            ptr += strlen(fieldBuffer);
+            while ((' ' == *ptr) || ('\t' == *ptr)) ptr++;
+            break;
+        } // df
+
         case TOS:       // tos spec
           {
               if (1 != sscanf(ptr, "%s", fieldBuffer))
@@ -528,7 +558,7 @@ bool MgenEvent::InitFromString(const char* string)
           while ((' ' == *ptr) || ('\t' == *ptr)) ptr++;
           break;
           
-        case TTL:     // multicast ttl value
+        case TTL:     // ttl value
           {
               if (1 != sscanf(ptr, "%s", fieldBuffer))
               {
@@ -543,7 +573,7 @@ bool MgenEvent::InitFromString(const char* string)
               }
               if (ttlValue > 255)
               {
-                  DMSG(0, "MgenEvent::InitFromString() Error: invalid <ttlValue>\n");
+                  DMSG(0, "MgenEvent::InitFromString() Error: invalid <multicastTtlValue>\n");
                   return false;
               }
               ttl = ttlValue;
@@ -552,7 +582,6 @@ bool MgenEvent::InitFromString(const char* string)
               while ((' ' == *ptr) || ('\t' == *ptr)) ptr++;
               break;
           }
-          
         case SEQUENCE:  // sequence number initialization
           {
               if (1 != sscanf(ptr, "%s", fieldBuffer))

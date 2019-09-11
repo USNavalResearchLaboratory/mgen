@@ -2,7 +2,8 @@ import mgen
 
 # Create an MgenController instance
 # (an underlying "mgen" process is instantiated)
-receiver = mgen.Controller()
+# Note the instance name passed in is completely _optional_
+receiver = mgen.Controller("receiver")
 
 # Send a global command
 receiver.send_command("ipv4")
@@ -33,6 +34,7 @@ if payload is not None:
 
 # alternatively with no size validation
 sender.send_event("6.0 mod 1 data [%s]" % "Flow 1 modified payload".encode('hex','strict').rstrip())
+
 
 # Monitor mgen receiver's output for events
 updateCount = 1

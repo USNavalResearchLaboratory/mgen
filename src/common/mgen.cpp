@@ -54,9 +54,13 @@ Mgen::Mgen(ProtoTimerMgr&         timerMgr,
   default_flow_label(0), default_label_lock(false),
   default_tx_buffer(0), default_rx_buffer(0),
   default_broadcast(true), default_tos(0), 
-  default_ttl(3), default_queue_limit(0), 
+  default_multicast_ttl(1), default_unicast_ttl(255), 
+  default_df(DF_DEFAULT),
+  default_queue_limit(0), 
   default_broadcast_lock(false),
-  default_tos_lock(false), default_ttl_lock(false), 
+  default_tos_lock(false), default_multicast_ttl_lock(false), 
+  default_unicast_ttl_lock(false),
+  default_df_lock(false),
   default_tx_buffer_lock(false), default_rx_buffer_lock(false), 
   default_interface_lock(false), default_queue_limit_lock(false),
   sink_non_blocking(true),
@@ -161,6 +165,7 @@ bool Mgen::Start()
                   timePtr = gmtime((time_t*)&currentTime.tv_sec);
                 
 #endif // if/else _WIN32_WCE
+
                 Mgen::Log(log_file, "%02d:%02d:%02d.%06lu START Mgen Version %s\n",
                      timePtr->tm_hour, timePtr->tm_min, 
                           timePtr->tm_sec, (UINT32)currentTime.tv_usec,MGEN_VERSION);
@@ -273,7 +278,7 @@ MgenTransport* Mgen::JoinGroup(const ProtoAddress&   groupAddress,
     {
         // Create new "dummy" socket for group joins only
         ProtoAddress tmpAddress;
-        if (!(mgenTransport = GetMgenTransport(UDP,thePort,tmpAddress,true)))
+        if (!(mgenTransport = GetMgenTransport(UDP,thePort,tmpAddress,interfaceName,true)))
         {
             DMSG(0, "Mgen::JoinGroup() memory allocation error: %s\n",
                  GetErrorString());
@@ -328,7 +333,8 @@ MgenTransport* Mgen::FindMgenTransport(Protocol theProtocol,
                                        UINT16 srcPort,
                                        const ProtoAddress& dstAddress,
                                        bool closedOnly,
-                                       MgenTransport* mgenTransport)
+                                       MgenTransport* mgenTransport,
+                                       const char* interfaceName)
 { 
     MgenTransport* next;
     if (!mgenTransport) {next = transport_list.head;}
@@ -337,23 +343,28 @@ MgenTransport* Mgen::FindMgenTransport(Protocol theProtocol,
     while (next)
     {
         // Same protocol and srcPort?
-      if ((next->GetProtocol() == theProtocol) &&
-          (srcPort == 0 || next->srcPort == srcPort) &&
-
-            // ignore events && unconnected udp sockets
-            // have invalid addrs and should match
-            (((!dstAddress.IsValid() &&
-	       !next->dstAddress.IsValid()) && theProtocol == UDP)
-	     ||
-	     // For tcp ignore events we want to close the
-	     // listening socket too which won't have a dst address
-	     (theProtocol == TCP && !dstAddress.IsValid())
-             || 
-             (dstAddress.IsValid() && 
-              next->dstAddress.IsEqual(dstAddress)))
-            
-            // We should only have one sink
-            || ((next->GetProtocol() == SINK && theProtocol == SINK)))
+      if (
+          (next->GetProtocol() == theProtocol) 
+          &&
+          (srcPort == 0 || next->srcPort == srcPort) 
+          &&
+          ((NULL == interfaceName ) ||
+           (NULL != interfaceName && NULL != next->GetInterface() && !strcmp(interfaceName,next->GetInterface())))
+          &&
+          // ignore events && unconnected udp sockets
+          // have invalid addrs and should match
+          (((!dstAddress.IsValid() && !next->dstAddress.IsValid()) && theProtocol == UDP)
+           ||
+           // For tcp ignore events we want to close the
+           // listening socket too which won't have a dst address
+           (theProtocol == TCP && !dstAddress.IsValid())
+           || 
+           (dstAddress.IsValid() && next->dstAddress.IsEqual(dstAddress)))
+          
+          // We should only have one sink
+          || 
+          (next->GetProtocol() == SINK && theProtocol == SINK)
+          )
         {
 	  if (!closedOnly) { return next; }
 	  if (!next->IsOpen())  { return next;}
@@ -471,6 +482,7 @@ MgenTransport* Mgen::FindMgenTransportBySocket(const ProtoSocket& socket)
 MgenTransport* Mgen::GetMgenTransport(Protocol theProtocol,
                                       UINT16 srcPort,
                                       const ProtoAddress& dstAddress,
+                                      const char* theInterface,
                                       bool closedOnly,
                                       bool connect)
 {
@@ -478,7 +490,7 @@ MgenTransport* Mgen::GetMgenTransport(Protocol theProtocol,
     if (connect || theProtocol == TCP ) 
       tmpAddress = dstAddress;// ignore events have invalid addrs
 
-    MgenTransport* theTransport =  FindMgenTransport(theProtocol,srcPort,tmpAddress,closedOnly,NULL);      
+    MgenTransport* theTransport =  FindMgenTransport(theProtocol,srcPort,tmpAddress,closedOnly,NULL,theInterface);      
 
     if (theTransport)
       return theTransport;
@@ -769,7 +781,7 @@ void Mgen::ProcessDrecEvent(const DrecEvent& event)
           {
               
               ProtoAddress tmpAddress;
-              MgenTransport* theMgenTransport = GetMgenTransport(event.GetProtocol(),port[i],tmpAddress);
+              MgenTransport* theMgenTransport = GetMgenTransport(event.GetProtocol(),port[i],tmpAddress,event.GetInterface());
               if (theMgenTransport)
                 
               {
@@ -822,7 +834,7 @@ void Mgen::ProcessDrecEvent(const DrecEvent& event)
               MgenTransport* mgenTransport;
               MgenTransport* next = NULL;
               ProtoAddress tmpAddress;
-              while ((mgenTransport = FindMgenTransport(theProtocol, port[i],tmpAddress,false,next)))
+              while ((mgenTransport = FindMgenTransport(theProtocol, port[i],tmpAddress,false,next,event.GetInterface())))
               {
                   if (mgenTransport->HasListener()) 
                   {
@@ -1265,6 +1277,8 @@ const StringMapper Mgen::COMMAND_LIST[] =
     {"+BROADCAST",  BROADCAST},
     {"+TOS",        TOS},
     {"+TTL",        TTL},
+    {"+UNICAST_TTL", UNICAST_TTL},
+    {"+DF",         DF},
     {"+INTERFACE",  INTERFACE},
     {"-CHECKSUM",   CHECKSUM},
     {"-TXCHECKSUM", TXCHECKSUM},
@@ -1488,7 +1502,30 @@ bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
     case INTERFACE:
       SetDefaultMulticastInterface(arg, override);
       break;
-      
+
+    case DF:
+    {
+        FragmentationStatus df = DF_DEFAULT;
+        char temp[4];
+        unsigned int len = strlen(arg);
+        len = len < 4 ? len : 4;
+        unsigned int i;
+        for (i = 0 ; i < len; i++)
+            temp[i] = toupper(arg[i]);
+        temp[i] = '\0';
+        if (!strncmp("ON", temp, len))
+            df = DF_ON;
+        else if (!strncmp("OFF", temp, len))
+            df = DF_OFF;
+        else
+        {
+            DMSG(0,"Mgen::OnCommand() Error: wrong argument to DF: %s\n",arg);
+            return false;
+        }
+        SetDefaultDF(df, override);
+        break;
+    }
+      // For backwards compatability TTL refers to multicast ttl
     case TTL:	
       {
           int ttlTemp;
@@ -1499,7 +1536,20 @@ bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
               return false;
           }
           
-          SetDefaultTtl(ttlTemp, override);
+          SetDefaultMulticastTtl(ttlTemp, override);
+          break;
+      }
+    case UNICAST_TTL:	
+      {
+          int ttlTemp;
+          int result = sscanf(arg, "%i", &ttlTemp);
+          if ((1 != result) || (ttlTemp < 0) || (ttlTemp > 255))
+          {
+              DMSG(0, "Mgen::OnCommand() - invalid ttl value");
+              return false;
+          }
+          
+          SetDefaultUnicastTtl(ttlTemp, override);
           break;
       }
       

@@ -133,7 +133,9 @@ class Mgen
       LABEL,     // IPv6 flow label
       BROADCAST, // send/receive broadcasts from socket
       TOS,       // IPV4 Type-Of-Service 
-      TTL,       // IPV4 Time-To-Live
+      TTL,       // Multicast Time-To-Live
+      UNICAST_TTL, // Unicast Time-To-Live
+      DF,        // DF/Fragmentation status
       INTERFACE, //Multicast Interface
       BINARY,    // turn binary logfile mode on
       FLUSH,     // flush log after _each_ event
@@ -250,6 +252,7 @@ class Mgen
     MgenTransport* GetMgenTransport(Protocol theProtocol,
                                     UINT16 srcPort,
                                     const ProtoAddress& dstAddress,
+                                    const char* theInterface,
                                     bool closedOnly = false,
                                     bool connect = false);
 
@@ -257,7 +260,8 @@ class Mgen
                                      UINT16 srcPort,
                                      const ProtoAddress& dstAddress,
                                      bool closedOnly,
-                                     MgenTransport* mgenTransport);
+                                     MgenTransport* mgenTransport,
+                                     const char* theInterface);
 
     MgenTransport* FindMgenTransportBySocket(const ProtoSocket& socket);
 
@@ -303,7 +307,9 @@ class Mgen
     MgenFlowList& GetFlowList() {return flow_list;}
 
     bool GetDefaultBroadcast() {return default_broadcast;}
-    unsigned int GetDefaultTtl() {return default_ttl;}
+    unsigned int GetDefaultMulticastTtl() {return default_multicast_ttl;}
+    unsigned int GetDefaultUnicastTtl() {return default_unicast_ttl;}
+    FragmentationStatus GetDefaultDF() {return default_df;}
     unsigned int GetDefaultTos() {return default_tos;}
     unsigned int GetDefaultTxBuffer() {return default_tx_buffer;}
     unsigned int GetDefaultRxBuffer() {return default_rx_buffer;}
@@ -319,13 +325,28 @@ class Mgen
           broadcastValue;
         default_broadcast_lock = override ? true : default_broadcast_lock;
     }
-    void SetDefaultTtl(unsigned int ttlValue, bool override)
+    void SetDefaultMulticastTtl(unsigned int ttlValue, bool override)
     {
-        default_ttl = default_ttl_lock ?
-          (override ? ttlValue : default_ttl) :
+        default_multicast_ttl = default_multicast_ttl_lock ?
+          (override ? ttlValue : default_multicast_ttl) :
           ttlValue;
-        default_ttl_lock = override ? true : default_ttl_lock;
+        default_multicast_ttl_lock = override ? true : default_multicast_ttl_lock;
     }
+    void SetDefaultUnicastTtl(unsigned int ttlValue, bool override)
+    {
+        default_unicast_ttl = default_unicast_ttl_lock ?
+          (override ? ttlValue : default_unicast_ttl) :
+          ttlValue;
+        default_unicast_ttl_lock = override ? true : default_unicast_ttl_lock;
+    }
+    void SetDefaultDF(FragmentationStatus dfValue, bool override)
+    {
+        default_df = default_df_lock ?
+          (override ? dfValue : default_df) :
+          dfValue;
+        default_df_lock = override ? true : default_df_lock;
+    }
+
     void SetDefaultTos(unsigned int tosValue, bool override)
     {
         default_tos = default_tos_lock ?
@@ -400,13 +421,17 @@ class Mgen
     unsigned int       default_rx_buffer;                             
     bool               default_broadcast;
     unsigned char      default_tos;                                        
-    unsigned char      default_ttl;           // multicast ttl            
+    unsigned char      default_multicast_ttl;         // multicast ttl            
+    unsigned char      default_unicast_ttl;           // unicast ttl            
+    FragmentationStatus default_df; // socket df/fragmentation
     char               default_interface[16]; // multicast interface name  
     int                default_queue_limit;
     // Socket state
     bool               default_broadcast_lock;
     bool               default_tos_lock;
-    bool               default_ttl_lock;
+    bool               default_multicast_ttl_lock;
+    bool               default_unicast_ttl_lock;
+    bool               default_df_lock;
     bool               default_tx_buffer_lock;     
     bool               default_rx_buffer_lock;     
     bool               default_interface_lock;

@@ -39,21 +39,24 @@ MgenApp::~MgenApp()
 void MgenApp::Usage()
 {
     fprintf(stderr, "mgen [ipv4][ipv6][input <scriptFile>][save <saveFile>]\n"
-                    "     [output <logFile>][log <logFile>][hostAddr {on|off}\n"
-                    "     [logData {on|off}][logGpsData {on|off}]\n"
-                    "     [binary][txlog][nolog][flush]\n"
-                    "     [event \"<mgen event>\"][port <recvPortList>]\n"
-                    "     [instance <name>][command <cmdInput>]\n"
-                    "     [sink <sinkFile>][block][source <sourceFile>]\n"
-                    "     [interface <interfaceName>][ttl <timeToLive>]\n"
-                    "     [tos <typeOfService>][label <value>]\n"
-                    "     [txbuffer <txSocketBufferSize>][rxbuffer <rxSocketBufferSize>]\n"
-                    "     [start <hr:min:sec>[GMT]][offset <sec>]\n"
-                    "     [precise {on|off}][ifinfo <ifName>]\n"
-                    "     [txcheck][rxcheck][check]\n"
-                    "     [queue <queueSize>][broadcast {on|off}]\n"
-	            "     [convert <binaryLog>][debug <debugLevel>]\n"
-                    "     [boost] [reuse {on|off}]\n");
+            "     [output <logFile>][log <logFile>][hostAddr {on|off}\n"
+            "     [logData {on|off}][logGpsData {on|off}]\n"
+            "     [binary][txlog][nolog][flush]\n"
+            "     [event \"<mgen event>\"][port <recvPortList>]\n"
+            "     [instance <name>][command <cmdInput>]\n"
+            "     [sink <sinkFile>][block][source <sourceFile>]\n"
+            "     [interface <interfaceName>][ttl <multicastTimeToLive>]\n"
+            "     [unicast_ttl <unicastTimeToLive>]\n"
+            "     [df <on|off>]\n"
+            "     [tos <typeOfService>][label <value>]\n"
+            "     [txbuffer <txSocketBufferSize>][rxbuffer <rxSocketBufferSize>]\n"
+            "     [start <hr:min:sec>[GMT]][offset <sec>]\n"
+            "     [precise {on|off}][ifinfo <ifName>]\n"
+            "     [txcheck][rxcheck][check]\n"
+            "     [queue <queueSize>][broadcast {on|off}]\n"
+            "     [convert <binaryLog>][debug <debugLevel>]\n"
+            "     [gpskey <gpsSharedMemoryLocation>]\n"
+            "     [boost] [reuse {on|off}]\n");
 }  // end MgenApp::Usage()
 
 
@@ -74,6 +77,7 @@ const char* const MgenApp::CMD_LIST[] =
     "+hostaddr",   // turn "host" field on/off in sent messages
     "-boost",      // boost process priority
     "-help",       // print usage and exit
+    "+gpskey",    // Override default gps shared memory location
     "+logdata",    // log optional data attribute? default ON
     "+loggpsdata", // log gps data? default ON
     NULL
@@ -272,12 +276,12 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
     else if (!strncmp("ipv6", lowerCmd, len))
     {
 #ifdef HAVE_IPV6 
-        ProtoSocket::SetHostIPv6Capable();
         if (ProtoSocket::HostIsIPv6Capable())
             mgen.SetDefaultSocketType(ProtoAddress::IPv6);
         else
 #endif // HAVE_IPV6
             DMSG(0, "MgenApp::ProcessCommand(ipv6) Warning: system not IPv6 capable?\n");
+        
     }
     else if (!strncmp("background", lowerCmd, len))
     {
@@ -300,7 +304,7 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
     {
         mgen.SetSourcePath(val);
         ProtoAddress tmpAddress;
-        MgenTransport* theMgenTransport = mgen.GetMgenTransport(SOURCE,0,tmpAddress,true,false);
+        MgenTransport* theMgenTransport = mgen.GetMgenTransport(SOURCE,0,tmpAddress,NULL,true,false);
         if (!theMgenTransport)          
         {
             DMSG(0,"MgenApp::OnCommand() Error getting MgenAppSinkTransport.\n");
@@ -390,6 +394,14 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
            }
        }
     }
+#ifdef HAVE_GPS
+    else if (!strncmp("gpskey", lowerCmd, len))
+      {
+	gps_handle = GPSSubscribe(val);
+	if (gps_handle)
+	  mgen.SetPositionCallback(MgenApp::GetPosition, gps_handle);
+      }
+#endif //HAVE_GPS
     else if (!strncmp("logdata", lowerCmd, len))
     {
       char status[4];  // valid status is "on" or "off"
@@ -453,20 +465,15 @@ bool MgenApp::OnStartup(int argc, const char*const* argv)
     
     mgen.SetLogFile(stdout);  // log to stdout by default
     
-#ifdef HAVE_IPV6    
-
-    if (ProtoSocket::HostIsIPv6Capable()) 
-      mgen.SetDefaultSocketType(ProtoAddress::IPv6);
-
-#endif // HAVE_IPV6
-    
 #ifdef HAVE_GPS
 
     gps_handle = GPSSubscribe(NULL);
     if (gps_handle)
       mgen.SetPositionCallback(MgenApp::GetPosition, gps_handle);
+    // This payload stuff shouldn't be here!
     payload_handle = GPSSubscribe("/tmp/mgenPayloadKey");
-    mgen.SetPayloadHandle(payload_handle);
+    if (payload_handle)
+      mgen.SetPayloadHandle(payload_handle);
 
 #endif // HAVE_GPS   
     

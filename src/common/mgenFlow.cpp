@@ -1,6 +1,7 @@
 #include "mgenFlow.h"
 #include "mgenMsg.h"
 #include "mgen.h"
+#include "mgenGlobals.h"
 #include <time.h>  // for gmtime(), struct tm, etc
 
 #ifndef ENABLE_EVENT_VALIDATION
@@ -19,7 +20,7 @@ MgenFlow::MgenFlow(unsigned int         flowId,
     flow_transport(NULL), seq_num(0), 
     pending_messages(0),
     next_event(NULL), 
-    started(false), timer_mgr(timerMgr),
+    started(false), socket_error(false),timer_mgr(timerMgr),
     controller(theController),
     mgen(theMgen),
     pending_next(NULL),
@@ -59,8 +60,9 @@ bool MgenFlow::InsertEvent(MgenEvent* theEvent, bool mgenStarted, double current
             if (ValidateEvent(theEvent))
             {
                 Update(theEvent);
-		// LJT event-test
+#ifdef _VALIDATE_EVENTS_OFF
 		event_list.Remove(theEvent);
+#endif // _VALIDATE_EVENTS_OFF
             }
             else
             {
@@ -116,7 +118,7 @@ bool MgenFlow::ValidateEvent(const MgenEvent* event)
 {
 #ifdef _VALIDATE_EVENTS_OFF
   return true;
-#endif
+#endif // _VALIDATE_EVENTS_OFF
     const MgenEvent* prevEvent = (MgenEvent*)event->Prev();
     MgenEvent::Type prevType = prevEvent ? prevEvent->GetType() : 
                                            MgenEvent::INVALID_TYPE;
@@ -229,10 +231,20 @@ bool MgenFlow::DoOnEvent(const MgenEvent* event)
     // how many messages we have successfully sent so (for now
     // we should provide a better fix for this - have flow keep track?)
     // we should find closed sockets only.
-    if (message_limit > 0)
-      flow_transport = mgen.GetMgenTransport(protocol, src_port,event->GetDstAddr(),true,event->GetConnect());
-    else
-      flow_transport = mgen.GetMgenTransport(protocol, src_port,event->GetDstAddr(),false,event->GetConnect());
+
+    // Temporarily commenting this code out in order to reuse any
+    // existing sockets as having multiple sockets listening/sending
+    // to a common port is broken when we have socket errors (like
+    // no route).  The listening socket will not get all packets from
+    // all sources when a sending socket is closed that is sending
+    // to the same port.  We can not guarantee that all the messages
+    // are sent before the flow is turned off with this change as the
+    // transport keeps track of the message limit, not the flow.  Not sure
+    // what the permanent solution is yet.
+    //if (message_limit > 0)
+    //  flow_transport = mgen.GetMgenTransport(protocol, src_port,event->GetDstAddr(),true,event->GetConnect());
+    //else
+    flow_transport = mgen.GetMgenTransport(protocol, src_port,event->GetDstAddr(),event->GetInterface(),false,event->GetConnect());
 
     if (!flow_transport)
     {
@@ -328,18 +340,22 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
     if (flow_transport != NULL)
       src_port = flow_transport->GetSrcPort();
     ProtoAddress tmpDstAddr = dst_addr;
-        
+     
     if (event->OptionIsSet(MgenEvent::SRC)) {tmpSrcPort = event->GetSrcPort();}
     if (event->OptionIsSet(MgenEvent::DST)) {tmpDstAddr = event->GetDstAddr();}
 
-    // If we're not changing socket src/dst addr or
-    //  connection status, return.
+    // If we're not changing socket src/dst addr 
+    //  connection status, or transport, return.
     if (((tmpSrcPort == src_port) && (dst_addr.IsEqual(tmpDstAddr)))
-        && ((event->OptionIsSet(MgenEvent::CONNECT) 
-             && flow_transport->IsConnected())
-            ||
-            (!event->OptionIsSet(MgenEvent::CONNECT) 
-             && !flow_transport->IsConnected())))
+        && 
+        ((event->OptionIsSet(MgenEvent::INTERFACE) 
+          && !strcmp(event->GetInterface(), flow_transport->GetInterface())))        
+        && 
+        ((event->OptionIsSet(MgenEvent::CONNECT) 
+          && flow_transport->IsConnected())
+         ||
+         (!event->OptionIsSet(MgenEvent::CONNECT) 
+          && !flow_transport->IsConnected())))
       return true;
 
 
@@ -408,6 +424,7 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
     // or numBytes read == 0) and we'll log the off/disconnect
     // event then
     if (old_transport && !old_transport->TransmittingFlow(flow_id))
+      {
         if (old_transport->Shutdown())
         {
          // Log shutdown event if we've shutdown the socket
@@ -428,7 +445,7 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
               if (old_transport->IsOpen()) old_transport->Close();
             old_transport = NULL;
         }
-
+      }
 
     // If we're not changing the src port, get the transport
     // that matches the original src port as we want to retain
@@ -440,6 +457,7 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
     flow_transport = mgen.GetMgenTransport(protocol,
                                            src_port,
                                            dst_addr,
+                                           event->GetInterface(),
                                            false,
                                            event->GetConnect());
     if (!flow_transport) return false;
@@ -507,7 +525,7 @@ bool MgenFlow::Update(const MgenEvent* event)
       {   
 #ifndef _VALIDATE_EVENTS_OFF
           ASSERT(!tx_timer.IsActive());
-#endif
+#endif // _VALIDATE_EVENTS_OFF
           if (!DoOnEvent(event)) return false;
 
           // Note the lack of "break" here is _intentional_
@@ -517,13 +535,11 @@ bool MgenFlow::Update(const MgenEvent* event)
       {
           // Do MOD specific events, remember we fall thru!
 
-#ifdef _VALIDATE_EVENTS_OFF
 	if (!flow_transport)
 	  {
 	    DMSG(0,"MgenFlow::Update() Error MgenFlow() flow>%d not started yet.\n",flow_id);
 	    break;
 	  }
-#endif
           DoModEvent(event);  
 
           // Do ON ~and~ MOD events, remember we fall thru!
@@ -580,17 +596,28 @@ bool MgenFlow::Update(const MgenEvent* event)
               // we've already handled the drec event
 
               off_pending = true;
-              flow_transport->AppendFlow(this);              
-              flow_transport->StartOutputNotification();
+              flow_transport->AppendFlow(this);  
+	      // If we had a socket error, we stopped output notification
+	      // for the transport and turned on a tx_timer to check 
+	      // socket readiness. We only set socket_error for flows
+	      // with unlimited transmission rates and checking output
+	      // readiness for these sockets can overwhelm mgen, therefore
+	      // don't restart it here!  Let the flow notice the off_pending
+	      // when it tries to send the next message.
+	      if (!socket_error)
+		{
+		  flow_transport->StartOutputNotification();
 
-              if (tx_timer.IsActive()) tx_timer.Deactivate();
-              break;
+		  if (tx_timer.IsActive()) tx_timer.Deactivate();
+		  break;
+		}
           }
 
 	  // Inform rapr so it can reuse the flowid
 	  if (controller)
 	  {
-	      char buffer [512];
+
+	    char buffer [512];
 	      sprintf(buffer, "offevent flow>%lu", (unsigned long)flow_id);
 	      unsigned int len = strlen(buffer);
 	      controller->OnOffEvent(buffer,len);
@@ -685,14 +712,6 @@ void MgenFlow::StopFlow()
   if (flow_transport) flow_transport->RemoveFlow(this);
   if (tx_timer.IsActive()) tx_timer.Deactivate();
 
-#ifdef _VALIDATE_EVENTS_OFF
-  // Since we aren't validating events when controlled by rapr, we may not have an off
-  // even that will deactivate the timer.
-  if (event_timer.IsActive())
-    {
-      event_timer.Deactivate();
-    }
-#endif // _VALIDATE_EVENTS_OFF  
   if (flow_transport) 
     {
         MgenMsg theMsg;
@@ -765,7 +784,7 @@ bool MgenFlow::SendMessage()
         return false;
     }
 
-    if (!flow_transport || message_limit > 0 && flow_transport->GetMessagesSent() >= message_limit)
+    if (!flow_transport || (message_limit > 0 && flow_transport->GetMessagesSent() >= message_limit))
     {
         // Deactivate timer but wait for an OFF_EVENT to actually 
         // stop flow, unless we have an unlimited rate - in that
@@ -888,56 +907,82 @@ bool MgenFlow::SendMessage()
     // Send message, checking for error
     // (log only on success)
     char txBuffer[MAX_SIZE];
-    bool success = false;
-    
+    MessageStatus result;
     // txbuffer only used by udp and sink transports
     if (flow_transport != NULL)
-      success = flow_transport->SendMessage(theMsg,dst_addr,txBuffer);
+      result = flow_transport->SendMessage(theMsg,dst_addr,txBuffer);
     else
-      success = 0;
+      result = MSG_SEND_FAILED;
 
-    if (!success)
-    {
-        // message was not sent, so sequence number is decremented back one
+    if (result == MSG_SEND_OK)
+      {
+	if (GetPending()) pending_messages--;
+
+	// If we had a previous socket failure for flows with
+	// unlimited transmission we may have set a timer.  If
+	// so deactivate it and let the flow be managed by
+	// socket output readiness
+	if (pattern.UnlimitedRate() && tx_timer.IsActive() && socket_error)
+	  {
+	    socket_error = false;
+	    tx_timer.Deactivate();
+	    flow_transport->StartOutputNotification();
+	  }
+	return true;
+      }
+
+    // message was not sent, so sequence number is decremented back one
 #ifndef _RAPR_JOURNAL
-        PLOG(PL_DEBUG, "MgenFlow::SendMessage() error sending message flow>%d seq>%d.\n",flow_id,(seq_num -1));
-        seq_num--;
+    PLOG(PL_DEBUG, "MgenFlow::SendMessage() error sending message flow>%d seq>%d.\n",flow_id,(seq_num -1));
+    seq_num--;
 #else
-        PLOG(PL_DEBUG, "MgenFlow::SendMessage() error sending message flow>%d seq>%d.\n",flow_id,MgenSequencer::GetSequence(flow_id));
-        // rollback sequence number...
-        MgenSequencer::GetPrevSequence(flow_id);
+    PLOG(PL_DEBUG, "MgenFlow::SendMessage() error sending message flow>%d seq>%d.\n",flow_id,MgenSequencer::GetSequence(flow_id));
+    // rollback sequence number...
+    MgenSequencer::GetPrevSequence(flow_id);
 #endif
-        
-        // Let the transport notify us when it's ready
-        // Note that we may have already shutdown the transport
-        // if the send failed due to a socket disconnect, and 
-        // set flow_transport to NULL... 
-
-        if ((queue_limit != 0 || pattern.UnlimitedRate())
-            && flow_transport && flow_transport->IsConnected())
-        {
-            pending_messages++;
-            flow_transport->AppendFlow(this);
-            flow_transport->StartOutputNotification();
-
-            if (queue_limit > 0 && pending_messages >= queue_limit)
-              if (tx_timer.IsActive()) tx_timer.Deactivate();
-        }
-    }
-    else
-    {
-      if (GetPending()) pending_messages--;
-    }
     
-    return success;
+    // Let the transport notify us when it's ready
+    // Note that we may have already shutdown the transport
+    // if the send failed due to a socket disconnect, and 
+    // set flow_transport to NULL... 
+
+    if ((queue_limit != 0 || pattern.UnlimitedRate())
+	&& flow_transport && flow_transport->IsConnected())
+      {
+	pending_messages++;
+	flow_transport->AppendFlow(this);
+	
+	if (queue_limit > 0 && pending_messages >= queue_limit)
+	  if (tx_timer.IsActive()) tx_timer.Deactivate();
+
+	// We only want to start output notification if
+	// the socket was blocked (EWOULDBLOCK)
+	if (result == MSG_SEND_BLOCKED)
+	  flow_transport->StartOutputNotification();
+
+	// If we have an unlimited transmission rate and socket
+	// failure, stop output notification.  MgenFlow::OnTxTimeout
+	// will set a timer to test socket readiness at larger
+	// intervals that socket output notification uses
+	if ((result == MSG_SEND_FAILED)
+	    && pattern.UnlimitedRate())
+	  {	    
+	    flow_transport->StopOutputNotification();
+	    socket_error = true;
+	    tx_timer.SetInterval(0.001);
+	    if (!tx_timer.IsActive())
+	      timer_mgr.ActivateTimer(tx_timer);
+
+	  }
+      }
+    
+    return false;
     
 } // MgenFlow::SendMessage
 
-
 bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
 {
-
-  if (!flow_transport || message_limit > 0 && flow_transport->GetMessagesSent() >= message_limit)
+  if (!flow_transport || (message_limit > 0 && flow_transport->GetMessagesSent() >= message_limit))
     {
         // deactivate timer and stopMgenSequencer flow immediately rather than
         // waiting for an OFF_EVENT . 
@@ -989,10 +1034,15 @@ bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
         return true;
     }
     // Don't process OFF event if we have pending messages
-    // or are still sending a message for this flow
+    // or are still sending a message for this flow.  If we have
+    // a socket_error however, we are sending messages
+    // as fast as possible  and have already stopped output 
+    // notification and started a timer to keep mgen from
+    // thrashing - just go ahead and stop the flow at this point.
     if (off_pending)
     {
-        if (flow_transport->TransmittingFlow(flow_id) || GetPending() > 0)
+      if (flow_transport->TransmittingFlow(flow_id) || (!socket_error && GetPending() > 0))      
+	//if (flow_transport->TransmittingFlow(flow_id) || GetPending() > 0)
         {
             if (tx_timer.IsActive()) tx_timer.Deactivate();            
             flow_transport->AppendFlow(this);
@@ -1032,32 +1082,39 @@ bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
           }            	
       }
     
-    // If we have any pending flows, wait till they
-    // get serviced via output notification 
-    if (flow_transport && flow_transport->HasPendingFlows())
-    {
-        flow_transport->StartOutputNotification();
+      // If we have an unlimited rate and have had a socket
+      // error - try to send the message to test socket
+      // readiness.  Otherwise service any pending flows
+      // the transport might have first using socket output
+      // notification to send as fast as possible
+      if ((flow_transport && flow_transport->HasPendingFlows())
+	  && (!pattern.UnlimitedRate() && !socket_error))
 
-        if (queue_limit > 0)
-        {
-            pending_messages++;
-            flow_transport->AppendFlow(this);                
-        }
-        // If we've exceeded our queue limit, turn off the timer
-        // we'll restart it when the queue gets below the limit, 
-        // unless we have an unlimited queue size (queue_limit -1)
-	// or we're sending packets as fast as possible
-        if ((queue_limit > 0 && pending_messages >= queue_limit)
-            && (!pattern.UnlimitedRate())) // ljt should we allow queue limits for unlimited rates?
-        {	  
-            if (tx_timer.IsActive()) tx_timer.Deactivate(); 
-            return false; // don't want to fail twice!
-        }
-        else
-        {
-            return GetNextInterval();
-        }            
-    }
+	{
+	  // If we have an unlimited transmission rate and have had
+	  // a socket error don't start output notification in this
+	  // case we will use a tx_timer to prevent thrashing until 
+	  // the condition is resolved
+	  flow_transport->StartOutputNotification();
+
+	  if (queue_limit > 0)
+	    {
+	      pending_messages++;
+	      flow_transport->AppendFlow(this);                
+	    }
+	  // If we've exceeded our queue limit, turn off the timer
+	  // we'll restart it when the queue gets below the limit, 
+	  // unless we have an unlimited queue size (queue_limit -1)
+	  // or we're sending packets as fast as possible
+	  if ((queue_limit > 0 && pending_messages >= queue_limit)
+	      && (!pattern.UnlimitedRate())) // ljt should we allow queue limits for unlimited rates?
+	    {	  
+	      if (tx_timer.IsActive()) tx_timer.Deactivate(); 
+	      return false; // don't want to fail twice!
+	    }
+	  else
+	    return GetNextInterval();
+	}
 
     if (!flow_transport) 
     {
@@ -1069,7 +1126,7 @@ bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
     // If we have an unlimited rate, turn off the transmission
     // timer.  If we add it to the pending queue the transport send 
     // functions will send messages as fast as possible.
-    if (pattern.UnlimitedRate())
+    if (pattern.UnlimitedRate() && !socket_error)
     {
         flow_transport->AppendFlow(this);
         flow_transport->StartOutputNotification();
@@ -1077,7 +1134,19 @@ bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
         return false;
     }
     else
-	  return GetNextInterval();
+      // else if we have an unlimited rate and a socket_error
+      // schedule a transmission timer at 100 milliseconds
+      // to prevent thrashing
+      if (pattern.UnlimitedRate() && socket_error)
+	{
+	  tx_timer.SetInterval(0.001);
+	  if (!tx_timer.IsActive())
+	    timer_mgr.ActivateTimer(tx_timer);
+	  return true;
+	}
+      else
+	return GetNextInterval();
+
 }   // end MgenFlow::OnTxTimeout()
 
 
@@ -1127,8 +1196,9 @@ bool MgenFlow::OnEventTimeout(ProtoTimer& /*theTimer*/)
     // 1) Update flow as needed using "next_event"
     Update(next_event);
     
-    // ljt event test
+#ifdef _VALIDATE_EVENTS_OFF
     MgenEvent* processedEvent = next_event;
+#endif // _VALIDATE_EVENTS_OFF
 
     // 2) Set (or kill) event_timer according to "next_event->next"
     double currentTime = next_event->GetTime();
@@ -1138,8 +1208,9 @@ bool MgenFlow::OnEventTimeout(ProtoTimer& /*theTimer*/)
         double nextInterval = next_event->GetTime() - currentTime;
         nextInterval = nextInterval > 0.0 ? nextInterval : 0.0;
         event_timer.SetInterval(nextInterval);
-	// ljt event test
+#ifdef _VALIDATE_EVENTS_OFF
 	event_list.Remove(processedEvent);
+#endif // _VALIDATE_EVENTS_OFF
         return true;
     }
     else
@@ -1148,8 +1219,9 @@ bool MgenFlow::OnEventTimeout(ProtoTimer& /*theTimer*/)
       if (event_timer.IsActive())
 #endif // _VALIDATE_EVENTS_OFF
         event_timer.Deactivate();
-      // ljt event test
+#ifdef _VALIDATE_EVENTS_OFF
         event_list.Remove(processedEvent);
+#endif // _VALIDATE_EVENTS_OFF
         return false;
     }
 }  // end MgenFlow::OnEventTimeout()

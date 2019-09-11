@@ -65,11 +65,6 @@ bool MgenPayloadMgrApp::OnStartup(int argc, const char*const* argv)
   mgen.SetLogFile(stdout); // log to stdout by default
   mgenPayloadMgr.SetLogFile(stdout);
 
-#ifdef HAVE_IPV6    
-    if (ProtoSocket::HostIsIPv6Capable()) 
-      mgen.SetDefaultSocketType(ProtoAddress::IPv6);
-#endif // HAVE_IPV6
-    
     if (!ProcessCommands(argc, argv))
       {
 	fprintf(stderr,"MgenPayloadMgrApp::OnStartup() error while processing startup commands\n");

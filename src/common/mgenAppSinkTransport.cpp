@@ -1,5 +1,6 @@
 #include "mgen.h"
 #include "mgenTransport.h"
+#include "mgenGlobals.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -157,7 +158,7 @@ bool MgenAppSinkTransport::Open(ProtoAddress::Type addrType, bool bindOnOpen)
 } // end MgenAppSinkTransport::Open
 
 
-bool MgenAppSinkTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer)
+MessageStatus MgenAppSinkTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer)
 {
     
     UINT32 txChecksum = 0;
@@ -167,11 +168,12 @@ bool MgenAppSinkTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_a
     len = theMsg.Pack(txBuffer,theMsg.GetMsgLen(),mgen.GetChecksumEnable(),txChecksum);
     
     if (len == 0)
-      return false; // no room
-    
+      {
+	return MSG_SEND_FAILED; // no room
+      }
     if (mgen.GetChecksumEnable() && theMsg.FlagIsSet(MgenMsg::CHECKSUM))
       theMsg.WriteChecksum(txChecksum,(unsigned char*)txBuffer,(UINT32)len);
-    
+
     if (msg_index >= msg_length)
     {
         // Copy txBuffer to msg_buffer
@@ -180,18 +182,20 @@ bool MgenAppSinkTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_a
         msg_length = len;
         msg_index = 0;
         if (!OnOutputReady())  // and rename this function
-          return false;
+	  {
+	    return MSG_SEND_BLOCKED;
+	  }
     }
     else
     {
         PLOG(PL_WARN, "MgenAppSinkTransport::SendMessage() message sink buffer overflow\n");
-        return false;
+	return MSG_SEND_BLOCKED;
     }
     struct timeval currentTime;
     ProtoSystemTime(currentTime);
     LogEvent(SEND_EVENT,&theMsg,currentTime,txBuffer); 
     messages_sent++;
-    return true;
+    return MSG_SEND_OK;
     
 } // end MgenAppSinkTransport::SendMessage
 

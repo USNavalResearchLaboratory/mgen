@@ -197,7 +197,7 @@ MgenPattern::FileType MgenPattern::GetFileTypeFromString(const char* string)
 } // end MgenPattern::GetFileTypeFromString()
 #endif //_HAVE_PCAP
 
-bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string,Protocol protocol)
+bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string, Protocol protocol)
 {
     type = theType;
     switch (type)
@@ -207,11 +207,36 @@ bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string,P
         {
 
             double aveRate;
-            if (2 != sscanf(string, "%lf %u\n", &aveRate, &pkt_size))
+            char sizeText[256];
+            if (2 != sscanf(string, "%lf %256s", &aveRate, sizeText))
             {
                 DMSG(0, "MgenPattern::InitFromString(PERIODIC/POISSON) error: invalid parameters.\n");
                 return false; 
             }
+            // Look for colon delimiter to indicate variable packet size
+            if (NULL != strchr(sizeText, ':'))
+            {
+                if (2 != sscanf(sizeText, "%u:%u", &pkt_size_min, &pkt_size_max))
+                {
+                    DMSG(0, "MgenPattern::InitFromString(PERIODIC/POISSON) error: invalid  variable <size> parameter.\n");
+                    return false;
+                }
+                else if (pkt_size_min > pkt_size_max)
+                {
+                    unsigned int temp = pkt_size_min;
+                    pkt_size_min = pkt_size_max;
+                    pkt_size_max = temp;
+                }
+            }
+            else if (1 != sscanf(sizeText, "%u", &pkt_size_min))
+            {
+                DMSG(0, "MgenPattern::InitFromString(PERIODIC/POISSON) error: invalid <size> parameter.\n");
+                return false; 
+            }        
+            else
+            {
+                pkt_size_max = pkt_size_min;
+            }   
             if (aveRate < 0.0)
             {
                 if (-1.0 != aveRate)
@@ -221,8 +246,8 @@ bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string,P
                 }
                 else
                 {
-		  unlimitedRate = true;
-		  interval_ave = 0.0;   
+		          unlimitedRate = true;
+		          interval_ave = 0.0;   
                 }
             }
             else if (aveRate > 0.0)
@@ -231,35 +256,62 @@ bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string,P
             }
             else
             {
-	      interval_ave = -1.0;
+	            interval_ave = -1.0;
             }
-	    if (protocol == TCP)
-		{
-		  // unlimited message size for TCP??
-		  if ((pkt_size < MIN_FRAG_SIZE))
-		  {
-		    DMSG(0,"MgenPattern::InitFromString(PERIODIC/POISSON) error: packet size must be greater than the minimum fragment size: %d.\n",MIN_FRAG_SIZE);
-		    return false;
-		  }
-		} 
-	    else {
-		  if ((pkt_size > MAX_SIZE) || (pkt_size < MIN_SIZE))
+	        if (UDP != protocol)
 		    {
-		      DMSG(0, "MgenPattern::InitFromString(PERIODIC/POISSON) error: invalid message size.\n");
-		      return false;
+                // unlimited message size for non-UDP protocols
+                if ((pkt_size_min < MIN_FRAG_SIZE))
+                {
+                    DMSG(0,"MgenPattern::InitFromString(PERIODIC/POISSON) error: packet size must be greater than the minimum fragment size: %d.\n",MIN_FRAG_SIZE);
+                    return false;
+                }
+		    } 
+	        else 
+            {
+                // Typically operating systems limit UDP datagrams to 8192 byte payloads?
+                if ((pkt_size_max > MAX_SIZE) || (pkt_size_min < MIN_SIZE))
+                {
+                    DMSG(0, "MgenPattern::InitFromString(PERIODIC/POISSON) error: invalid message size.\n");
+                    return false;
+                }
 		    }
-		}
             break;
         }
-        case JITTER:
+        case JITTER:  // form "<aveRate> <pktSize> <jitterFraction>"
         {
             double aveRate, jitterFraction;
             interval_remainder = 0.0;
-            if (3 != sscanf(string, "%lf %u %lf\n", &aveRate, &pkt_size, &jitterFraction))
+            char sizeText[256];
+            if (3 != sscanf(string, "%lf %256s %lf", &aveRate, sizeText, &jitterFraction))
             {
                 DMSG(0, "MgenPattern::InitFromString(JITTER) error: invalid parameters.\n");
                 return false; 
             }
+            // Look for colon delimiter to indicate variable packet size
+            if (NULL != strchr(sizeText, ':'))
+            {
+                if (2 != sscanf(sizeText, "%u:%u", &pkt_size_min, &pkt_size_max))
+                {
+                    DMSG(0, "MgenPattern::InitFromString(JITTER) error: invalid  variable <size> parameter.\n");
+                    return false;
+                }
+                else if (pkt_size_min > pkt_size_max)
+                {
+                    unsigned int temp = pkt_size_min;
+                    pkt_size_min = pkt_size_max;
+                    pkt_size_max = temp;
+                }
+            }
+            else if (1 != sscanf(sizeText, "%u", &pkt_size_min))
+            {
+                DMSG(0, "MgenPattern::InitFromString(JITTER) error: invalid <size> parameter.\n");
+                return false; 
+            }        
+            else
+            {
+                pkt_size_max = pkt_size_min;
+            }   
             if ((jitterFraction < 0.0) || (jitterFraction > 0.5))
             {
                 DMSG(0, "MgenPattern::InitFromString(JITTER) error: invalid jitter fraction.\n");
@@ -294,11 +346,24 @@ bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string,P
             {
                 jitter_min = jitter_max = interval_ave;
             }
-            if ((pkt_size > MAX_SIZE) || (pkt_size < MIN_SIZE))
+            if (UDP != protocol)
+		    {
+                // unlimited message size for non-UDP protocols
+                if ((pkt_size_min < MIN_FRAG_SIZE))
+                {
+                    DMSG(0,"MgenPattern::InitFromString(JITTER) error: packet size must be greater than the minimum fragment size: %d.\n",MIN_FRAG_SIZE);
+                    return false;
+                }
+		    } 
+	        else 
             {
-                DMSG(0, "MgenPattern::InitFromString(JITTER) error: invalid message size.\n");
-                return false;
-            }
+                // Typically operating systems limit UDP datagrams to 8192 byte payloads?
+                if ((pkt_size_max > MAX_SIZE) || (pkt_size_min < MIN_SIZE))
+                {
+                    DMSG(0, "MgenPattern::InitFromString(JITTER) error: invalid message size.\n");
+                    return false;
+                }
+		    }
             break;
         }
 
@@ -518,15 +583,15 @@ bool MgenPattern::OpenPcapDevice()
 
 double MgenPattern::RestartPcapRead(double& prevTime)
 {
-  struct pcap_pkthdr header;
-  const u_char *packet = NULL;
+    struct pcap_pkthdr header;
+    const u_char *packet = NULL;
 
-  if (!OpenPcapDevice())
-    return -1; // open failed
+    if (!OpenPcapDevice())
+        return -1; // open failed
 
-  // Get interval between 1st & 2nd pkts (A).  Schedule 2nd packet
-  // in file to be sent (A) seconds after the last pkt in the file
-  if (pcap_next(pcap_device,&header))  // Get 1st pkt in file
+    // Get interval between 1st & 2nd pkts (A).  Schedule 2nd packet
+    // in file to be sent (A) seconds after the last pkt in the file
+    if (pcap_next(pcap_device,&header))  // Get 1st pkt in file
     {
       // Save the time as a double for interval calculation
       prevTime = (header.ts.tv_sec * 1.0 + header.ts.tv_usec * 1.0e-6);
@@ -534,10 +599,10 @@ double MgenPattern::RestartPcapRead(double& prevTime)
       packet = pcap_next(pcap_device,&header); // Get 2nd pkt in file
     }
 
-  if (packet)
+    if (packet)
     {
       // force minimum mgen length.  (check for ipv6 ultimately)
-      pkt_size = (header.len - 42) > 28 ? (header.len -42) : 28;;
+      pkt_size_min = pkt_size_max = (header.len - 42) > 28 ? (header.len - 42) : 28;;
 
       // calculate interval (A)
       double interval = ((header.ts.tv_sec * 1.0 + header.ts.tv_usec * 1.0e-6) - prevTime);
@@ -656,7 +721,7 @@ double MgenPattern::GetPktInterval()
           if (packet)
           {
               // force minimum mgen length.  (check for ipv6 ultimately)
-              pkt_size = (header.len - 42) > 28 ? (header.len -42) : 28;;
+              pkt_size_min = pkt_size_max = (header.len - 42) > 28 ? (header.len -42) : 28;;
               
               if (firstPacket)
                 firstPacket = false;
@@ -696,9 +761,9 @@ double MgenPattern::GetPktInterval()
           break;
       }
 #endif //_HAVE_PCAP
-  case INVALID_TYPE:
-    ASSERT(0);
-    break;
+    case INVALID_TYPE:
+        ASSERT(0);
+        break;
   }  // end switch(type)
   return -1.0;
 }  // end MgenPattern::GetPktInterval()
@@ -709,15 +774,19 @@ unsigned int MgenPattern::GetPktSize()
     {
         case PERIODIC:
         case POISSON:
+        case JITTER:
+            if (pkt_size_min != pkt_size_max)
+                return UniformRandUnsigned(pkt_size_min, pkt_size_max); 
+            else
+                return pkt_size_min;
+            break;
+        
 #ifdef _HAVE_PCAP
         case CLONE:
 #endif //_HAVE_PCAP
-            return pkt_size;
-            return pkt_size;
+            return pkt_size_min;
         case BURST:
             return burst_pattern->GetPktSize();
-       case JITTER:
-            return pkt_size;
         case INVALID_TYPE:
             ASSERT(0);
             break;

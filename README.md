@@ -5,7 +5,17 @@ This directory contains source code for the NRL Multi-Generator
 MGEN 4.2b6.  The transport classes have been abstracted and new
 features have been added.
 
-Primary new features include:
+Note: 5.02c now includes/is compiled against protolib-3.0b1
+
+Primary new features included in 5.02c
+
+1) includes/is compiled with protolib-3.0b1
+2) IPV6 on linux is fixed
+3) DF fragmentation bit on|off added
+4) uniform random message size supporte e.g. <pattern> [<rate> <sizeMin:sizeMax>]
+5) assorted bug fixes
+
+Primary new features included 5.02b:
 
 1)  Support for the TCP protocol. 
 2)  New pattern options JITTER and CLONE.
@@ -49,3 +59,11 @@ makefiles   - Directory with os-specific Makefiles.
               Linux specific makefiles are at the top level,
               win32 and wince subdirectories contains windows
               build files.
+              
+setup.py    - Python installation script for installing the Python 'mgen'
+              package that provides for Python-based control and monitoring
+              of MGEN.  This package assumes the 'mgen' binary is 
+              installed/located in the executable "path" (e.g., "/usr/local/bin")
+              This package also requires that the Protolib (see above)
+              'protokit' Python package has also been installed.  There is a
+              similar 'setup.py' script in the "protolib" source tree.

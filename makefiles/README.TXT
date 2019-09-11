@@ -1,4 +1,4 @@
-                MGEN 4.x for UNIX
+                MGEN 5.x for UNIX
 
 This directory contains Makefiles for Unix platforms and any
 Unix-specific source code files.  Build instructions are given
@@ -53,10 +53,19 @@ NOTES:
 
 6)  Feel free to email us with questions.
 
+BUILD gpsPub.so INSTRUCTIONS:
+
+gpsPub.so will be built by setup.py.  Manual instructions follow:
+
+swig -python gpsPub.i
+g++ -fpic -I/usr/include/python2.7 -c gpsPub.cpp gpsPub_wrap.c
+g++ -shared gpsPub.o gpsPub_wrap.o -o _gpsPub.so
+
+You must regenerate gpsPub_wrap.c via swig if gpsPub.cpp changes.
+
 -------------
 
 Brian Adamson adamson@itd.nrl.navy.mil
 
-Hal Greenwald hgreenwald@itd.nrl.navy.mil
 
-5 September 2002
+19 May 2015

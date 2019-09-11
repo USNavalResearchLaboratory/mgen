@@ -89,14 +89,20 @@ class Flow:
         self.dst_port = None
         self.pattern = None
         self.src_port = None
+        self.interface = None
         self.count = None
         self.sequence = None
+        self.tos = None
+        self.ttl = None
         self.data = None
         self.data_length = 0
         self.controller = None
         if controller is not None:
             controller.add_flow(self)
         self.active = False
+        
+    #def __del__(self):
+        #print "flow DTOR"
      
     def is_valid(self):
         """Checks that the minimum parameters for a valid flow are set"""
@@ -123,10 +129,16 @@ class Flow:
             cmd += " " + str(self.pattern)
             if self.src_port is not None:
                 cmd += " src " + str(self.src_port)
+            if self.interface is not None:
+                cmd += " interface " + self.interface
             if self.count is not None:
                 cmd += " count " + str(self.count)
             if self.sequence is not None:
                 cmd += " sequence " + str(self.sequence)
+            if self.tos is not None:
+                cmd += " tos " + str(self.tos)
+            if self.ttl is not None:
+                cmd += " ttl " + str(self.ttl)
             if self.data is not None:
                 cmd += " data [" + self.data + "]"
             self.controller.send_event(cmd)
@@ -171,6 +183,18 @@ class Flow:
             cmd = "mod %d dst %s/%d" % (self.flow_id, addr, port)
             self.controller.send_event(cmd)
             
+    def set_interface(self, iface):
+        self.interface = iface
+        if self.active:
+            cmd = "mod %d interface %s" % (self.flow_id, interface)
+            self.controller.send_event(cmd)
+            
+    def set_source(self, srcPort):
+        self.src_port = srcPort
+        if self.active:
+            cmd = "mod %d src %d" % (self.flow_id, srcPort)
+            self.controller.send_event(cmd)
+            
     def set_pattern(self, pattern):
         self.pattern = pattern
         if self.active:
@@ -189,6 +213,18 @@ class Flow:
             cmd = "mod %d sequence %d" % (self.flow_id, self.sequence)
             self.controller.send_event(cmd)
             
+    def set_tos(self, tos):
+        self.tos = tos
+        if self.active:
+            cmd = "mod %d tos %s" % (self.flow_id, self.tos)
+            self.controller.send_event(cmd)
+            
+    def set_ttl(self, ttl):
+        self.ttl = ttl
+        if self.active:
+            cmd = "mod %d ttl %s" % (self.flow_id, self.ttl)
+            self.controller.send_event(cmd)
+            
     # TBD - we could store the flow payload data more efficiently 
     #       as the raw data instead of hex-encoded 
     def set_text_payload(self, text):
@@ -196,6 +232,12 @@ class Flow:
         if self.active:
             cmd = "mod %d data [%s]" % (self.flow_id, self.data)
             self.controller.send_event(cmd)
+            
+    def get_text_payload(self):
+        if self.data:
+            return self.data.decode('hex','strict')
+        else:
+            return None
             
     def set_binary_payload(self, buf):
         self.data = binasci.hexlify(buf)
@@ -209,9 +251,6 @@ class Flow:
         if self.active:
             cmd = "mod %d data [%s]" % (self.flow_id, self.data)
             self.controller.send_event(cmd)
-            
-    
-        
 
 class Event:
     """ The mgen.Event class provides information on logged events
@@ -321,7 +360,7 @@ class Event:
         return self.init_from_string(text)
 
 class Controller:
-    def __init__(self, instance=None):
+    def __init__(self, instance=None, gpsKey=None):
         """Instantiate an mgen.Controller
         The 'instance' name is optional.  If it is _not_ given, an mgen instance named
         "mgen-<processID>-<objectID>" where the <processID> is the process id of the Python 
@@ -331,39 +370,58 @@ class Controller:
         instance is created.  Note that the mgen output can be monitored only for
         the mgen instance the controller creates, if applicable.
         """
-        args = ['mgen', 'flush', 'instance']
+        self.flow_dict = {}
+        self.sink_proc = None
+        self.gpsKey = gpsKey
+        args = ['mgen', 'flush']
         if instance is None:
             pidHex = "%x" % os.getpid() 
             idHex = "%x" % id(self) 
             self.instance_name = 'mgen-' + pidHex + '-' + idHex 
         else:
             self.instance_name = instance
+        
+        if self.gpsKey is not None:
+            args.append('gpskey')
+            args.append(self.gpsKey)
+            
+        args.append('instance')
+        args.append(self.instance_name)
+
         # TBD - should we try to connect to the instance_name to
         # see if it already exists instead of always creating a 
         # child process???
         #print "mgen instance name " + self.instance_name
-        args.append(self.instance_name)
-        fp = open(os.devnull, 'w')  ;# redirect stderr to /dev/null to hide
-        self.proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=fp)
-        fp.close()
-        # Read the mgen stdout and find the "START event to confirm it 
-        # has launched successfully before trying to connect to it
-        # (TBD - parse and save START event info for first readline() output)
-        for line in self:
-            field = line.split()
-            if (len(field) > 1) and (field[1] == "START"):
-                break
-        # Connect a ProtoPipe to the mgen instance to be able to control
-        # the mgen instance as needed in the future
         self.mgen_pipe = protokit.Pipe("MESSAGE")
-        self.mgen_pipe.Connect(self.instance_name)
-        self.flow_dict = {}
-        self.sink_proc = None
+        try:
+            self.mgen_pipe.Connect(self.instance_name)
+            self.proc = None
+        except:
+            fp = open(os.devnull, 'w')  ;# redirect stderr to /dev/null to hide
+            self.proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=fp)
+            fp.close()
+            # Read the mgen stdout and find the "START event to confirm it 
+            # has launched successfully before trying to connect to it
+            # (TBD - parse and save START event info for first readline() output)
+            for line in self:
+                field = line.split()
+                if (len(field) > 1) and (field[1] == "START"):
+                    break
+            # Connect a ProtoPipe to the mgen instance to be able to control
+            # the mgen instance as needed in the future
+            self.mgen_pipe.Connect(self.instance_name)
+
+        
         
     def __del__(self):
+        self.shutdown()
+                
+    def shutdown(self):
         self.mgen_pipe.Close()
-        self.proc.terminate()
-        self.proc.wait()
+        if self.proc is not None:
+            self.proc.terminate()
+            self.proc.wait()
+            self.proc = None
         if self.sink_proc is not None:
             self.sink_proc.terminate()
             self.sink_proc.wait()
@@ -472,6 +530,6 @@ class Controller:
     def remove_flow(self, flow):
         if flow.active:
             flow.stop()
-        del self.flow_dist[flow.flow_id]
+        del self.flow_dict[flow.flow_id]
         flow.controller = None
 

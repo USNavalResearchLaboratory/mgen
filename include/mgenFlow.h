@@ -96,7 +96,6 @@ class MgenFlow
     bool OnEventTimeout(ProtoTimer& theTimer);	
 	bool                    off_pending;
     MgenTransport*          old_transport;
-	bool                    new_transport; 
 	int                     queue_limit;
 	int                     message_limit;
     
@@ -121,7 +120,7 @@ class MgenFlow
     MgenEvent*              next_event;                  
     ProtoTimer              event_timer;                 
     bool                    started;                     
-    
+    bool                    socket_error;
     ProtoTimerMgr&          timer_mgr;                 
     
     MgenPositionFunc*       get_position;              

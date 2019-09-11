@@ -161,7 +161,7 @@ extern "C" GPSHandle GPSSubscribe(const char* keyFile)
     else
     {
         //fprintf(stderr, "GPSSubscribe(): Error opening %s.\n", keyFile);
-        //perror("GPSSubscribe(): fopen() error"); 
+        perror("GPSSubscribe(): fopen() error"); 
         return NULL;      
     }
 }  // end GPSSubscribe()
@@ -172,6 +172,25 @@ extern "C" void GPSUnsubscribe(GPSHandle gpsHandle)
     if (-1 == shmdt(ptr)) 
         perror("GPSUnsubscribe() shmdt() error");
 }  // end GPSUnsubscribe()
+
+extern "C" void GPSPublishPos(GPSHandle gpsHandle, double x, double y, double z)
+{
+  GPSPosition pos;
+  pos.x = x;
+  pos.y = y;
+  pos.z = z;
+  pos.xyvalid = true;
+  pos.zvalid = true;
+  pos.tvalid = true;
+  pos.stale = false;
+  // Update time
+  struct timeval time;
+  gettimeofday(&time, 0);
+  memcpy(&pos.gps_time, &time, sizeof(struct timeval));
+  memcpy(&pos.sys_time, &time, sizeof(struct timeval));
+  
+  memcpy((char*)gpsHandle, &pos, sizeof(GPSPosition));   
+}
 
 extern "C" void GPSPublishUpdate(GPSHandle gpsHandle, const GPSPosition* currentPosition)
 {

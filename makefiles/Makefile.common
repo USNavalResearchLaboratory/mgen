@@ -8,6 +8,7 @@ SHELL=/bin/sh
 
 PROTOLIB = ../protolib
 COMMON = ../src/common
+PYTHON = ../src/python
 INCLUDE = ../include
 UNIX = ../makefiles
 
@@ -65,6 +66,16 @@ P2M_OBJ = $(P2M_SRC:.cpp=.o)
 pcap2mgen:    $(P2M_OBJ) $(MGEN_OBJ) $(LIBPROTO)
 	$(CC) -g $(CFLAGS) -o $@ $(P2M_OBJ) $(MGEN_OBJ) $(LDFLAGS) $(LIBPROTO) $(LIBS) 
 
+# gpsPub is a python extension module
+GPSPUB_SRC = $(COMMON)/gpsPub.cpp $(PYTHON)/gpsPub_wrap.c
+GPSPUB_OBJ = gpsPub.o gpsPub_wrap.o
+
+#Change the python directory as appropriate for your system
+PYTHONLIB = /usr/include/python2.7
+gpsPub:	   $(GPSPUB_SRC) $(PYTHONLIB)
+	   $(CC) -fpic -I$(INCLUDE) -I$(PYTHONLIB) -c $(GPSPUB_SRC)
+	   $(CC) -shared $(GPSPUB_OBJ) -o _gpsPub.so
+
 MPM_SRC = $(COMMON)/mgenPayloadMgr.cpp
 MPM_OBJ = $(MPM_SRC:.cpp=.o)
 
@@ -83,7 +94,7 @@ mgenBlast:	$(MM_OBJ) $(MGEN_OBJ) $(LIBPROTO)
 		$(CC) -g $(CFLAGS) -o $@ $(MM_OBJ) $(MGEN_OBJ) $(LDFLAGS) $(LIBPROTO) $(LIBS) 
      	    
 clean:	
-	rm -f $(COMMON)/*.o  $(UNIX)/*.o $(UNIX)/mgen $(UNIX)/mpmgr $(NS)/*.o;
+	rm -f $(COMMON)/*.o  $(UNIX)/*.o $(UNIX)/mgen $(UNIX)/*.so $(UNIX)/mpmgr $(NS)/*.o;
 	$(MAKE) -C $(PROTOLIB)/makefiles -f Makefile.$(SYSTEM) clean
 distclean:  clean
 

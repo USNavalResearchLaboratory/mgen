@@ -3,6 +3,7 @@
 #include "mgenMsg.h"
 #include "protoSocket.h"
 #include "protoChannel.h"
+#include "mgenGlobals.h"
 
 #ifndef _WIN32_WCE  // JPH 6/8/06
 #include <errno.h>  // for EAGAIN
@@ -152,9 +153,8 @@ void MgenTransport::AppendFlow(MgenFlow* const theFlow)
 void MgenTransport::RemoveFlow(MgenFlow* theFlow)
 {
     // ljt rewrite?
-    MgenFlow *next,*prev,*pendingCurrent;
+    MgenFlow *next,*prev;
     prev = NULL;
-    pendingCurrent = pending_current;
     for (next = pending_head; next != NULL; prev = next, next = next->GetPendingNext())
     {
         if (next == theFlow)
@@ -214,55 +214,57 @@ bool MgenTransport::SendPendingMessage()
 
     while (IsOpen() && !IsTransmitting() && pending_current)
     {
-          if ((pending_current->GetPending() > 0) || 
-              pending_current->UnlimitedRate()) 
-             if (!pending_current->SendMessage()) return false;
-             
-        // Restart flow timer if we're below the queue limit
-        if ((pending_current->QueueLimit() > 0 &&
-             (pending_current->GetPending() < pending_current->QueueLimit()))
-            ||
-            (pending_current->QueueLimit() < 0 &&
-             !(pending_current->GetPending() > 0)) // ljt don't think we need 
-                                                   // this anymore if we're 
-                                                   // just restarting the timer?
-            ||
-            pending_current->QueueLimit() == 0)    // Tcp finally connected?
-                                                  
+      if ((pending_current->GetPending() > 0) || 
+	  pending_current->UnlimitedRate()) 
+	{
+	  if (!pending_current->SendMessage()) return false;
+	}
+      
+      // Restart flow timer if we're below the queue limit
+      if ((pending_current->QueueLimit() > 0 &&
+	   (pending_current->GetPending() < pending_current->QueueLimit()))
+	  ||
+	  (pending_current->QueueLimit() < 0 &&
+	   !(pending_current->GetPending() > 0)) // ljt don't think we need 
+	  // this anymore if we're 
+	  // just restarting the timer?
+	  ||
+	  pending_current->QueueLimit() == 0)    // Tcp finally connected?
+	
         {
-            // Don't restart the timer if our rate is unlimited...
+	  // Don't restart the timer if our rate is unlimited...
 	  if (!pending_current->UnlimitedRate())
-
-                pending_current->RestartTimer();    
+	    
+	    pending_current->RestartTimer();    
         }
-
-        // If we've sent all pending messages, 
-        // remove flow from pending list.
-        if (!pending_current->GetPending() &&
-            !pending_current->UnlimitedRate())
+      
+      // If we've sent all pending messages, 
+      // remove flow from pending list.
+      if (!pending_current->GetPending() &&
+	  !pending_current->UnlimitedRate())
         {
-            RemoveFromPendingList();  //ljt remove this function
-                                            // or replace remove flow
-                                            // why istn' this getting called??
-            //RemoveFlow(pending_current);
-            continue;
+	  RemoveFromPendingList();  //ljt remove this function
+	  // or replace remove flow
+	  // why istn' this getting called??
+	  //RemoveFlow(pending_current);
+	  continue;
         }
-        pending_current = pending_current->GetPendingNext();
-
-        // cycle back to head of queue if we
-        // reached the end.
-        if (!pending_current && pending_head)
-          pending_current = pending_head; 
-
+      pending_current = pending_current->GetPendingNext();
+      
+      // cycle back to head of queue if we
+      // reached the end.
+      if (!pending_current && pending_head)
+	pending_current = pending_head; 
+      
     }
     // Resume normal operations
     if (!IsTransmitting() && !HasPendingFlows()) 
-    {
+      {
         StopOutputNotification();
-    }        
-
+      }        
+    
     return true;
-
+    
 }  // end MgenTransport::SendPendingMessage()
 
 void MgenTransport::RemoveFromPendingList()
@@ -439,7 +441,8 @@ MgenSocketTransport::MgenSocketTransport(Mgen& theMgen,
                                          UINT16 thePort)
   : MgenTransport(theMgen,theProtocol,thePort),
     broadcast(false),
-    tos(0), tx_buffer(0), rx_buffer(0),ttl(0),
+    tos(0), tx_buffer(0), rx_buffer(0),multicast_ttl(0),unicast_ttl(0),
+    df(DF_DEFAULT),
     socket(GetSocketProtocol(theProtocol))
 {
     interface_name[0] = '\0';
@@ -447,7 +450,9 @@ MgenSocketTransport::MgenSocketTransport(Mgen& theMgen,
 
     // set defaults
     SetBroadcast(theMgen.GetDefaultBroadcast());
-    SetTTL(theMgen.GetDefaultTtl());
+    SetMulticastTTL(theMgen.GetDefaultMulticastTtl());
+    SetUnicastTTL(theMgen.GetDefaultUnicastTtl());
+    SetDF(theMgen.GetDefaultDF());
     SetTOS(theMgen.GetDefaultTos());
     SetTxBufferSize(theMgen.GetDefaultTxBuffer());
     SetRxBufferSize(theMgen.GetDefaultRxBuffer());
@@ -460,7 +465,8 @@ MgenSocketTransport::MgenSocketTransport(Mgen& theMgen,
                                          const ProtoAddress&         theDstAddress)
   : MgenTransport(theMgen,theProtocol,thePort,theDstAddress),
     broadcast(false),
-    tos(0), tx_buffer(0), rx_buffer(0),ttl(0),
+    tos(0), tx_buffer(0), rx_buffer(0),multicast_ttl(0),unicast_ttl(0),
+    df(DF_DEFAULT),
     socket(GetSocketProtocol(theProtocol))
 {
     interface_name[0] = '\0';
@@ -468,7 +474,9 @@ MgenSocketTransport::MgenSocketTransport(Mgen& theMgen,
 
     // set defaults
     SetBroadcast(theMgen.GetDefaultBroadcast());
-    SetTTL(theMgen.GetDefaultTtl());
+    SetMulticastTTL(theMgen.GetDefaultMulticastTtl());
+    SetUnicastTTL(theMgen.GetDefaultUnicastTtl());
+    SetDF(theMgen.GetDefaultDF());
     SetTOS(theMgen.GetDefaultTos());
     SetTxBufferSize(theMgen.GetDefaultTxBuffer());
     SetRxBufferSize(theMgen.GetDefaultRxBuffer());
@@ -496,10 +504,24 @@ void MgenSocketTransport::SetEventOptions(const MgenEvent* event)
         if (!SetTOS(event->GetTOS()))
           DMSG(0, "MgenFlow::Update() error setting socket TOS value\n"); 
     }
+    if (event->OptionIsSet(MgenEvent::DF))
+    {
+        if (!SetDF(event->GetDF()))
+            DMSG(0,"MgenFlow::Update() error setting DF value\n");
+    }
     if (event->OptionIsSet(MgenEvent::TTL))
     {
-        if (!SetTTL(event->GetTTL()))
-          DMSG(0, "MgenFlow::Update() error setting socket TTL\n");    
+
+      if (event->GetDstAddr().IsMulticast())
+	{
+	  if (!SetMulticastTTL(event->GetTTL()))
+	    DMSG(0, "MgenFlow::Update() error setting socket multicast TTL\n");    
+	}
+      else
+	{
+	  if (!SetUnicastTTL(event->GetTTL()))
+	    DMSG(0, "MgenFlow::Update() error setting socket unicast TTL\n");    
+	}
     }
     if (event->OptionIsSet(MgenEvent::INTERFACE) && GetProtocol() == UDP)
     {
@@ -509,10 +531,10 @@ void MgenSocketTransport::SetEventOptions(const MgenEvent* event)
 
 } // end MgenSocketTransport::SetEventOptions
 
-bool MgenSocketTransport::SetTTL(unsigned char ttlValue)
+bool MgenSocketTransport::SetMulticastTTL(unsigned char ttlValue)
 {
 
-    ttl = ttlValue;
+    multicast_ttl = ttlValue;
     if (protocol == TCP)
       return true;
     
@@ -523,6 +545,32 @@ bool MgenSocketTransport::SetTTL(unsigned char ttlValue)
     }
     return true;
 }  // end MgenSocketTransport::SetTTL()
+
+bool MgenSocketTransport::SetUnicastTTL(unsigned char ttlValue)
+{
+
+    unicast_ttl = ttlValue;
+    if (protocol == TCP)
+      return true;
+    
+    if (socket.IsOpen())
+    {
+        if (!socket.SetUnicastTTL(ttlValue)) 
+          return false;
+    }
+    return true;
+}  // end MgenSocketTransport::SetTTL()
+
+bool MgenSocketTransport::SetDF(FragmentationStatus dfValue)
+{
+    df = dfValue;
+    if (socket.IsOpen())
+    {
+        if (!socket.SetFragmentation(dfValue))
+            return false;
+    }
+    return true;
+} // MgenSocketTransport::SetDF()
 
 bool MgenSocketTransport::SetTOS(unsigned char tosValue)
 {
@@ -622,9 +670,15 @@ bool MgenSocketTransport::Open(ProtoAddress::Type addrType, bool bindOnOpen)
     if (tos)
       socket.SetTOS(tos);
     
-    if (ttl >= 0)
-      socket.SetTTL(ttl);
+    if (socket.GetProtocol() != ProtoSocket::TCP && multicast_ttl >= 0)
+      socket.SetTTL(multicast_ttl);
+
+    if (unicast_ttl >= 0)
+      socket.SetUnicastTTL(unicast_ttl);
     
+    if (df != DF_DEFAULT)
+        socket.SetFragmentation(df);
+
     if ('\0' != interface_name[0])
       socket.SetMulticastInterface(interface_name);
     
@@ -641,7 +695,7 @@ bool MgenSocketTransport::Listen(UINT16 port,ProtoAddress::Type addrType, bool b
         {
             if (!socket.Bind(port))
             {
-                DMSG(0,"MgenTransportList;:MgenSocketTransport::Listen() Error: socket bind error on port %hu\n");
+                DMSG(0,"MgenTransportList;:MgenSocketTransport::Listen() Error: socket bind error on port %hu\n",port);
                 return false; 
             }
         }
@@ -902,7 +956,7 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
     }
 }  // end MgenUdpTransport::OnEvent()
 
-bool MgenUdpTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer) 
+MessageStatus MgenUdpTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer) 
 {
     
     // Udp packets are single shot and larger than
@@ -916,27 +970,34 @@ bool MgenUdpTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,
 
     unsigned int len = theMsg.Pack(txBuffer,theMsg.GetMsgLen(),mgen.GetChecksumEnable(),txChecksum);
     if (len == 0) 
-      return false; // no room
+      return MSG_SEND_FAILED; // no room
     
     if (mgen.GetChecksumEnable() && theMsg.FlagIsSet(MgenMsg::CHECKSUM)) 
       theMsg.WriteChecksum(txChecksum,(unsigned char*)txBuffer,(UINT32)len);
 
-    if (!socket.SendTo(txBuffer,len,dst_addr))
-    {   
-#ifndef _WIN32_WCE
-        if ((EAGAIN != errno) && (ENOBUFS != errno))
-          DMSG(PL_WARN, "MgenUdpTransport::SendMessage() socket.SendTo() error: %s\n", GetErrorString());   
-        else
-#endif // !_WIN32_WCE
-          DMSG(PL_WARN, "MgenUdpTransport::SendMessage() socket.SendTo() error: %s\n", GetErrorString());   
-        return false;
-    }
+    bool result = socket.SendTo(txBuffer,len,dst_addr);
 
-    /* udp messages are one shot so the time in the message
-     * is our send time */
+    // If result is true but numBytes == 0 
+    // we had an EWOULDBLOCK condition
+    if (result && len == 0)
+      return MSG_SEND_BLOCKED;
+
+    // We had some other socket failure
+    if (!result)
+      {
+#ifndef _WIN32_WCE
+	  if ((EAGAIN != errno) && (ENOBUFS != errno))
+	    DMSG(PL_WARN,"MgenUdpTransport::SendMessage() socket.SendTo() error: %s\n", GetErrorString());
+	  else
+#endif // !_WIN32_WCE
+	    DMSG(PL_WARN,"MgenUdpTransport::SendMessage() socket.SendTo() error: %s\n", GetErrorString());
+	  return MSG_SEND_FAILED;
+      }
+
     LogEvent(SEND_EVENT,&theMsg,theMsg.GetTxTime(),txBuffer);
     messages_sent++;
-    return true;
+    return MSG_SEND_OK;
+
 } // end MgenUdpTransport::SendMessage
 
 bool MgenUdpTransport::Listen(UINT16 port,ProtoAddress::Type addrType, bool bindOnOpen)
@@ -1062,7 +1123,7 @@ void MgenTcpTransport::OnEvent(ProtoSocket& theSocket,ProtoSocket::Event theEven
           // Get a transport with a closed socket since we need to have 
           // transport with a different socket to hold the accepted connection
 
-          MgenTransport* newMgenTransport = mgen.GetMgenTransport(TCP,theSocket.GetPort(),theSocket.GetDestination(),true); 
+          MgenTransport* newMgenTransport = mgen.GetMgenTransport(TCP,theSocket.GetPort(),theSocket.GetDestination(),GetInterface(),true); 
           
           if (!newMgenTransport) 
             return;
@@ -1131,11 +1192,11 @@ void MgenTcpTransport::OnEvent(ProtoSocket& theSocket,ProtoSocket::Event theEven
  * function.)
  */
 
-bool MgenTcpTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer) 
+MessageStatus MgenTcpTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer) 
 {        
     // But not if the transport is transmitting anything...
     if (tx_msg_offset != 0)  
-      return false; 
+      return MSG_SEND_BLOCKED; 
 
     // Set the transport's tx_msg to the loaded msg
     tx_msg = theMsg; 
@@ -1145,10 +1206,10 @@ bool MgenTcpTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,
     tx_fragment_pending = GetNextTxFragment();
     
     if (!tx_fragment_pending || !tx_buffer_pending) 
-      {
-	DMSG(0,"SendTcpMessage Error: No message length!\n");
-	return false;
-      }
+    {
+        DMSG(0,"SendTcpMessage Error: No fragment pending!\n");
+        return MSG_SEND_FAILED;
+    }
     
     //  Send message, checking for error (log only on success)
 
@@ -1162,7 +1223,7 @@ bool MgenTcpTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,
             if (tx_buffer_pending != 0 && numBytes == 0)
             {
                 StartOutputNotification();
-	        return true;
+	        return MSG_SEND_BLOCKED;
             }
             
             // Otherwise keep track of what we've sent
@@ -1207,7 +1268,7 @@ bool MgenTcpTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,
 		messages_sent++;
                 StopOutputNotification(); // ljt 0516 - check if we need this?
                 // we may still have pending stuff!
-                return true;
+                return MSG_SEND_OK;
             }
             continue;            
         } // other socket failure
@@ -1216,12 +1277,12 @@ bool MgenTcpTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,
           DMSG(PL_ERROR, "MgenTcpTransport::SendMessage() socket.Send() error: %s\n", GetErrorString());   
 
 	  //            DMSG(0,"MgenTcpTransport:SendMessage() error writing to output! \n");
-            ResetTxMsgState();
-            StopOutputNotification(); // ljt 0516 delete me?
-            return false;
+          ResetTxMsgState();
+	  StopOutputNotification(); // ljt 0516 delete me?
+	  return MSG_SEND_FAILED;
         }
     }    
-    return false; // shouldn't fall thru!
+    return MSG_SEND_FAILED; // shouldn't fall thru!
 }  // end MgenTcpTransport::SendMessage
 
 /**
@@ -1238,8 +1299,8 @@ void MgenTcpTransport::ShutdownTransport(LogEventType eventType)
         ProtoSystemTime(currentTime);
         tx_msg.GetSrcAddr().SetPort(GetSrcPort());
         LogEvent(eventType,&tx_msg,currentTime);
-	    Shutdown(); 
-	    if (IsOpen()) Close();
+	Shutdown(); 
+	if (IsOpen()) Close();
     }
     else 
     {
@@ -1445,6 +1506,7 @@ bool MgenTcpTransport::Accept(ProtoSocket& theSocket)
         if (tx_buffer) socket.SetTxBufferSize(tx_buffer);
         if (rx_buffer) socket.SetRxBufferSize(rx_buffer);
         if (tos) socket.SetTOS(tos);
+        if (df != DF_DEFAULT) socket.SetFragmentation(df);
         // no ttl or multicast interface for tcp sockets   
         reference_count++; 
         SetDstAddr(socket.GetDestination()); 

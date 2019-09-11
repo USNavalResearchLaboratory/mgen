@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Express 2012 for Windows Desktop
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mgen", "mgen.vcxproj", "{992F1B16-C3A2-48E1-ADA7-C660A1E3DE84}"
-EndProject
+# Visual Studio Express 2013 for Windows Desktop
+VisualStudioVersion = 12.0.31101.0
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Protokit", "..\..\protolib\makefiles\win32\Protokit.vcxproj", "{DE94F096-A09B-44B6-8EFE-C7BF1F65C4C9}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mgen", "mgen.vcxproj", "{992F1B16-C3A2-48E1-ADA7-C660A1E3DE84}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,14 +13,14 @@ Global
 		Release|Win32 = Release|Win32
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{992F1B16-C3A2-48E1-ADA7-C660A1E3DE84}.Debug|Win32.ActiveCfg = Debug|Win32
-		{992F1B16-C3A2-48E1-ADA7-C660A1E3DE84}.Debug|Win32.Build.0 = Debug|Win32
-		{992F1B16-C3A2-48E1-ADA7-C660A1E3DE84}.Release|Win32.ActiveCfg = Release|Win32
-		{992F1B16-C3A2-48E1-ADA7-C660A1E3DE84}.Release|Win32.Build.0 = Release|Win32
 		{DE94F096-A09B-44B6-8EFE-C7BF1F65C4C9}.Debug|Win32.ActiveCfg = Debug|Win32
 		{DE94F096-A09B-44B6-8EFE-C7BF1F65C4C9}.Debug|Win32.Build.0 = Debug|Win32
 		{DE94F096-A09B-44B6-8EFE-C7BF1F65C4C9}.Release|Win32.ActiveCfg = Release|Win32
 		{DE94F096-A09B-44B6-8EFE-C7BF1F65C4C9}.Release|Win32.Build.0 = Release|Win32
+		{992F1B16-C3A2-48E1-ADA7-C660A1E3DE84}.Debug|Win32.ActiveCfg = Debug|Win32
+		{992F1B16-C3A2-48E1-ADA7-C660A1E3DE84}.Debug|Win32.Build.0 = Debug|Win32
+		{992F1B16-C3A2-48E1-ADA7-C660A1E3DE84}.Release|Win32.ActiveCfg = Release|Win32
+		{992F1B16-C3A2-48E1-ADA7-C660A1E3DE84}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

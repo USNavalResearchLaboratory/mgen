@@ -26,7 +26,8 @@ class MgenTransportList
     
     enum
     {
-      DEFAULT_TTL = 3,  // default multicast ttl
+      DEFAULT_MULTICAST_TTL = 1,  // default multicast ttl
+      DEFAULT_UNICAST_TTL = 255,  // default unicast ttl
       DEFAULT_TOS = 0   // default type of service
     };   
     
@@ -97,7 +98,7 @@ class MgenTransport
     virtual bool IsOpen() = 0;
     virtual void Close() = 0;
     virtual bool HasListener() = 0;
-    virtual bool SendMessage(MgenMsg& theMsg,
+    virtual MessageStatus SendMessage(MgenMsg& theMsg,
                              const ProtoAddress& dst_addr,
                              char* txBuffer) = 0;
     virtual bool StartOutputNotification() {return true;}
@@ -105,6 +106,7 @@ class MgenTransport
     virtual bool StartInputNotification() {return true;}
     virtual void StopInputNotification() {;}
     virtual bool Shutdown() {return false;}
+    virtual const char* GetInterface() = 0;
 
     // base class implementation
     UINT16 GetSrcPort() {return srcPort;}
@@ -213,14 +215,21 @@ class MgenSocketTransport : public MgenTransport
     bool SetBroadcast(bool broadcast);
     bool SetTxBufferSize(unsigned int txBufferSize);
     bool SetRxBufferSize(unsigned int rxBufferSize);
-    virtual bool SetTTL(unsigned char TTL);
+    virtual bool SetMulticastTTL(unsigned char TTL);
+    virtual bool SetUnicastTTL(unsigned char TTL);
+    virtual bool SetDF(FragmentationStatus df);
     virtual bool SetMulticastInterface(const char* interfaceName) 
     {
         if (interfaceName != NULL && '\0' != interfaceName[0])
           strcpy(interface_name,interfaceName);
         return true;
-    }    
+    }     
     bool HasListener() {return (socket.HasListener());}
+    const char* GetInterface()
+    {
+        return (('\0' != interface_name[0]) ? 
+                interface_name : NULL);
+    }
 
   private:
   protected:
@@ -235,7 +244,9 @@ class MgenSocketTransport : public MgenTransport
     unsigned char   tos;
     unsigned int    tx_buffer;
     unsigned int    rx_buffer;        	  
-    unsigned char   ttl;   // multicast time-to-live
+    unsigned char   multicast_ttl;   // multicast time-to-live
+    unsigned char   unicast_ttl;   // multicast time-to-live
+    FragmentationStatus df; // df/fragmentation
     char            interface_name[16];
     ProtoSocket     socket;
     
@@ -261,7 +272,7 @@ class MgenUdpTransport : public MgenSocketTransport
     bool LeaveGroup(const ProtoAddress& theAddress, 
 		    const ProtoAddress& sourceAddress,
                     const char* interfaceName = NULL);
-    bool SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer);
+    MessageStatus SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer);
     bool Listen(UINT16 port,ProtoAddress::Type addrType, bool bindOnOpen);
     
     unsigned int GroupCount() {return group_count;}
@@ -328,7 +339,7 @@ class MgenTcpTransport : public MgenSocketTransport
     bool IsConnecting() {return socket.IsConnecting();}
     bool IsListening() {return socket.IsListening();}
     void OnRecvMsg(unsigned int numBytes,unsigned int bufferIndex,const char* buffer);
-    bool SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer);
+    MessageStatus SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer);
     bool GetNextTxBuffer(unsigned int numBytes);
     void SetupNextTxBuffer();
     UINT16 GetNextTxFragment();
@@ -392,6 +403,7 @@ class MgenSinkTransport : public MgenTransport
     // MgenSinkTransport implementation
     static MgenSinkTransport* Create(Mgen& theMgen, Protocol theProtocol);  // SINK or SOURCE
     bool IsOpen() {return true;} 
+    const char* GetInterface() {return NULL;}
     void Close() {return;} 
     bool HasListener() {return true;}
     void SetPath(char* theSinkPath) {
@@ -452,8 +464,8 @@ class MgenAppSinkTransport : public MgenSinkTransport, public ProtoChannel
     // source open
     bool Open();
     bool OnOutputReady();
-	bool Write(char* buffer, unsigned int* nbytes);
-	bool SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer); 
+    bool Write(char* buffer, unsigned int* nbytes);
+    MessageStatus SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer); 
     bool OnInputReady();
 	bool Read(char* buffer, UINT32 nBytes, UINT32& bytesRead);
 	void OnEvent(ProtoChannel& theChannel,ProtoChannel::Notification theNotification);

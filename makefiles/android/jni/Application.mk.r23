@@ -1,0 +1,4 @@
+APP_ABI := all
+APP_PLATFORM := android-23
+APP_PIE := true
+NDK_MODULE_PATH := ../..:../../protolib/

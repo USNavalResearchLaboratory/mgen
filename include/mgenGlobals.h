@@ -76,5 +76,20 @@ enum
     MIN_FRAG_SIZE = 76     // ljt what should this be? 
                            // we're going with IPV6 + gps max for now
   };
+enum FragmentationStatus
+{
+    DF_OFF,      // df = false
+    DF_ON,      // df = true
+    DF_DEFAULT // leave socket DF option in its default state
+
+};
+
+enum MessageStatus
+  {
+    MSG_SEND_FAILED,
+    MSG_SEND_BLOCKED,
+    MSG_SEND_OK
+    
+  };
 
 #endif // _MGEN_GLOBALS

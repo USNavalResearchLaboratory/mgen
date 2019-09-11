@@ -119,23 +119,24 @@ class MgenEvent : public MgenBaseEvent
     // MGEN script option types/flags (indicates which options were invoked)
     enum Option
     {
-      INVALID_OPTION = 0x0000,
-      PROTOCOL =       0x0001,  // flow protocol was set
-      DST =            0x0002,  // flow destination address was set
-      SRC =            0x0004,  // flow source port was set
-      PATTERN =        0x0008,  // flow pattern was set
-      TOS =            0x0010,  // flow TOS was set
-      RSVP =           0x0020,  // flow RSVP spec was set
-      INTERFACE =      0x0040,  // flow multicast interface was set
-      TTL =            0x0080,  // flow ttl was set
-      SEQUENCE =       0x0100,  // flow sequence number was set        
-      LABEL =          0x0200,  // flow label option for IPV6
-      TXBUFFER  =      0x0400,  // Tx socket buffer size
-      DATA =    	   0x0800,  // payload data
-      QUEUE =          0x1000,  // queue limit
-      COUNT =          0x2000,  // count
-      CONNECT =        0x4000,  // connect src port for udp
-      BROADCAST =      0x8000   // send/receive broadcasts
+      INVALID_OPTION = 0x00000000,
+      PROTOCOL =       0x00000001,  // flow protocol was set
+      DST =            0x00000002,  // flow destination address was set
+      SRC =            0x00000004,  // flow source port was set
+      PATTERN =        0x00000008,  // flow pattern was set
+      TOS =            0x00000010,  // flow TOS was set
+      RSVP =           0x00000020,  // flow RSVP spec was set
+      INTERFACE =      0x00000040,  // flow multicast interface was set
+      TTL =            0x00000080,  // flow ttl was set
+      SEQUENCE =       0x00000100,  // flow sequence number was set        
+      LABEL =          0x00000200,  // flow label option for IPV6
+      TXBUFFER  =      0x00000400,  // Tx socket buffer size
+      DATA =           0x00000800,  // payload data
+      QUEUE =          0x00001000,  // queue limit
+      COUNT =          0x00002000,  // count
+      CONNECT =        0x00004000,  // connect src port for udp
+      BROADCAST =      0x00008000,  // send/receive broadcasts
+      DF =             0x00010000   // fragmentation status
     };
     
     MgenEvent();
@@ -159,6 +160,7 @@ class MgenEvent : public MgenBaseEvent
     UINT32 GetFlowLabel() const {return flow_label;}
     unsigned char GetTTL() const {return ttl;}
     unsigned int GetTxBuffer() const {return tx_buffer_size;}
+    FragmentationStatus GetDF() const {return df;}
 	int GetQueueLimit() const {return queue;}
     UINT32 GetSequence() const {return sequence;}
     char *GetPayload() const {return payload;}
@@ -190,6 +192,7 @@ class MgenEvent : public MgenBaseEvent
     UINT32           flow_label;
     unsigned int     tx_buffer_size;
     unsigned char    ttl;   
+    FragmentationStatus df;
     UINT32           sequence;
     char             interface_name[16];
 	unsigned int     option_mask;

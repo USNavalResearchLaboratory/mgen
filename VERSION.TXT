@@ -1,15 +1,26 @@
+Version 5.02c
+=============
+
+     -The releases include/are compiled with protolib-3.0b1
+     - includes/is compiled with protolib-3.0b1
+     - IPV6 on linux is fixed
+     - DF fragmentation bit on|off added
+     - uniform random message size supporte e.g. <pattern> [<rate> <sizeMin:sizeMax>]
+     - assorted bug fixes
+
+
 Version 5.02b
 =============
-    - Contains bug fix to correctly set mgen TCP send and recv'd
-      message tx times under heavy load. 
-    - Contains bug fix to correctly set binary time in mgen send
-      messages.
+     - Fixed timing for tcp messages logging for systems under heavy load. Fixed binary send event times.
+
+Version 5.02a
+=============
+    - Disabled mgen event validation by default.  Use the ENABLE_EVENT_VALIDATION
+      flag to reenable.
 
 Version 5.02
 ============
-    - Contains bug fix to close open UDP sockets
-    - Contains bug fix to handle incoming tcp connections on windows
-      correctly
+    - Missing?
 
 Version 5.01c
 =============

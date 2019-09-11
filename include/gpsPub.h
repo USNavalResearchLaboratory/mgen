@@ -38,6 +38,8 @@ char* GPSMemoryInit(const char* keyFile, unsigned int size);
 inline GPSHandle GPSPublishInit(const char* keyFile)
     {return (GPSHandle)GPSMemoryInit(keyFile, sizeof(GPSPosition));}
 void GPSPublishUpdate(GPSHandle gpsHandle, const GPSPosition* currentPosition);
+
+void GPSPublishPos(GPSHandle gpsHandle, double x, double y, double z);
 void GPSPublishShutdown(GPSHandle gpsHandle, const char* keyFile);
 
 GPSHandle GPSSubscribe(const char* keyFile);
