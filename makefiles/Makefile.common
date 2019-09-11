@@ -49,7 +49,7 @@ MGEN_APP_SRC = $(COMMON)/mgenApp.cpp
 MGEN_APP_OBJ = $(MGEN_APP_SRC:.cpp=.o) 
 
 mgen:    $(MGEN_APP_OBJ) $(MGEN_OBJ) $(LIBPROTO)
-	$(CC) -g $(CFLAGS) -o $@ $(MGEN_APP_OBJ) $(MGEN_OBJ) $(LDFLAGS) $(LIBS) $(LIBPROTO) 
+	$(CC) -g $(CFLAGS) -o $@ $(MGEN_APP_OBJ) $(MGEN_OBJ) $(LDFLAGS) $(LIBPROTO) $(LIBS)  
 
 
 MPMGR_SRC = $(COMMON)/mpmgr.cpp $(COMMON)/gpsPub.cpp
@@ -57,7 +57,21 @@ MPMGR_SRC = $(COMMON)/mpmgr.cpp $(COMMON)/gpsPub.cpp
 MPMGR_OBJ = $(MPMGR_SRC:.cpp=.o)
 
 mpmgr:    $(MPMGR_OBJ) $(LIBPROTO)
-	$(CC) -g $(CFLAGS) -o $@ $(MPMGR_OBJ) $(LDFLAGS) $(LIBS) $(LIBPROTO) 
+	$(CC) -g $(CFLAGS) -o $@ $(MPMGR_OBJ) $(LDFLAGS) $(LIBPROTO) $(LIBS)
+
+# pcap2mgen utility (converts UDP content of appropriate pcap file to mgen log
+P2M_SRC = $(COMMON)/pcap2mgen.cpp
+P2M_OBJ = $(P2M_SRC:.cpp=.o) 
+
+pcap2mgen:    $(P2M_OBJ) $(MGEN_OBJ) $(LIBPROTO)
+	$(CC) -g $(CFLAGS) -o $@ $(P2M_OBJ) $(MGEN_OBJ) $(LDFLAGS) $(LIBS) $(LIBPROTO) 
+
+# mgenBlast is a simple program to benchmark mgen performance
+MM_SRC = $(COMMON)/mgenBlast.cpp
+MM_OBJ = $(MM_SRC:.cpp=.o)
+
+mgenBlast:	$(MM_OBJ) $(MGEN_OBJ) $(LIBPROTO)
+		$(CC) -g $(CFLAGS) -o $@ $(MM_OBJ) $(MGEN_OBJ) $(LDFLAGS) $(LIBS) $(LIBPROTO)
      	    
 clean:	
 	rm -f $(COMMON)/*.o  $(UNIX)/*.o $(UNIX)/mgen $(UNIX)/mpmgr $(NS)/*.o;

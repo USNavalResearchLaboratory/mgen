@@ -576,8 +576,8 @@ bool MgenFlow::Update(const MgenEvent* event)
 
 bool MgenFlow::GetNextInterval()
 {
-    double nextInterval = GetPktInterval();
-    if (nextInterval > 0.0)       // normal scheduled transmission event
+  double nextInterval = GetPktInterval();
+  if (nextInterval > 0.0) // normal scheduled transmission event
     {
         tx_timer.SetInterval(nextInterval);
         if (!tx_timer.IsActive())
@@ -593,6 +593,27 @@ bool MgenFlow::GetNextInterval()
     }
     else if (nextInterval < 0.0)  // Flow pattern rate is 0.0 message/sec
     {
+#ifdef _HAVE_PCAP
+      // Fudge the interval if packet time stamps are out of sequence
+      // for clone patterns.
+      if (pattern.GetType() == MgenPattern::CLONE && pattern.ReadingPcapFile())
+      {
+	PLOG(PL_WARN,"MgenFlow::GetNextInterval() Cloned file has out of order timestamps. Sending packet immediately.\n");
+	nextInterval = 0.0;
+	tx_timer.SetInterval(nextInterval);
+        if (!tx_timer.IsActive())
+        {
+            timer_mgr.ActivateTimer(tx_timer);
+            last_interval = 0.0;
+	}
+        else
+        {
+            last_interval = nextInterval;
+        }
+        return true;
+      }
+
+#endif
         if(tx_timer.IsActive()) tx_timer.Deactivate();
         last_interval = 0.0;
         StopFlow();
@@ -684,7 +705,7 @@ bool MgenFlow::SendMessage()
     // If we have an off event for flows with unlimited
     // pkt rate, stop the flow immediately.  We have 
     // already disabled the transmission timer.
-    if (OffPending() && GetPktInterval() == 0)
+    if (OffPending() && pattern.UnlimitedRate())
     {
         StopFlow();
         return false;
@@ -696,7 +717,7 @@ bool MgenFlow::SendMessage()
         // stop flow, unless we have an unlimited rate - in that
         // case we've turned off the transmission timer.
         if (tx_timer.IsActive()) tx_timer.Deactivate();
-        if (!GetPktInterval()) StopFlow();
+        if (pattern.UnlimitedRate()) StopFlow();
         return false;  
     }
 
@@ -711,6 +732,7 @@ bool MgenFlow::SendMessage()
 #else
     theMsg.SetSeqNum(MgenSequencer::GetNextSequence(flow_id));
 #endif
+
     struct timeval currentTime;
     ProtoSystemTime(currentTime);
 
@@ -779,15 +801,12 @@ bool MgenFlow::SendMessage()
     
     if (!success)
     {
-#ifdef SIMULATE
-        PLOG(PL_WARN, "MgenFlow::SendMessage() error sending message.\n");
-#endif // SIMULATE
         // message was not sent, so sequence number is decremented back one
 #ifndef _RAPR_JOURNAL
-        DMSG(PL_WARN, "MgenFlow::SendMessage() error sending message flow>%d seq>%d.\n",flow_id,(seq_num -1));
+        PLOG(PL_DEBUG, "MgenFlow::SendMessage() error sending message flow>%d seq>%d.\n",flow_id,(seq_num -1));
         seq_num--;
 #else
-        PLOG(PL_WARN, "MgenFlow::SendMessage() error sending message flow>%d seq>%d.\n",flow_id,MgenSequencer::GetSequence(flow_id));
+        PLOG(PL_DEBUG, "MgenFlow::SendMessage() error sending message flow>%d seq>%d.\n",flow_id,MgenSequencer::GetSequence(flow_id));
         // rollback sequence number...
         MgenSequencer::GetPrevSequence(flow_id);
 #endif
@@ -797,7 +816,7 @@ bool MgenFlow::SendMessage()
         // if the send failed due to a socket disconnect, and 
         // set flow_transport to NULL... 
 
-        if ((queue_limit != 0 || pattern.GetPktInterval() == 0)
+        if ((queue_limit != 0 || pattern.UnlimitedRate())
             && flow_transport && flow_transport->IsConnected())
         {
             pending_messages++;
@@ -903,8 +922,8 @@ bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
           else
           {
               // Don't turn on timer if we have an unlimited rate
-              if (GetPktInterval() != 0)
-                  return GetNextInterval();
+	    if (!pattern.UnlimitedRate())
+	      return GetNextInterval();
           }            	
       }
     
@@ -922,8 +941,9 @@ bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
         // If we've exceeded our queue limit, turn off the timer
         // we'll restart it when the queue gets below the limit, 
         // unless we have an unlimited queue size (queue_limit -1)
+	// or we're sending packets as fast as possible
         if ((queue_limit > 0 && pending_messages >= queue_limit)
-            && (GetPktInterval() != 0)) 
+            && (!pattern.UnlimitedRate())) // ljt should we allow queue limits for unlimited rates?
         {	  
             if (tx_timer.IsActive()) tx_timer.Deactivate(); 
             return false; // don't want to fail twice!
@@ -944,7 +964,7 @@ bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
     // If we have an unlimited rate, turn off the transmission
     // timer.  If we add it to the pending queue the transport send 
     // functions will send messages as fast as possible.
-    if (GetPktInterval() == 0)
+    if (pattern.UnlimitedRate())
     {
         flow_transport->AppendFlow(this);
         flow_transport->StartOutputNotification();
@@ -952,8 +972,7 @@ bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
         return false;
     }
     else
-      return GetNextInterval();
-    
+	  return GetNextInterval();
 }   // end MgenFlow::OnTxTimeout()
 
 

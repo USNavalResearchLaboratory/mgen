@@ -55,7 +55,7 @@ class MgenFlow
     
 	void SetQueueLimit(int queueLimit) {queue_limit = queueLimit;}
 	void SetMessageLimit(int messageLimit) {message_limit = messageLimit;}
-    
+	bool UnlimitedRate() {return pattern.UnlimitedRate();}
     bool InsertEvent(MgenEvent* event, bool mgenStarted, double currentTime);
     bool ValidateEvent(const MgenEvent* event);
     bool Start(double offsetTime);

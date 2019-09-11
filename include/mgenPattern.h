@@ -44,6 +44,11 @@ class MgenPattern
         double GetIntervalAve() {return interval_ave;}
         unsigned int GetPktSize();
         void InvalidatePattern() {type = INVALID_TYPE;};
+	MgenPattern::Type GetType() { return type;};
+	bool UnlimitedRate() {return unlimitedRate;}
+#ifdef _HAVE_PCAP
+	bool ReadingPcapFile() {return pcap_device;}
+#endif
   private:
         static const StringMapper TYPE_LIST[]; 
         enum Burst {INVALID_BURST, REGULAR, RANDOM};  
@@ -80,6 +85,8 @@ class MgenPattern
         double          burst_duration_ave;
         double          burst_duration;
         struct timeval  last_time;
+	bool            unlimitedRate;
+
 #ifdef _HAVE_PCAP
         pcap_t*         pcap_device;
         FileType        file_type; // clone file type

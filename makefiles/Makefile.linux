@@ -7,7 +7,7 @@
 #
 SYSTEM_INCLUDES = -I/usr/X11R6/include 
 SYSTEM_LDFLAGS = -L/usr/X11R6/lib 
-SYSTEM_LIBS = -ldl -lpthread
+SYSTEM_LIBS = -ldl -lpthread -lpcap
 
 # 2) System specific capabilities
 # Must choose appropriate for the following:
@@ -36,7 +36,7 @@ SYSTEM_LIBS = -ldl -lpthread
 #
 
 SYSTEM_HAVES = -DLINUX -DHAVE_PSELECT -DHAVE_SCHED -DHAVE_IPV6 -DHAVE_GETLOGIN -DHAVE_LOCKF -DHAVE_DIRFD \
--DHAVE_ASSERT $(NETSEC)
+-DHAVE_ASSERT $(NETSEC) -D_FILE_OFFSET_BITS=64
 
 SYSTEM = linux
 CC = g++

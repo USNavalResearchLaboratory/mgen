@@ -98,7 +98,7 @@ class DrecGroupList
 class Mgen 
 {
   public:
-    enum {SCRIPT_LINE_MAX = 512};  // maximum script line length
+    enum {SCRIPT_LINE_MAX = 8192};  // maximum script line length
     
     Mgen(ProtoTimerMgr&         timerMgr, 
          ProtoSocket::Notifier& socketNotifier);
@@ -134,10 +134,12 @@ class Mgen
       CHECKSUM,  // turn on _both_ tx and rx checksum options
       TXCHECKSUM,// include checksums in transmitted MGEN messages
       RXCHECKSUM, // force checksum validation at receiver _always_
+      LOGDATA,   // log payload data on/off
       QUEUE      // Turn off tx_timer when pending queue exceeds this limit
     };
     static Command GetCommandFromString(const char* string);
     enum CmdType {CMD_INVALID, CMD_ARG, CMD_NOARG};
+    static const char* GetCmdName(Command cmd);
     static CmdType GetCmdType(const char* cmd);
 	void SetController(MgenController* theController)
     {controller = theController;}
@@ -148,6 +150,7 @@ class Mgen
     bool OnCommand(Mgen::Command cmd, const char* arg, bool override = false);
     bool GetChecksumEnable() {return checksum_enable;}
     bool GetChecksumForce() {return checksum_force;}
+    bool GetLogData() {return log_data;}
     bool OpenLog(const char* path, bool append, bool binary);
     void CloseLog();
     void SetLogFile(FILE* filePtr);
@@ -194,6 +197,10 @@ class Mgen
     void SetHostAddress(const ProtoAddress hostAddr)
     {
         host_addr = hostAddr;
+    }
+    void SetLogData(bool logData)
+    {
+      log_data = logData;
     }
     void ClearHostAddress()
     {
@@ -385,9 +392,9 @@ class Mgen
     bool               default_queue_limit_lock;
     
     char               sink_path[PATH_MAX];
-	bool               sink_non_blocking;
-
+    bool               sink_non_blocking;
     
+    bool               log_data;
     ProtoAddress       host_addr;
     bool               checksum_enable;       
     
@@ -410,7 +417,7 @@ class Mgen
   protected:
     FILE*              log_file;
     bool               log_binary;
-	bool               local_time;
+    bool               local_time;
     bool               log_flush;
     bool               log_file_lock;
     bool               log_tx;

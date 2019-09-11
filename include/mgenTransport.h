@@ -173,27 +173,19 @@ class MgenSocketTransport : public MgenTransport
     void Close();
     bool StartOutputNotification() 
     {
-        if (!socket.NotifyOutput()) 
-          return socket.StartOutputNotification(); 
-        return true; // shouldn't fall thru!
+      return socket.StartOutputNotification(); 
     };
     void StopOutputNotification()
     {
-        if (socket.NotifyOutput())
-          socket.StopOutputNotification();
+      socket.StopOutputNotification();
     }
     bool StartInputNotification() 
     {
-        if (!socket.NotifyInput()) 
-        {
-            return socket.StartInputNotification();
-        }
-        return true; // shouldn't fall thru
+      return socket.StartInputNotification();
     };
     void StopInputNotification()
     {
-        if (socket.NotifyInput())
-          socket.StopInputNotification();
+      socket.StopInputNotification();
     }
     bool IsSocketTransport() {return true;}
     UINT16 GetSocketPort() {return socket.GetPort();}

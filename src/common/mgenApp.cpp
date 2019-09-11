@@ -40,6 +40,7 @@ void MgenApp::Usage()
 {
     fprintf(stderr, "mgen [ipv4][ipv6][input <scriptFile>][save <saveFile>]\n"
                     "     [output <logFile>][log <logFile>][hostAddr {on|off}\n"
+	            "     [logData {on|off}\n"
                     "     [binary][txlog][nolog][flush]\n"
                     "     [event \"<mgen event>\"][port <recvPortList>]\n"
                     "     [instance <name>][command <cmdInput>]\n"
@@ -51,7 +52,8 @@ void MgenApp::Usage()
                     "     [precise {on|off}][ifinfo <ifName>]\n"
                     "     [txcheck][rxcheck][check]\n"
                     "     [queue <queueSize>][broadcast {on|off}]\n"
-	                "     [convert <binaryLog>][debug <debugLevel>]\n");
+	                "     [convert <binaryLog>][debug <debugLevel>]\n"
+                    "     [boost]\n");
 }  // end MgenApp::Usage()
 
 
@@ -70,6 +72,7 @@ const char* const MgenApp::CMD_LIST[] =
     "-stop",       // exit program instance
     "+command",    // specifies an input command file/device
     "+hostAddr",   // turn "host" field on/off in sent messages
+    "-boost",      // boost process priority
     "-help",       // print usage and exit
     NULL
 };
@@ -144,6 +147,13 @@ bool MgenApp::ProcessCommands(int argc, const char*const* argv)
                 i++;
                 break;
             case CMD_ARG:
+                /*
+                if (NULL == argv[i+1])
+                {
+                    DMSG(0, "MgenApp::ProcessCommands() error: missing \"%s\" command argument!\n", argv[i]);
+                    return false;
+                }
+                */
                 if (!OnCommand(argv[i], argv[i+1]))
                 {
                     DMSG(0, "MgenApp::ProcessCommands() OnCommand(%s, %s) error\n", 
@@ -182,20 +192,30 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
     
     CmdType type = GetCmdType(cmd);
     unsigned int len = strlen(cmd);    
+
     if (CMD_INVALID == type)
     {
-        // If it is a core mgen command, process it as "overriding"
-        if (Mgen::CMD_INVALID != Mgen::GetCmdType(cmd))
-        {
-            return mgen.OnCommand(Mgen::GetCommandFromString(cmd), val, true);   
-        }
-        else
+        Mgen::CmdType mgenType = Mgen::GetCmdType(cmd);
+        if (Mgen::CMD_INVALID == mgenType)
         {
             DMSG(0, "MgenApp::ProcessCommand(%s) error: invalid command\n", cmd);
             return false;
         }
+        else
+        {
+            // It is a core mgen command, process it as "overriding"
+            // double check there's a "val" if it needs one
+            if ((Mgen::CMD_ARG == mgenType) && (NULL == val))
+            {
+                const char* cmdName = Mgen::GetCmdName(Mgen::GetCommandFromString(cmd));
+                if (Mgen::INVALID_COMMAND == Mgen::GetCommandFromString(cmdName)) cmdName = NULL;  // because of funny business with "OFF" command 
+                DMSG(0, "MgenApp::ProcessCommand(%s) error: missing \"%s\" argument!\n", cmd, (NULL != cmdName) ? cmdName : cmd);
+                return false;
+            }
+            return mgen.OnCommand(Mgen::GetCommandFromString(cmd), val, true);   
+        }
     }
-    else if ((CMD_ARG == type) && !val)
+    else if ((CMD_ARG == type) && (NULL == val))
     {
         DMSG(0, "MgenApp::ProcessCommand(%s) missing argument\n", cmd);
         return false;
@@ -330,7 +350,7 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
             return false;
         }
     }
-    else if (!strncmp("hostAddr", cmd, len))
+    else if (!strncmp("hostaddr", cmd, len))
     {
        char status[4];  // valid status is "on" or "off"
        strncpy(status, val, 3);
@@ -365,6 +385,11 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
     else if (!strncmp("stop", cmd, len))
     {
         Stop();
+    }
+    else if (!strncmp("boost", cmd, len))
+    {
+        if (!dispatcher.BoostPriority())
+          fprintf(stderr,"Unable to boost process priority.\n");
     }
     else if (!strncmp("help", cmd, len))
     {

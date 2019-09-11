@@ -69,7 +69,8 @@ enum
     MIN_SIZE = 28,
     MAX_SIZE = 8192,
     MSG_LEN_SIZE = 2,
-    TX_BUFFER_SIZE = 1024,
+    // TX_BUFFER_SIZE is the tcp tx buffer size, for now same as udp max_size
+    TX_BUFFER_SIZE = 8192,
     MAX_FRAG_SIZE = 65535, // TCP max fragment size
     MIN_FRAG_SIZE = 76     // ljt what should this be? 
                            // we're going with IPV6 + gps max for now

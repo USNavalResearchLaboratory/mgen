@@ -61,6 +61,7 @@ Mgen::Mgen(ProtoTimerMgr&         timerMgr,
   default_tx_buffer_lock(false), default_rx_buffer_lock(false), 
   default_interface_lock(false), default_queue_limit_lock(false),
   sink_non_blocking(true),
+  log_data(true),
   checksum_enable(false), 
   addr_type(ProtoAddress::IPv4), 
   get_position(NULL), get_position_data(NULL),
@@ -940,7 +941,7 @@ bool Mgen::ParseScript(const char* path)
 
 bool Mgen::ParseEvent(const char* lineBuffer, unsigned int lineCount)
 {
-    const char * ptr = lineBuffer;
+    const char *ptr = lineBuffer;
     // Strip leading white space
     while ((' ' == *ptr) || ('\t' == *ptr)) ptr++;
     // Check for comment line (leading '#')
@@ -1193,9 +1194,26 @@ const StringMapper Mgen::COMMAND_LIST[] =
     {"-TXCHECKSUM", TXCHECKSUM},
     {"-RXCHECKSUM", RXCHECKSUM},
     {"+QUEUE",      QUEUE},
+    {"+LOGDATA",    LOGDATA},
     {"+OFF",        INVALID_COMMAND},  // to deconflict "offset" from "off" event
     {NULL,          INVALID_COMMAND}   
 };
+
+const char* Mgen::GetCmdName(Command cmd)
+{
+    const StringMapper* m = COMMAND_LIST;
+    while (NULL != m->string)
+    {
+        if ((Command)(m->key) == cmd)
+        {
+            if (NULL != m->string)
+                return m->string + 1;
+            else
+                return NULL;
+        }
+    }
+    return NULL;
+}  // end Mgen::GetCmdName()
 
 Mgen::Command Mgen::GetCommandFromString(const char* string)
 {
@@ -1553,7 +1571,7 @@ bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
       checksum_enable = true;
       checksum_force = true;
       break;
-      
+
     case QUEUE:	
       int tmpQueueLimit;
       if (1 != sscanf(arg, "%d", &tmpQueueLimit))
@@ -1563,6 +1581,34 @@ bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
       }
       SetDefaultQueueLimit(tmpQueueLimit,override);
       break;            
+
+    case LOGDATA:
+
+      if (!arg)
+	{
+	  DMSG(0,"Mgen::OnCommand() Error: missing argument to LOGDATA\n");
+	  return false;
+	}
+      else
+      {
+	char temp[4];
+	unsigned int len = strlen(arg);
+	len = len < 4 ? len : 4;
+	unsigned int i;
+	for (i = 0; i < len; i++)
+	  temp[i] = toupper(arg[i]);
+	temp[i] = '\0';
+	if (!strncmp("ON", temp, len))
+	  SetLogData(true);
+	else if (!strncmp("OFF", temp, len))
+	  SetLogData(false);
+	else
+	  {
+	    DMSG(0,"Mgen::OnCommand() Error: wrong argument to logData: %s\n",arg);
+	    return false;
+	  } 
+      }
+      break;
       
     case INVALID_COMMAND:
       DMSG(0, "Mgen::OnCommand() Error: invalid command\n");

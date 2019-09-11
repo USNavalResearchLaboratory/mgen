@@ -2,12 +2,16 @@
 # Protean MacOS X (Darwin) Makefile definitions
 #
 
+
+# Note this Makefile sets the -D_HAVE_PCAP macro which requires
+# that libpcap support
+
 # 1) System specific additional libraries, include paths, etc
 #    (Where to find X11 libraries, etc)
 #
-SYSTEM_INCLUDES =  
+SYSTEM_INCLUDES = -I/opt/local/include
 SYSTEM_LDFLAGS =  
-SYSTEM_LIBS = -lresolv -lpthread
+SYSTEM_LIBS = -lresolv -lpthread -lpcap
 
 # 2) System specific capabilities
 # Must choose appropriate for the following:
@@ -35,7 +39,7 @@ SYSTEM_LIBS = -lresolv -lpthread
 # (We export these for other Makefiles as needed)
 #
 
-export SYSTEM_HAVES = -DHAVE_IPV6 -DMACOSX -DHAVE_ASSERT -DHAVE_GETLOGIN -DHAVE_FLOCK -DHAVE_DIRFD $(DNETSEC) -DSOCKLEN_T=int
+export SYSTEM_HAVES = -D_HAVE_PCAP -DHAVE_IPV6 -DMACOSX -DHAVE_ASSERT -DHAVE_GETLOGIN -DHAVE_FLOCK -DHAVE_DIRFD $(DNETSEC) -DSOCKLEN_T=int
 
 SYSTEM = macosx
 CC = g++

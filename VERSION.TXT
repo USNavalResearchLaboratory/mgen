@@ -1,9 +1,3 @@
-Version 5.02
-============
-    - Contains bug fix to close open UDP sockets
-    - Contains bug fix to handle incoming tcp connections on windows
-      correctly
-
 Version 5.01c
 =============
     - Contains bug fixes for compilation under Visual Studio 6.0

@@ -19,20 +19,18 @@
     <abstract>
       <para>The Multi-Generator (MGEN) is open source software by the <ulink
       url="http://www.nrl.navy.mil/">Naval Research Laboratory</ulink> (NRL)
-      PROTocol Engineering Advanced Networking (<ulink
-      url="http://protean.itd.nrl.navy.mil/">PROTEAN</ulink>) group which
-      provides the ability to perform IP network performance tests and
-      measurements using UDP and TCP IP traffic. The toolset generates
-      real-time traffic patterns so that the network can be loaded in a
-      variety of ways. The generated traffic can also be received and logged
-      for analyses. Script files are used to drive the generated loading
-      patterns over the course of time. These script files can be used to
-      emulate the traffic patterns of unicast and/or multicast UDP and TCP IP
-      applications. The tool set can be scripted to dynamically join and leave
-      IP multicast groups. MGEN log data can be used to calculate performance
-      statistics on throughput, packet loss rates, communication delay, and
-      more. MGEN currently runs on various Unix-based (including MacOS X) and
-      WIN32 platforms.</para>
+      PROTocol Engineering Advanced Networking (PROTEAN) group which provides
+      the ability to perform IP network performance tests and measurements
+      using UDP and TCP IP traffic. The toolset generates real-time traffic
+      patterns so that the network can be loaded in a variety of ways. The
+      generated traffic can also be received and logged for analyses. Script
+      files are used to drive the generated loading patterns over the course
+      of time. These script files can be used to emulate the traffic patterns
+      of unicast and/or multicast UDP and TCP IP applications. The tool set
+      can be scripted to dynamically join and leave IP multicast groups. MGEN
+      log data can be used to calculate performance statistics on throughput,
+      packet loss rates, communication delay, and more. MGEN currently runs on
+      various Unix-based (including MacOS X) and WIN32 platforms.</para>
 
       <para>The principal tool is the mgen program which can generate,
       receive, and log test traffic. This document provides information on
@@ -47,19 +45,18 @@
 
     <para>The Multi-Generator (MGEN) is open source software by the <ulink
     url="http://www.nrl.navy.mil/">Naval Research Laboratory</ulink> (NRL)
-    PROTocol Engineering Advanced Networking (<ulink
-    url="http://protean.itd.nrl.navy.mil/">PROTEAN</ulink>) group which
-    provides the ability to perform IP network performance tests and
-    measurements using UDP and TCP IP traffic. The toolset generates real-time
-    traffic patterns so that the network can be loaded in a variety of ways.
-    The generated traffic can also be received and logged for analyses. Script
-    files are used to drive the generated loading patterns over the course of
-    time. These script files can be used to emulate the traffic patterns of
-    unicast and/or multicast UDP and TCP IP applications. The tool set can be
-    scripted to dynamically join and leave IP multicast groups. MGEN log data
-    can be used to calculate performance statistics on throughput, packet loss
-    rates, communication delay, and more. MGEN currently runs on various
-    Unix-based (including MacOS X) and WIN32 platforms.</para>
+    PROTocol Engineering Advanced Networking (PROTEAN) group which provides
+    the ability to perform IP network performance tests and measurements using
+    UDP and TCP IP traffic. The toolset generates real-time traffic patterns
+    so that the network can be loaded in a variety of ways. The generated
+    traffic can also be received and logged for analyses. Script files are
+    used to drive the generated loading patterns over the course of time.
+    These script files can be used to emulate the traffic patterns of unicast
+    and/or multicast UDP and TCP IP applications. The tool set can be scripted
+    to dynamically join and leave IP multicast groups. MGEN log data can be
+    used to calculate performance statistics on throughput, packet loss rates,
+    communication delay, and more. MGEN currently runs on various Unix-based
+    (including MacOS X) and WIN32 platforms.</para>
 
     <para>The principal tool is the mgen program which can generate, receive,
     and log test traffic. This document provides information on mgen usage,
@@ -89,21 +86,19 @@
 
       <listitem>
         <para><ulink
-        url="http://proteantools.pf.itd.nrl.navy.mil/trpr.html">TRPR Log File
+        url="http://pf.itd.nrl.navy.mil/proteantools/trpr.html">TRPR Log File
         Analysis Program</ulink></para>
       </listitem>
 
       <listitem>
         <para><ulink
-        url="http://proteantools.pf.itd.nrl.navy.mil/gpsLogger.html">gpsLogger
+        url="http://pf.itd.nrl.navy.mil/proteantools/gpsLogger.html">gpsLogger
         GPS Utility</ulink></para>
       </listitem>
 
       <listitem>
-        <para><ulink
-        url="http://proteantools.pf.itd.nrl.navy.mil/gpsLogger.html"><ulink
-        url="mgen-tech.html">Mgen Technical
-        Documentation</ulink></ulink></para>
+        <para><ulink url="mgen-tech.html">Mgen Technical
+        Documentation</ulink></para>
       </listitem>
     </itemizedlist>
   </sect1>
@@ -435,9 +430,9 @@
             are written to the "sink" device instead of to a UDP or TCP
             socket. Piping mgen output to stdout allows MGEN messages to use
             alternative transport provided by another process (e.g. ssh,
-            <ulink url="http://norm.pf.itd.nrl.navy.mil/">norm</ulink>, etc).
-            The special &lt;sinkFile&gt; value "STDOUT" will direct MGEN SINK
-            flows to the mgen process stdout.</entry>
+            <ulink url="http://cs.itd.nrl.navy.mil/work/norm/">norm</ulink>,
+            etc). The special &lt;sinkFile&gt; value "STDOUT" will direct MGEN
+            SINK flows to the mgen process stdout.</entry>
           </row>
 
           <row>
@@ -448,11 +443,11 @@
             directly receive a binary stream of MGEN messaging from the
             &lt;sourceFile&gt; which may be the piped stdoutfrom another
             process (e.g. ssh, <ulink
-            url="http://norm.pf.itd.nrl.navy.mil/">norm</ulink>, etc). The
-            special &lt;sourceFile&gt; string "STDIN" causes mgen to get input
-            from its stdin stream. Messages read from the &lt;sourceFile&gt;
-            (or stream) are time-stamped and logged in the MGEN log file as
-            usual.</entry>
+            url="http://cs.itd.nrl.navy.mil/wowrk/norm">norm</ulink>, etc).
+            The special &lt;sourceFile&gt; string "STDIN" causes mgen to get
+            input from its stdin stream. Messages read from the
+            &lt;sourceFile&gt; (or stream) are time-stamped and logged in the
+            MGEN log file as usual.</entry>
           </row>
 
           <row>
@@ -1280,6 +1275,19 @@
           file once and stop. A positive integer "N" indicates the number of
           repititions through the file, e.g. a value of 1 will cause the file
           to be read twice, once plus the repeat.</para>
+
+          <para>Out of sequence time stamps have been seen occasionally in
+          tcpdump output. MGEN will schedule these packets for immediate
+          transmission and if running at debug level 2, will log a warning
+          message.</para>
+
+          <para>Note that some Linux distributions enable
+          "segmentation/reassembly offload". This feature causes the network
+          driver to do TCP segmentation and reassembly. In such case, larger
+          packets than MGEN can clone will be logged in the pcap files.
+          Disable this feature to successfully process this data. (e.g.
+          ethtool --offload eth0 gso off; ethtool --offload eth0 tso off;
+          ethtool --offload eth0 gro off).</para>
 
           <para>Example:</para>
 
@@ -2397,7 +2405,7 @@
 
     <para>Many of the above performance measures and statistics can be
     measured and optionally graphed using the NRL <ulink
-    url="http://proteantools.pf.itd.nrl.navy.mil/trpr.html">trpr</ulink>
+    url="http://pf.itd.nrl.navy.mil/proteantools/trpr.html">trpr</ulink>
     (trace plot real-time) program. This program can parse the MGEN log file
     format and <ulink url="http://www.tcpdump.org/">tcpdump</ulink>
     traces.</para>
@@ -2615,12 +2623,12 @@
 
       <para>The global positioning system (GPS) information is available when
       the MGEN message source is used in conjunction with the NRL <ulink
-      url="http://proteantools.pf.itd.nrl.navy.mil/gpsLogger.html">gpsLogger</ulink>
+      url="http://pf.itd.nrl.navy.mil/proteantools/gpsLogger.html">gpsLogger</ulink>
       program. This program monitors an attached GPS receiver for position
       information and "publishes" it in shared memory. When mgen is run and
       detects that it can "subscribe" to GPS position information, it places
       it in the MGEN message payload. Note that <ulink
-      url="http://proteantools.pf.itd.nrl.navy.mil/gpsLogger.html">gpsLogger</ulink>
+      url="http://pf.itd.nrl.navy.mil/proteantools/gpsLogger.html">gpsLogger</ulink>
       can also be used with a pulse-per-second (PPS) capable GPS receiver to
       provide accurate time synchronization for hosts running the MGEN
       toolset. This may be useful for mobile network test environments. The
@@ -3736,5 +3744,78 @@ The format of the RECV event binary log file record is:
     IPv6 destination addresses, the minimum allowed MGEN message size is 40
     bytes with no optional fields. If GPS information is included the minimum
     message size with truncating information is 76 bytes.</para>
+  </sect1>
+
+  <sect1>
+    <title>Compile options</title>
+
+    <para></para>
+
+    <sect2>
+      <title>RANDOM_FILL</title>
+
+      <para>Adding the RANDOM_FILL compile time option will cause MGEN to fill
+      the payload with random content. Otherwise, the payload will be zero
+      filled. (Alternatively, the DATA option may be used).</para>
+    </sect2>
+
+    <sect2>
+      <title>HAVE_IPV6</title>
+
+      <para>The HAVE_IPV6 compile time option indicates that the system is
+      IPV6 capable. IPV6 packets will be generated.</para>
+    </sect2>
+
+    <sect2>
+      <title>SIMULATE</title>
+
+      <para>The SIMULATE compile time option indicates that MGEN will be
+      running in a simulation environment.</para>
+    </sect2>
+
+    <sect2>
+      <title>HAVE_GPS</title>
+
+      <para>The HAVE_GPS compile time option indicates that a GPS service is
+      available. GPS information will be put into the MGEN message
+      payload.</para>
+    </sect2>
+
+    <sect2>
+      <title>HAVE_PCAP</title>
+
+      <para>The HAVE_PCAP compile time option indicates that the system has
+      PCAP installed. This option should be used when MGEN will be "cloning" a
+      TCPDUMP file.</para>
+    </sect2>
+
+    <sect2>
+      <title>Other</title>
+
+      <para>Operating system compile time options include UNIX, _WIN32_WCE,
+      WIN32, LINUX, MACOSX. These should be set as appropriate to the
+      operation system type. UNICODE log file output may be specified for
+      WIN32 operating systems. On Solaris (and possibly other Unix) operating
+      systems, the IP_MAX_MEMBERSHIPS option will set the IP_MAX_MEMBERSHIP
+      limit per socket to -1 as no pre-defined limit is set in the OS.</para>
+    </sect2>
+  </sect1>
+
+  <sect1>
+    <title>Known issues</title>
+
+    <para></para>
+
+    <sect2>
+      <title>Macosx Windows TCP Interaction</title>
+
+      <para>There is a negative interaction between Nagle's TCP Algorithm and
+      Delayed ACK that causes a TCP performance delay between traffic flowing
+      from some Windows OSs to macosx. This can be alleviated somewhat by
+      setting the sysctl net.inet.tcp.delayed_ack value to 1 (always employ
+      delayed ack, 6 packets can get 1 ack) although performance may still be
+      still be impacted. Windows-7 is impacted more than Vista. The phenomenon
+      varies by traffic pattern.</para>
+    </sect2>
   </sect1>
 </article>

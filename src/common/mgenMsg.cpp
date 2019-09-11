@@ -189,7 +189,7 @@ UINT16 MgenMsg::Pack(char* buffer,UINT16 bufferLen, bool includeChecksum,UINT32&
       addrLen = host_addr.GetLength();
     else
       addrLen = 0;
-    
+
     // Is there room for the host_port and host_addr?
     if (msgLen >= (len + addrLen + 4))
     {
@@ -329,7 +329,7 @@ UINT16 MgenMsg::Pack(char* buffer,UINT16 bufferLen, bool includeChecksum,UINT32&
     }
     return msgLen;
 }  // end MgenMsg::Pack()
-bool MgenMsg::Unpack(const char* buffer, UINT16 bufferLen,bool forceChecksum)
+bool MgenMsg::Unpack(const char* buffer, UINT16 bufferLen,bool forceChecksum,bool logData)
 {
     // init optional fields
     
@@ -361,7 +361,7 @@ bool MgenMsg::Unpack(const char* buffer, UINT16 bufferLen,bool forceChecksum)
 	{
         DMSG(0, "MgenMsg::Unpack() error: bad protocol version\n");
         msg_error = ERROR_VERSION;
-        exit(0);
+        //exit(0);
         return false;   
 	}
     
@@ -510,12 +510,16 @@ bool MgenMsg::Unpack(const char* buffer, UINT16 bufferLen,bool forceChecksum)
         len += sizeof(INT16);
         if (0 != payload_len) {
             payload_len = payload_len < (bufferLen - len) ? payload_len : (bufferLen - len);
-            payload = new MgenPayload();
-            char *tmpStr = new char[payload_len];
-            memcpy(tmpStr,buffer+len,payload_len);
-            payload->SetRaw(tmpStr,payload_len);
-            delete [] tmpStr;
-            len += payload_len;
+
+	    if (logData)
+	    {
+	      payload = new MgenPayload();
+	      char *tmpStr = new char[payload_len];
+	      memcpy(tmpStr,buffer+len,payload_len);
+	      payload->SetRaw(tmpStr,payload_len);
+	      delete [] tmpStr;
+	      len += payload_len;
+	    }
         }
     }
     else
@@ -1000,6 +1004,7 @@ bool MgenMsg::LogTcpConnectionEvent(FILE*     logFile,
 bool MgenMsg::LogRecvEvent(FILE*                    logFile,
                            bool                     logBinary, 
                            bool                     local_time,
+			   bool                     log_data,
                            char*                    msgBuffer,
                            bool                     flush,
                            const struct timeval&    theTime)
@@ -1155,7 +1160,7 @@ bool MgenMsg::LogRecvEvent(FILE*                    logFile,
         Mgen::Log(logFile, "gps>%s,%f,%f,%ld ", statusString,
                   latitude, longitude, altitude);
         UINT16 payload_len = payload == NULL ? 0 : payload->GetPayloadLen();
-        if (payload_len)
+        if (payload_len && log_data)
         {
             Mgen::Log(logFile, "data>%hu:", payload_len);
             char * payld = payload->GetPayload();    
@@ -1492,6 +1497,7 @@ bool MgenMsg::ConvertBinaryLog(const char* path,Mgen& mgen)
     FILE* log_file = mgen.GetLogFile();
     bool local_time = mgen.GetLocalTime();
     bool log_flush = mgen.GetLogFlush();
+    bool log_data = mgen.GetLogData();
 
     if (NULL == log_file) return false;
     FILE* file = fopen(path, "rb");
@@ -1678,8 +1684,8 @@ bool MgenMsg::ConvertBinaryLog(const char* path,Mgen& mgen)
               msg.SetProtocol(theProtocol);
               msg.SetSrcAddr(srcAddr);
               msg.SetTxTime(eventTime);
-              msg.Unpack(buffer+index, recordLength - index, false);
-              msg.LogRecvEvent(log_file, false, local_time, NULL, log_flush,eventTime);
+              msg.Unpack(buffer+index, recordLength - index, false, log_data);
+              msg.LogRecvEvent(log_file, false, local_time, log_data, NULL, log_flush,eventTime);
               
               break;
           }
@@ -1696,7 +1702,7 @@ bool MgenMsg::ConvertBinaryLog(const char* path,Mgen& mgen)
                   
               }
               msg.SetProtocol(theProtocol);
-              msg.Unpack(buffer+index, recordLength, false);
+              msg.Unpack(buffer+index, recordLength, false, log_data);
               msg.LogSendEvent(log_file,false, local_time, NULL, log_flush,msg.tx_time);
               break;
           }

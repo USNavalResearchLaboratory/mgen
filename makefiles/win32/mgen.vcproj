@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="8.00"
+	Version="9.00"
 	Name="mgen"
 	ProjectGUID="{992F1B16-C3A2-48E1-ADA7-C660A1E3DE84}"
 	RootNamespace="mgen"
+	TargetFrameworkVersion="131072"
 	>
 	<Platforms>
 		<Platform
@@ -49,7 +50,7 @@
 				Name="VCCLCompilerTool"
 				AdditionalOptions="/vmg"
 				Optimization="0"
-				AdditionalIncludeDirectories="..\protolib\common;..\protolib\win32"
+				AdditionalIncludeDirectories="..\..\include;..\..\protolib\include;..\..\protolib\win32"
 				AdditionalUsingDirectories=""
 				PreprocessorDefinitions="_DEBUG;PROTO_DEBUG;HAVE_IPV6;HAVE_ASSERT;WIN32;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_USE_32BIT_TIME_T"
 				BasicRuntimeChecks="3"
@@ -82,6 +83,8 @@
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile=".\Debug/mgen.pdb"
 				SubSystem="2"
+				RandomizedBaseAddress="1"
+				DataExecutionPrevention="0"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -103,9 +106,6 @@
 			/>
 			<Tool
 				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -147,7 +147,7 @@
 				AdditionalOptions="/vmg"
 				Optimization="2"
 				InlineFunctionExpansion="1"
-				AdditionalIncludeDirectories="..\common,..\protolib\common,..\protolib\win32"
+				AdditionalIncludeDirectories="..\..\include;..\..\protolib\include;..\..\protolib\win32"
 				PreprocessorDefinitions="NDEBUG;PROTO_DEBUG;HAVE_IPV6;HAVE_ASSERT;WIN32;_WINDOWS"
 				StringPooling="true"
 				RuntimeLibrary="2"
@@ -178,6 +178,8 @@
 				SuppressStartupBanner="true"
 				ProgramDatabaseFile=".\Release/mgen.pdb"
 				SubSystem="2"
+				RandomizedBaseAddress="1"
+				DataExecutionPrevention="0"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -201,9 +203,6 @@
 				Name="VCAppVerifierTool"
 			/>
 			<Tool
-				Name="VCWebDeploymentTool"
-			/>
-			<Tool
 				Name="VCPostBuildEventTool"
 			/>
 		</Configuration>
@@ -216,151 +215,43 @@
 			Filter="cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 			>
 			<File
-				RelativePath="..\common\mgen.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalIncludeDirectories=""
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalIncludeDirectories=""
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\common\mgenApp.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalIncludeDirectories=""
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalIncludeDirectories=""
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\common\mgenAppSinkTransport.cpp"
+				RelativePath="..\..\src\common\mgen.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\common\mgenEvent.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalIncludeDirectories=""
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalIncludeDirectories=""
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\common\mgenFlow.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalIncludeDirectories=""
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalIncludeDirectories=""
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\common\mgenMsg.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalIncludeDirectories=""
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalIncludeDirectories=""
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\common\mgenPattern.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalIncludeDirectories=""
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalIncludeDirectories=""
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\common\mgenPayload.cpp"
+				RelativePath="..\..\src\common\mgenApp.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\common\mgenSequencer.cpp"
+				RelativePath="..\..\src\common\mgenAppSinkTransport.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\common\mgenTransport.cpp"
+				RelativePath="..\..\src\common\mgenEvent.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\common\mgenFlow.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\common\mgenMsg.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\common\mgenPattern.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\common\mgenPayload.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\common\mgenSequencer.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\common\mgenTransport.cpp"
 				>
 			</File>
 		</Filter>

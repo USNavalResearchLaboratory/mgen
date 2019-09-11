@@ -101,7 +101,7 @@ class MgenMsg
 	MgenMsg& operator=(const MgenMsg&);
     UINT16 Pack(char* buffer, UINT16 bufferLen, bool includeChecksum, UINT32& tx_checksum);  
     
-    bool Unpack(const char* buffer, UINT16 bufferLen,bool forceChecksum);               
+    bool Unpack(const char* buffer, UINT16 bufferLen,bool forceChecksum,bool logData);               
 	static bool WriteChecksum(UINT32&   tx_checksum,
                               UINT8*    buffer,
                               UINT32    buflen);
@@ -152,6 +152,7 @@ class MgenMsg
     bool LogRecvEvent(FILE*                 logFile, 
                       bool                  logBinary,
                       bool                  local_time,
+		      bool                  log_data,
                       char*                 msgBuffer,
                       bool                  flush,
                       const struct timeval& theTime);

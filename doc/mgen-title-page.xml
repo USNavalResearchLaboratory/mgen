@@ -27,10 +27,11 @@
     generated loading patterns over the course of time. These script files can
     be used to emulate the traffic patterns of unicast and/or multicast UDP
     and TCP IP applications. The receive portion of this tool set can be
-    scripted to dynamically join and leave IP multicast groups. MGEN log data
-    can be used to calculate performance statistics on throughput, packet loss
-    rates, communication delay, and more. MGEN currently runs on various
-    Unix-based (including MacOS X) and Win32 platforms.</para>
+    scripted to dynamically join and leave IP multicast groups and listen for
+    TCP traffic. MGEN log data can be used to calculate performance statistics
+    on throughput, packet loss rates, communication delay, and more. MGEN
+    currently runs on various Unix-based (including MacOS X) and Win32
+    platforms.</para>
 
     <para>Mgen can also be used in network simulation environments like ns-2
     and opnet. For ns-2, an MGEN Agent is available that can operate within
@@ -41,14 +42,13 @@
     <para>The current version of MGEN is 5.x although previous versions (MGEN
     4.x and MGEN 3.x) are available. Note that version MGEN 3.x is not
     interoperable with the later versions. At present, only MGEN 3.x has
-    graphical user interface support. Here are some screenshots of the
-    graphical user interfaces available in MGEN 3.x.</para>
+    graphical user interface support. </para>
   </abstract>
 
   <section>
     <title>MGEN Version 5.0</title>
 
-    <para>This is an updated version of the MGEN toolset. This version
+    <para>This is the latest version of the MGEN toolset. This version
     supports TCP messaging, IPv6 networking, and provides support for Win32
     platforms in addition to a broad base of Unix-based platforms. This
     version features a more modular code architecture than previous versions.
@@ -84,7 +84,7 @@
 
     <para>An on-line <ulink
     url="http://pf.itd.nrl.navy.mil/mgen/mgen.html">MGEN User's and Reference
-    Guide</ulink> for MGEN 4.x is also available.</para>
+    Guide</ulink> is available.</para>
   </section>
 
   <section>

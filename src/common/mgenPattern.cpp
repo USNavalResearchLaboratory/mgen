@@ -10,16 +10,15 @@
 #include <ctype.h>   // for toupper()
 
 MgenPattern::MgenPattern()
-: interval_remainder(0.0),burst_pattern(NULL)
+  : interval_remainder(0.0),burst_pattern(NULL),unlimitedRate(false)
 #ifdef _HAVE_PCAP
   ,pcap_device(NULL),
-    file_type(INVALID_FILETYPE),repeat_count(-1)
+  file_type(INVALID_FILETYPE),repeat_count(-1)
 #endif //_HAVE_PCAP
 {
 #ifdef _HAVE_PCAP
   clone_fname[0] = '\0';
 #endif//_HAVE_PCAP
-    
 }
 
 MgenPattern::~MgenPattern()
@@ -222,7 +221,8 @@ bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string,P
                 }
                 else
                 {
-                    interval_ave = 0.0;   
+		  unlimitedRate = true;
+		  interval_ave = 0.0;   
                 }
             }
             else if (aveRate > 0.0)
@@ -231,7 +231,7 @@ bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string,P
             }
             else
             {
-                interval_ave = -1.0;
+	      interval_ave = -1.0;
             }
 	    if (protocol == TCP)
 		{
@@ -506,11 +506,11 @@ bool MgenPattern::OpenPcapDevice()
   pcap_device = pcap_open_offline(clone_fname,errbuf);
   if (NULL == pcap_device)
     {
-      DMSG(0,"MgenPattern::GetPktInterval() pcap_open_offline error: %s\n",errbuf);
+      DMSG(0,"MgenPattern::OpenPcapDevice() pcap_open_offline error: %s\n",errbuf);
       return false; 
     }
   if (0 != strlen(errbuf))
-    DMSG(0,"MgenPattern::GetPktInterval() pcap_open_live() warning: %s\n",errbuf);
+    DMSG(0,"MgenPattern::OpenPcapDevice() pcap_open_live() warning: %s\n",errbuf);
  
   return true;
 
@@ -565,7 +565,7 @@ double MgenPattern::GetPktInterval()
          double pktInterval = UniformRand(jitter_min, jitter_max);  
          double result = pktInterval + interval_remainder;
          interval_remainder = (interval_ave - pktInterval); 
-         return result;  ///xxx
+         return result;  
     }  
     case BURST:
     {
@@ -634,7 +634,7 @@ double MgenPattern::GetPktInterval()
     case CLONE:
       {
           // add switch on file type  ljt
-          static double prevTime, interval;
+          static double prevTime, interval = 0;
           static bool firstPacket;
           struct pcap_pkthdr header;
           const u_char *packet;

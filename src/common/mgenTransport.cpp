@@ -213,7 +213,7 @@ bool MgenTransport::SendPendingMessage()
     while (IsOpen() && !IsTransmitting() && pending_current)
     {
           if ((pending_current->GetPending() > 0) || 
-              pending_current->GetPktInterval() == 0) // unlimited rate
+              pending_current->UnlimitedRate()) 
              if (!pending_current->SendMessage()) return false;
              
         // Restart flow timer if we're below the queue limit
@@ -229,7 +229,7 @@ bool MgenTransport::SendPendingMessage()
                                                   
         {
             // Don't restart the timer if our rate is unlimited...
-            if (!pending_current->GetPktInterval() == 0)
+	  if (!pending_current->UnlimitedRate())
 
                 pending_current->RestartTimer();    
         }
@@ -237,7 +237,7 @@ bool MgenTransport::SendPendingMessage()
         // If we've sent all pending messages, 
         // remove flow from pending list.
         if (!pending_current->GetPending() &&
-            !pending_current->GetPktInterval() == 0)
+            !pending_current->UnlimitedRate())
         {
             RemoveFromPendingList();  //ljt remove this function
                                             // or replace remove flow
@@ -318,6 +318,7 @@ void MgenTransport::LogEvent(LogEventType eventType,MgenMsg* theMsg,const struct
           theMsg->LogRecvEvent(mgen.GetLogFile(),
                                mgen.GetLogBinary(), 
                                mgen.GetLocalTime(), 
+			       mgen.GetLogData(),
                                buffer, 
                                mgen.GetLogFlush(),
                                theTime);
@@ -795,8 +796,7 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
 
           while (theSocket.RecvFrom(buffer, len, srcAddr))
           {
-              if (len == 0)
-                break;
+              if (len == 0) break;
 
               MgenMsg theMsg;
               // the socket recvFrom gives us our srcAddr
@@ -808,7 +808,7 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                   struct timeval currentTime;
                   ProtoSystemTime(currentTime);
 
-                  if (theMsg.Unpack(buffer, len, mgen.GetChecksumForce()))
+                  if (theMsg.Unpack(buffer, len, mgen.GetChecksumForce(), mgen.GetLogData()))
                   {
                       if (mgen.GetChecksumForce() || theMsg.FlagIsSet(MgenMsg::CHECKSUM))
                       {
@@ -972,12 +972,14 @@ void MgenTcpTransport::OnEvent(ProtoSocket& theSocket,ProtoSocket::Event theEven
 
               unsigned int bufferIndex = ((TX_BUFFER_SIZE + rx_msg_index) % TX_BUFFER_SIZE);
               unsigned int numBytes = GetRxNumBytes(bufferIndex);
-              char buffer[MAX_SIZE] = "";
-              
+	      char buffer[TX_BUFFER_SIZE] = "";
+
               if (IsConnected() && numBytes && theSocket.Recv(buffer+bufferIndex,numBytes))
               {
-                  if (numBytes)
+                  if (0 != numBytes)
+                  {
                     OnRecvMsg(numBytes,bufferIndex,buffer);
+                  }
                   else
                   {
 #ifdef WIN32
@@ -1098,7 +1100,7 @@ bool MgenTcpTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,
 
     while (1)
     {
-        unsigned int numBytes = tx_buffer_pending;    
+        unsigned int numBytes = tx_buffer_pending;   
         if (socket.Send(tx_msg_buffer+tx_buffer_index,numBytes))
         {
             // If we had an error, let socket notification tell 
@@ -1140,7 +1142,7 @@ bool MgenTcpTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,
                 // else we've sent everything, clear state and move on
                 UINT32 txChecksum = 0;
                 char txBuffer[MAX_SIZE];                  
-                tx_msg.Pack(txBuffer,TX_BUFFER_SIZE,mgen.GetChecksumEnable(),txChecksum);
+		tx_msg.Pack(txBuffer,MAX_SIZE,mgen.GetChecksumEnable(),txChecksum);
                 // Use the time of the first message fragment
                 tx_msg.SetTxTime(tx_time);
                 LogEvent(SEND_EVENT,&tx_msg,tx_msg.tx_time,txBuffer);
@@ -1332,6 +1334,9 @@ bool MgenTcpTransport::Open(ProtoAddress::Type addrType, bool bindOnOpen)
                 DMSG(0,"MgenTcpTransport::Open() Error: Failed to connect tcp socket.\n");
                 return false;
             }
+#ifdef WIN32
+			OnEvent(socket,ProtoSocket::CONNECT);
+#endif
             return true;
         }
         return true;
@@ -1412,8 +1417,9 @@ unsigned int MgenTcpTransport::GetRxNumBytes(unsigned int bufferIndex)
         numBytes = rx_msg.GetMsgLen() - rx_msg_index;
         
         // Trim attempted read size to our buffer limit
-        if (numBytes > (MAX_SIZE - bufferIndex))
-          numBytes = MAX_SIZE - bufferIndex;
+	if (numBytes > (TX_BUFFER_SIZE - bufferIndex))
+          numBytes = TX_BUFFER_SIZE - bufferIndex;
+
     }
     return numBytes;
 } // MgenTcpTransport::GetRxNumBytes()
@@ -1495,8 +1501,8 @@ bool MgenTcpTransport::GetNextTxBuffer(unsigned int numBytes)
         {
             // Entire message has been sent
             UINT32 txChecksum = 0;
-            char txBuffer[MAX_SIZE];                  
-            tx_msg.Pack(txBuffer,TX_BUFFER_SIZE,mgen.GetChecksumEnable(),txChecksum);
+	    char txBuffer[MAX_SIZE];                  
+            tx_msg.Pack(txBuffer,MAX_SIZE,mgen.GetChecksumEnable(),txChecksum);
             tx_msg.SetTxTime(tx_time);
             LogEvent(SEND_EVENT,&tx_msg,tx_time,txBuffer); 
             ResetTxMsgState();    
@@ -1710,9 +1716,9 @@ void MgenTcpTransport::CopyMsgBuffer(unsigned int numBytes,unsigned int bufferIn
         if (mgen.GetLogFile()) 
         {
             if (rx_msg_index <= TX_BUFFER_SIZE) 
-              rx_msg.Unpack(rx_msg_buffer,rx_msg_index,mgen.GetChecksumForce());
+              rx_msg.Unpack(rx_msg_buffer,rx_msg_index,mgen.GetChecksumForce(),mgen.GetLogData());
             else
-              rx_msg.Unpack(rx_msg_buffer,TX_BUFFER_SIZE,mgen.GetChecksumForce());
+              rx_msg.Unpack(rx_msg_buffer,TX_BUFFER_SIZE,mgen.GetChecksumForce(),mgen.GetLogData());
         }
     }
     
@@ -1781,7 +1787,7 @@ void MgenSinkTransport::HandleMgenMessage(const char* buffer, unsigned int len,c
     {
         struct timeval currentTime;
         ProtoSystemTime(currentTime);
-        if (theMsg.Unpack(buffer,len,mgen.GetChecksumForce()))
+        if (theMsg.Unpack(buffer,len,mgen.GetChecksumForce(),mgen.GetLogData()))
         {
             if (mgen.GetChecksumForce() || theMsg.FlagIsSet(MgenMsg::CHECKSUM))
             {

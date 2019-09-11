@@ -51,17 +51,17 @@ $ns_ attach-agent $n2 $mgen2
 # Startup "mgen1", sending a flow to mgen2 port 5002 (no logging for this agent)
 # (Note the square brackets for the MGEN pattern must be escaped"
 #$ns_ at 0.0 "$mgen1 startup event {on 1 udp dst [$n2 node-addr]/5002 periodic \[10.0 1024\]} nolog"
-#$ns_ at 0.0 "$mgen1 startup event {on 1 udp dst $group/5002 periodic \[10.0 1024\]} nolog"
+$ns_ at 0.0 "$mgen1 startup event {on 1 udp dst $group/5002 periodic \[10.0 1024\]} nolog"
 
 # Startup "mgen2", listening on port 5002 and log to "mgenLog.drc"
-#$ns_ at 0.0 "$mgen2 startup event {listen udp 5002} event {join $group} output mgenLog.drc"
+$ns_ at 0.0 "$mgen2 startup event {listen udp 5002} event {join $group} output mgenLog.drc"
 #$ns_ at 0.0 "$mgen2 startup event {listen udp 5002} output mgenLog.drc"
 
 # Now, an example of MGEN/TCP
 # TCP server ...
-$ns_ at 0.0 "$mgen2 startup event {listen tcp 5002} output mgenLog.drc"
+#$ns_ at 0.0 "$mgen2 startup event {listen tcp 5002} output mgenLog.drc"
 # TCP client (sending data to server)
-$ns_ at 0.1 "$mgen1 startup event {on 1 tcp dst [$n2 node-addr]/5002 periodic \[10.0 1024\]} nolog"
+#$ns_ at 0.1 "$mgen1 startup event {on 1 tcp dst [$n2 node-addr]/5002 periodic \[10.0 1024\]} nolog"
 
 puts "Starting simulation ..." 
 
