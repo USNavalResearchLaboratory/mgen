@@ -5,6 +5,11 @@
 // Assumes UDP packets in tcpdump trace file (pcap file) are
 // MGEN packets and parses to build an MGEN log file
 
+// Notes on options:
+//
+// 1) The "trace" option prepends MGEN log lines with epoch time and MAC src/addr information
+
+
 
 #include <stdio.h>
 #include <pcap.h>
@@ -15,7 +20,7 @@
 
 void Usage()
 {
-    fprintf(stderr, "pcap2mgen [trace][pcapInputFile [mgenOutputFile]]\n");
+    fprintf(stderr, "pcap2mgen [trace][epoch][pcapInputFile [mgenOutputFile]]\n");
 }
 
 int main(int argc, char* argv[])
@@ -37,6 +42,8 @@ int main(int argc, char* argv[])
         }
     }
     
+  fprintf(stderr,"Pcap Version: %s\n",pcap_lib_version());
+
     
     // Use stdin/stdout by default
     FILE* infile = stdin;
@@ -145,7 +152,7 @@ int main(int argc, char* argv[])
         if (!udpPkt.InitFromPacket(ipPkt)) continue;  // not a UDP packet
         
         MgenMsg msg;
-        if (!msg.Unpack((char*)udpPkt.GetPayload(), udpPkt.GetPayloadLength(), false))
+        if (!msg.Unpack((char*)udpPkt.GetPayload(), udpPkt.GetPayloadLength(), false, false))
         {
             fprintf(stderr, "pcap2mgen warning: UDP packet not an MGEN packet?\n");
             continue;
@@ -156,6 +163,7 @@ int main(int argc, char* argv[])
         
         if (trace)
         {
+            fprintf(outfile, "%lu.%lu ", hdr.ts.tv_sec, hdr.ts.tv_usec);
             ProtoAddress ethAddr;
             ethPkt.GetSrcAddr(ethAddr);
             fprintf(outfile, "esrc>%s ", ethAddr.GetHostString());
@@ -163,7 +171,10 @@ int main(int argc, char* argv[])
             fprintf(outfile, "edst>%s ", ethAddr.GetHostString());
         }
         
-        msg.LogRecvEvent(outfile, false, false, (char*)udpPkt.AccessPayload(), false, hdr.ts);        
+        msg.LogRecvEvent(outfile, false, false, false, true, (char*)udpPkt.AccessPayload(), false, hdr.ts);        
     }  // end while (pcap_next())
     
+    if (stdin != infile) fclose(infile);
+    if (stdout != outfile) fclose(outfile);
+    return 0;
 }  // end main()

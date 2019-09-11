@@ -50,7 +50,7 @@ class MgenFlow
     
 #ifdef HAVE_GPS
     void SetPayloadHandle(GPSHandle payloadHandle) 
-    {payload_handle = payloadHandle;}
+        {payload_handle = payloadHandle;}
 #endif // HAVE_GPS
     
 	void SetQueueLimit(int queueLimit) {queue_limit = queueLimit;}
@@ -99,7 +99,6 @@ class MgenFlow
 	bool                    new_transport; 
 	int                     queue_limit;
 	int                     message_limit;
-	int                     messages_sent;
     
     UINT32                  flow_id;                       
     Protocol                protocol;                      

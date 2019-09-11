@@ -35,7 +35,6 @@ int Mgen::LogToDebug(FILE* /*filePtr*/, const char* format, ...)
     char charBuffer[2048];
     charBuffer[2048] = '\0';
     int count = _vsnprintf(charBuffer, 2047, format, args);
-    TRACE("%s", charBuffer);
     va_end(args);
     return count;
 }  // end Mgen::LogToDebug()
@@ -61,12 +60,13 @@ Mgen::Mgen(ProtoTimerMgr&         timerMgr,
   default_tx_buffer_lock(false), default_rx_buffer_lock(false), 
   default_interface_lock(false), default_queue_limit_lock(false),
   sink_non_blocking(true),
-  log_data(true),
+  log_data(true), log_gps_data(true),
   checksum_enable(false), 
   addr_type(ProtoAddress::IPv4), 
   get_position(NULL), get_position_data(NULL),
   log_file(NULL), log_binary(false), local_time(false), log_flush(false), 
-  log_file_lock(false), log_tx(false), log_open(false), log_empty(true)
+  log_file_lock(false), log_tx(false), log_open(false), log_empty(true),
+  reuse(true)
 
 {
     start_timer.SetListener(this, &Mgen::OnStartTimeout);
@@ -79,6 +79,7 @@ Mgen::Mgen(ProtoTimerMgr&         timerMgr,
 
     default_interface[0] = '\0';
     sink_path[0] = '\0';
+    source_path[0] = '\0';
 
 }
 
@@ -198,7 +199,7 @@ bool Mgen::Start()
     else  // Schedule absolute start time
     {
         // Make sure there are pending events
-        if(!drec_event_list.IsEmpty() || !flow_list.IsEmpty()) 
+        //if(!drec_event_list.IsEmpty() || !flow_list.IsEmpty()) 
         {
             // Calculate start time delta and schedule start_timer 
             // (can delay start up to 12 hours into future)
@@ -208,14 +209,14 @@ bool Mgen::Start()
             UINT32 minutes = (currentTime.tv_sec - (3600*hours)) / 60;
             UINT32 seconds = currentTime.tv_sec - (3600*hours) - (60*minutes);
             hours = hours % 24;
-            double nowSec = hours*3600 + minutes*60 + seconds;   
+            double nowSec = hours*3600 + minutes*60 + seconds + 1.0e-06*((double)currentTime.tv_usec);   
 #else
             struct tm now;
             if (start_gmt)
                 memcpy(&now, gmtime((time_t*)&currentTime.tv_sec), sizeof(struct tm));
             else
                 memcpy(&now, localtime((time_t*)&currentTime.tv_sec), sizeof(struct tm));
-            double nowSec = now.tm_hour*3600 + now.tm_min*60 + now.tm_sec;
+            double nowSec = now.tm_hour*3600 + now.tm_min*60 + now.tm_sec + 1.0e-06*((double)currentTime.tv_usec);
 #endif // if/else _WIN32_WCE
             double startSec = start_hour*3600 + start_min*60 + start_sec;
             double delta = startSec - nowSec;
@@ -225,6 +226,8 @@ bool Mgen::Start()
                 DMSG(0, "Mgen::Start() Error: Specified start time has already elapsed\n");
                 return false;   
             }
+            if (start_timer.IsActive()) start_timer.Deactivate();
+
             start_timer.SetInterval(delta);
             timer_mgr.ActivateTimer(start_timer); 
         }
@@ -235,6 +238,7 @@ bool Mgen::Start()
 }  // end Mgen::Start()
 
 MgenTransport* Mgen::JoinGroup(const ProtoAddress&   groupAddress, 
+                               const ProtoAddress&   sourceAddress,
                                const char*           interfaceName,
                                UINT16        thePort)
 {
@@ -258,11 +262,11 @@ MgenTransport* Mgen::JoinGroup(const ProtoAddress&   groupAddress,
 #endif // SIMULATE
     
     // Sockets with space to join are at top of list
-    // (TBD) find socket of approprate ProtoAddress::Type ???
+    // find socket of approprate ProtoAddress::Type 
 
     bool newTransport = false;
-    MgenTransport* mgenTransport = FindTransportByInterface(interfaceName, thePort);
-
+    MgenTransport* mgenTransport = FindTransportByInterface(interfaceName, thePort,groupAddress.GetType());
+    
     if (!mgenTransport || 
         ((IP_MAX_MEMBERSHIPS > 0) &&
          (mgenTransport->GroupCount() >= (unsigned int)IP_MAX_MEMBERSHIPS)))
@@ -273,11 +277,11 @@ MgenTransport* Mgen::JoinGroup(const ProtoAddress&   groupAddress,
         {
             DMSG(0, "Mgen::JoinGroup() memory allocation error: %s\n",
                  GetErrorString());
-            return false;
+            return NULL;
         }
         newTransport = true;
     } 
-    if (mgenTransport->JoinGroup(groupAddress, interfaceName))
+    if (mgenTransport->JoinGroup(groupAddress, sourceAddress, interfaceName))
     {
         if ((IP_MAX_MEMBERSHIPS > 0) &&
             (mgenTransport->GroupCount() >= (unsigned int)IP_MAX_MEMBERSHIPS))
@@ -300,9 +304,10 @@ MgenTransport* Mgen::JoinGroup(const ProtoAddress&   groupAddress,
 
 bool Mgen::LeaveGroup(MgenTransport* mgenTransport,
                       const ProtoAddress& groupAddress, 
+		      const ProtoAddress& sourceAddress,
                       const char*           interfaceName)
 {
-    if (mgenTransport->LeaveGroup(groupAddress, interfaceName))
+  if (mgenTransport->LeaveGroup(groupAddress, sourceAddress, interfaceName))
     {
         transport_list.Remove(mgenTransport);
         transport_list.Prepend(mgenTransport);  
@@ -332,8 +337,8 @@ MgenTransport* Mgen::FindMgenTransport(Protocol theProtocol,
     while (next)
     {
         // Same protocol and srcPort?
-        if ((next->GetProtocol() == theProtocol) &&
-            (next->srcPort == srcPort) &&
+      if ((next->GetProtocol() == theProtocol) &&
+          (srcPort == 0 || next->srcPort == srcPort) &&
 
             // ignore events && unconnected udp sockets
             // have invalid addrs and should match
@@ -364,15 +369,23 @@ MgenTransport* Mgen::FindMgenTransport(Protocol theProtocol,
 
 /**
  * This search finds an mgenTransport suitable for joining a multicast group
- * We want a matching multicast interface name, a matching port number
+ * We want a matching multicast interface name & type, and a matching port number
  * if "port" is non-zero
  */
 MgenTransport* Mgen::FindTransportByInterface(const char*           interfaceName, 
-                                                           UINT16        thePort)
+                                              UINT16        thePort,
+                                              ProtoAddress::Type addrType)
 {
+
     MgenTransport* nextTransport = transport_list.head;
     while (nextTransport)
     {
+        if (nextTransport->GetAddressType() != addrType)
+        {
+            nextTransport = nextTransport->next;   
+            continue;
+        }
+      
         if (nextTransport->GetProtocol() == UDP)
         {
             MgenUdpTransport* next = static_cast<MgenUdpTransport*>(nextTransport);
@@ -382,7 +395,7 @@ MgenTransport* Mgen::FindTransportByInterface(const char*           interfaceNam
                 if (thePort == next->srcPort)
                 {
                     // OK, protocol and port matches, so ...
-                    if (interfaceName)
+                    if (NULL != interfaceName)
                     {
                         if ((NULL == next->GetMulticastInterface()) && // unspecified interface &&
                             (0 == next->GroupCount()))           // no joins yet, so we'll 
@@ -394,8 +407,9 @@ MgenTransport* Mgen::FindTransportByInterface(const char*           interfaceNam
                         {
                             if ((next->GetMulticastInterface() && interfaceName) &&
                                 !strncmp(next->GetMulticastInterface(), interfaceName, 16))
-                              return nextTransport;  // it's a "match"
-                      
+                            {
+                                return nextTransport;  // it's a "match"
+                            }
                             else
                             {
                                 DMSG(0, "Mgen::FindMgenTransportByInterface() matching port but interface mismatch!\n");
@@ -468,7 +482,7 @@ MgenTransport* Mgen::GetMgenTransport(Protocol theProtocol,
 
     if (theTransport)
       return theTransport;
-
+    
     switch (theProtocol)
     {
     case UDP:
@@ -493,8 +507,9 @@ MgenTransport* Mgen::GetMgenTransport(Protocol theProtocol,
           break;
       }
     case SINK:
+    case SOURCE:
       {          
-          MgenSinkTransport* theTransport = MgenSinkTransport::Create(*this);
+          MgenSinkTransport* theTransport = MgenSinkTransport::Create(*this, theProtocol);
 
           if (!theTransport)
           {
@@ -503,7 +518,10 @@ MgenTransport* Mgen::GetMgenTransport(Protocol theProtocol,
               return NULL; 
           }
           // ljt set these in constructor's too?
-          theTransport->SetPath(sink_path);
+          if (SINK == theProtocol)
+            theTransport->SetPath(sink_path);
+          else
+            theTransport->SetPath(source_path);
           theTransport->SetSinkBlocking(sink_non_blocking);
           transport_list.Prepend(theTransport);          
           return theTransport;
@@ -653,36 +671,95 @@ void Mgen::ProcessDrecEvent(const DrecEvent& event)
     switch (event.GetType())
     {
     case DrecEvent::JOIN:
+      {
+      const UINT16* port = event.GetPortList();
+      UINT16 portCount = event.GetPortCount();
+
+      // if no port given find first available socket to join
+      // this is the legacy behavior (the preferred command
+      // is to set the port on the join statement)
+      if (portCount == 0)
+      {
+          if (!drec_group_list.JoinGroup(*this,
+                                         event.GetGroupAddress(),
+                                         event.GetSourceAddress(),
+                                         event.GetInterface(),
+                                         event.GetGroupPort(),
+                                         offset_pending))
+          {
+              DMSG(0, "Mgen::ProcessDrecEvent(JOIN) Warning: error joining group\n");
+          }	  
+          else
+          {
+              MgenMsg theMsg; 
+              theMsg.LogDrecEvent(JOIN_EVENT, &event, event.GetGroupPort(),*this);
+          } 
+      }
+      else 
+      {
+          for (UINT16 i = 0; i < portCount; i++)
+          {
+              if (!drec_group_list.JoinGroup(*this,
+                                             event.GetGroupAddress(),
+                                             event.GetSourceAddress(),
+                                             event.GetInterface(),
+                                             port[i],
+                                             offset_pending))
+              {
+                  DMSG(0,"Mgen::ProcessDrecEvent(JOIN) Warning: error joining group\n");
+              }
+              else
+              {
+                  MgenMsg theMsg;
+                  theMsg.LogDrecEvent(JOIN_EVENT,&event, port[i], *this);
+              }
+          }
+      }
+      }
       
-      if (!drec_group_list.JoinGroup(*this,
-                                     event.GetGroupAddress(),
-                                     event.GetInterface(),
-                                     event.GetGroupPort(),
-                                     offset_pending))
-      {
-          DMSG(0, "Mgen::ProcessDrecEvent(JOIN) Warning: error joining group\n");
-      }
-      else
-      {
-          MgenMsg theMsg; 
-          theMsg.LogDrecEvent(JOIN_EVENT, &event, event.GetGroupPort(),*this);
-      }
       break;
       
     case DrecEvent::LEAVE:
-      if (!drec_group_list.LeaveGroup(*this,
-                                      event.GetGroupAddress(),
-                                      event.GetInterface(),
-                                      event.GetGroupPort()))
-      {
-          DMSG(0, "Mgen::ProcessDrecEvent(LEAVE) Warning: error leaving group\n");
-      }
-      else
-      {
-          MgenMsg theMsg;
-          theMsg.LogDrecEvent(LEAVE_EVENT, &event, event.GetGroupPort(),*this);
-      }
-      break;
+    {
+        const UINT16* port = event.GetPortList();
+        UINT16 portCount = event.GetPortCount();
+
+        if (portCount == 0)
+        {
+            if (!drec_group_list.LeaveGroup(*this,
+                                            event.GetGroupAddress(),
+                                            event.GetSourceAddress(),
+                                            event.GetInterface(),
+                                            event.GetGroupPort()))
+            {
+                DMSG(0, "Mgen::ProcessDrecEvent(LEAVE) Warning: error leaving group\n");
+            }
+            else
+            {
+                MgenMsg theMsg;
+                theMsg.LogDrecEvent(LEAVE_EVENT, &event, event.GetGroupPort(),*this);
+            }
+        } else
+        {
+            for (UINT16 i = 0; i < portCount; i++)
+            {
+                if (!drec_group_list.LeaveGroup(*this,
+                                                event.GetGroupAddress(),
+                                                event.GetSourceAddress(),
+                                                event.GetInterface(),
+                                                port[i]))
+                    {
+                        DMSG(0,"Mgen::ProcessDrecEvent(LEAVE) warning: error leaving group\n");
+                    }
+                    else
+                    {
+                        MgenMsg theMsg;
+                        theMsg.LogDrecEvent(LEAVE_EVENT, &event, port[i] ,*this);
+                    }
+            }
+        }
+    }
+        break;
       
     case DrecEvent::LISTEN:
       {
@@ -777,7 +854,7 @@ void Mgen::ProcessDrecEvent(const DrecEvent& event)
                   {
                       DMSG(0,"Mgen::ProcessDrecEvent(IGNORE) Error: no socket on port %hu\n",port[i]);
                   }
-		          next = mgenTransport;
+                  next = mgenTransport;
               }
           }
           break;
@@ -1061,11 +1138,10 @@ bool Mgen::ParseEvent(const char* lineBuffer, unsigned int lineCount)
               // Update flow specific queue limit if specified
               if (theEvent->GetQueueLimit())
                 theFlow->SetQueueLimit(theEvent->GetQueueLimit());
-              
-              
-              double currentTime = started ? GetCurrentOffset() : 0.0;
+              bool reallyStarted = (started && !start_timer.IsActive());
+              double currentTime =  reallyStarted ? GetCurrentOffset() : 0.0;
               if (currentTime < 0.0) currentTime = 0.0;
-              if (!theFlow->InsertEvent(theEvent, started, currentTime))
+              if (!theFlow->InsertEvent(theEvent, reallyStarted, currentTime))
               {
                   DMSG(0, "Mgen::ParseEvent() Error: invalid mgen script line: %lu\n", lineCount);
                   delete theEvent;
@@ -1125,7 +1201,7 @@ bool Mgen::ParseEvent(const char* lineBuffer, unsigned int lineCount)
 void Mgen::InsertDrecEvent(DrecEvent* theEvent)
 {
     double eventTime = theEvent->GetTime();
-    if (started)
+    if (started && !start_timer.IsActive())
     {
         double currentTime = GetCurrentOffset();
         if (currentTime < 0.0) currentTime = 0.0;
@@ -1194,7 +1270,7 @@ const StringMapper Mgen::COMMAND_LIST[] =
     {"-TXCHECKSUM", TXCHECKSUM},
     {"-RXCHECKSUM", RXCHECKSUM},
     {"+QUEUE",      QUEUE},
-    {"+LOGDATA",    LOGDATA},
+    {"+REUSE",      REUSE},
     {"+OFF",        INVALID_COMMAND},  // to deconflict "offset" from "off" event
     {NULL,          INVALID_COMMAND}   
 };
@@ -1275,6 +1351,7 @@ Mgen::CmdType Mgen::GetCmdType(const char* cmd)
 
 bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
 { 
+
     switch (cmd)
     {
     case START:
@@ -1307,7 +1384,6 @@ bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
                     start_gmt = true;
                   else
                     start_gmt = false;
-
                   if (start_hour == 0 && start_min == 0 && start_sec == 0)
                     start_sec = -1.0;
               }
@@ -1326,6 +1402,7 @@ bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
                   }
               }
               start_time_lock = override;  // record START command precedence
+              if (started) Start();  // Adamson reschedule any prior START directive
           }  // end if (override || !start_time_lock)
           break;
       }  // end case START
@@ -1541,6 +1618,36 @@ bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
     case TXLOG:
       log_tx = true;
       break;
+
+    case REUSE:
+      if (!arg)
+      {
+          DMSG(0, "Mgen::OnCommand() Error: missing argument to REUSE\n");
+          return false;   
+      }
+      {
+          bool reuseTemp;
+          // convert to upper case for case-insensitivity
+          char temp[4];
+          unsigned int len = strlen(arg);
+          len = len < 4 ? len : 4;
+          unsigned int i;
+          for (i = 0 ; i < len; i++)
+            temp[i] = toupper(arg[i]);
+          temp[i] = '\0';
+          if(!strncmp("ON", temp, len))
+              reuseTemp = true;
+          else if(!strncmp("OFF", temp, len))
+              reuseTemp = false;
+          else
+          {
+              DMSG(0, "Mgen::OnCommand() Error: wrong argument to REUSE: %s\n", arg);
+              return false;   
+          }
+          SetDefaultReuse(reuseTemp);
+          break;
+      }
+      break;
       
     case LOCALTIME:
 	  local_time = true;
@@ -1581,35 +1688,7 @@ bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
       }
       SetDefaultQueueLimit(tmpQueueLimit,override);
       break;            
-
-    case LOGDATA:
-
-      if (!arg)
-	{
-	  DMSG(0,"Mgen::OnCommand() Error: missing argument to LOGDATA\n");
-	  return false;
-	}
-      else
-      {
-	char temp[4];
-	unsigned int len = strlen(arg);
-	len = len < 4 ? len : 4;
-	unsigned int i;
-	for (i = 0; i < len; i++)
-	  temp[i] = toupper(arg[i]);
-	temp[i] = '\0';
-	if (!strncmp("ON", temp, len))
-	  SetLogData(true);
-	else if (!strncmp("OFF", temp, len))
-	  SetLogData(false);
-	else
-	  {
-	    DMSG(0,"Mgen::OnCommand() Error: wrong argument to logData: %s\n",arg);
-	    return false;
-	  } 
-      }
-      break;
-      
+ 
     case INVALID_COMMAND:
       DMSG(0, "Mgen::OnCommand() Error: invalid command\n");
       return false;   
@@ -1641,6 +1720,7 @@ void DrecGroupList::Destroy(Mgen& mgen)
         if (NULL != current->flow_transport)
           mgen.LeaveGroup(current->flow_transport, 
                                     current->group_addr, 
+			  current->source_addr,
                                     current->GetInterface());
         
         delete current;
@@ -1650,11 +1730,12 @@ void DrecGroupList::Destroy(Mgen& mgen)
 
 bool DrecGroupList::JoinGroup(Mgen&                 mgen,
                               const ProtoAddress&   groupAddress, 
+                              const ProtoAddress&   sourceAddress,
                               const char*           interfaceName,
                               UINT16        thePort,
                               bool                  deferred)
 {
-    DrecMgenTransport* transport = FindMgenTransportByGroup(groupAddress, interfaceName, thePort);
+  DrecMgenTransport* transport = FindMgenTransportByGroup(groupAddress, sourceAddress, interfaceName, thePort);
     if (transport && transport->IsActive())
     {
         DMSG(0, "DrecGroupList::JoinGroup() Error: group already joined\n");
@@ -1664,7 +1745,7 @@ bool DrecGroupList::JoinGroup(Mgen&                 mgen,
     {
         if (!transport)
         {
-            if (!(transport = new DrecMgenTransport(groupAddress, interfaceName, thePort)))
+	  if (!(transport = new DrecMgenTransport(groupAddress, sourceAddress, interfaceName, thePort)))
             { 
                 DMSG(0, "DrecGroupList::JoinGroup() Error: DrecGroupList::DrecMgenTransport memory allocation error: %s\n",
                      GetErrorString());
@@ -1681,17 +1762,19 @@ bool DrecGroupList::JoinGroup(Mgen&                 mgen,
 
 bool DrecGroupList::LeaveGroup(Mgen&                 mgen,
                                const ProtoAddress&   groupAddress, 
+			       const ProtoAddress&   sourceAddress,
                                const char*           interfaceName,
                                UINT16        thePort)
 {
-    DrecMgenTransport* transport = FindMgenTransportByGroup(groupAddress, interfaceName, thePort);
+  DrecMgenTransport* transport = FindMgenTransportByGroup(groupAddress, sourceAddress, interfaceName, thePort);
     if (transport)
     {
         if (transport->IsActive())
         {
             if (!mgen.LeaveGroup(transport->flow_transport, 
-                                           groupAddress,
-                                           interfaceName))
+				 groupAddress,
+				 sourceAddress,
+				 interfaceName))
             {
                 DMSG(0, "DrecGroupList::LeaveGroup() Error: group leave error\n");
                 return false;
@@ -1723,9 +1806,11 @@ bool DrecGroupList::JoinDeferredGroups(Mgen& mgen)
 }  // end DrecGroupList::JoinDeferredGroups()
 
 
-DrecGroupList::DrecMgenTransport* DrecGroupList::FindMgenTransportByGroup(const ProtoAddress& groupAddr,
-                                                    const char*           interfaceName,
-                                                    UINT16        thePort)
+DrecGroupList::DrecMgenTransport* DrecGroupList::FindMgenTransportByGroup(
+    const ProtoAddress& groupAddr,
+    const ProtoAddress& sourceAddr,
+    const char*           interfaceName,
+    UINT16        thePort)
 {
     DrecMgenTransport* next = head;
     while (next)
@@ -1737,8 +1822,11 @@ DrecGroupList::DrecMgenTransport* DrecGroupList::FindMgenTransportByGroup(const 
                  !strcmp(nextInterface, interfaceName));
         bool groupIsEqual = next->group_addr.IsValid() ?
             next->group_addr.HostIsEqual(groupAddr) : true;
-        bool portIsEqual = thePort == next->GetPort();
-        if (interfaceIsEqual && groupIsEqual && portIsEqual) 
+
+        bool sourceIsEqual = !next->source_addr.IsValid() ?
+                             !sourceAddr.IsValid() :
+                             sourceAddr.IsValid() && next->source_addr.HostIsEqual(sourceAddr);        bool portIsEqual = thePort == next->GetPort();
+        if (interfaceIsEqual && groupIsEqual && sourceIsEqual && portIsEqual) 
             return next;
         next = next->next;
     }
@@ -1771,9 +1859,10 @@ void DrecGroupList::Remove(DrecMgenTransport* transport)
 // DrecGroupList::DrecMgenTransport implementation
 
 DrecGroupList::DrecMgenTransport::DrecMgenTransport(const ProtoAddress&  groupAddr, 
+						    const ProtoAddress& sourceAddr,
                           const char*            interfaceName,
                           UINT16         thePort)
- : flow_transport(NULL), group_addr(groupAddr), port(thePort),
+  : flow_transport(NULL), group_addr(groupAddr), source_addr(sourceAddr), port(thePort),
    prev(NULL), next(NULL)
 {
     if (interfaceName)
@@ -1790,7 +1879,7 @@ DrecGroupList::DrecMgenTransport::~DrecMgenTransport()
 bool DrecGroupList::DrecMgenTransport::Activate(Mgen& mgen)
 {
     const char* iface = GetInterface();
-    flow_transport = mgen.JoinGroup(group_addr,iface, port);
+    flow_transport = mgen.JoinGroup(group_addr, source_addr, iface, port);
     return IsActive();
 }
 

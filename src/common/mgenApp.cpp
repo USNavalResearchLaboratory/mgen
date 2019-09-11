@@ -40,7 +40,7 @@ void MgenApp::Usage()
 {
     fprintf(stderr, "mgen [ipv4][ipv6][input <scriptFile>][save <saveFile>]\n"
                     "     [output <logFile>][log <logFile>][hostAddr {on|off}\n"
-	            "     [logData {on|off}\n"
+                    "     [logData {on|off}][logGpsData {on|off}]\n"
                     "     [binary][txlog][nolog][flush]\n"
                     "     [event \"<mgen event>\"][port <recvPortList>]\n"
                     "     [instance <name>][command <cmdInput>]\n"
@@ -52,8 +52,8 @@ void MgenApp::Usage()
                     "     [precise {on|off}][ifinfo <ifName>]\n"
                     "     [txcheck][rxcheck][check]\n"
                     "     [queue <queueSize>][broadcast {on|off}]\n"
-	                "     [convert <binaryLog>][debug <debugLevel>]\n"
-                    "     [boost]\n");
+	            "     [convert <binaryLog>][debug <debugLevel>]\n"
+                    "     [boost] [reuse {on|off}]\n");
 }  // end MgenApp::Usage()
 
 
@@ -71,9 +71,11 @@ const char* const MgenApp::CMD_LIST[] =
     "+instance",   // indicate mgen instance name 
     "-stop",       // exit program instance
     "+command",    // specifies an input command file/device
-    "+hostAddr",   // turn "host" field on/off in sent messages
+    "+hostaddr",   // turn "host" field on/off in sent messages
     "-boost",      // boost process priority
     "-help",       // print usage and exit
+    "+logdata",    // log optional data attribute? default ON
+    "+loggpsdata", // log gps data? default ON
     NULL
 };
 
@@ -81,12 +83,19 @@ MgenApp::CmdType MgenApp::GetCmdType(const char* cmd)
 {
     if (!cmd) return CMD_INVALID;
     unsigned int len = strlen(cmd);
+
     bool matched = false;
     CmdType type = CMD_INVALID;
     const char* const* nextCmd = CMD_LIST;
     while (*nextCmd)
     {
-        if (!strncmp(cmd, *nextCmd+1, len))
+        char lowerCmd[32];  // all commands < 32 characters    
+        len = len < 31 ? len : 31;
+        unsigned int i;
+        for (i = 0; i < (len + 1); i++)
+            lowerCmd[i] = tolower(cmd[i]);
+
+        if (!strncmp(lowerCmd, *nextCmd+1, len))
         {
             if (matched)
             {
@@ -100,6 +109,11 @@ MgenApp::CmdType MgenApp::GetCmdType(const char* cmd)
                     type = CMD_ARG;
                 else
                     type = CMD_NOARG;
+		if (len == 3 && 
+		    !strncmp(lowerCmd,"log", len))
+		  // let mgen handle log events as name conflicts with logdata * loggpsdata
+		  type = CMD_INVALID;
+
             }
         }
         nextCmd++;
@@ -185,13 +199,18 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
         }
         else
         {
-            DMSG(0, "MgenApp::ProcessCommand(%s) error sending command to remote process\n", cmd);    
+            DMSG(0, "MgenApp::OnCommand(%s) error sending command to remote process\n", cmd);    
             return false;
         }        
     }
     
     CmdType type = GetCmdType(cmd);
     unsigned int len = strlen(cmd);    
+    char lowerCmd[32];  // all commands < 32 characters    
+    len = len < 31 ? len : 31;
+    unsigned int i;
+    for (i = 0; i < (len + 1); i++)
+        lowerCmd[i] = tolower(cmd[i]);
 
     if (CMD_INVALID == type)
     {
@@ -220,7 +239,7 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
         DMSG(0, "MgenApp::ProcessCommand(%s) missing argument\n", cmd);
         return false;
     }
-    else if (!strncmp("port", cmd, len))
+    else if (!strncmp("port", lowerCmd, len))
     {
         // "port" == implicit "0.0 LISTEN UDP <val>" script
         char* string = new char[strlen(val) + 64];
@@ -246,11 +265,11 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
         have_ports = true;
         mgen.InsertDrecEvent(event);
     }
-    else if (!strncmp("ipv4", cmd, len))
+    else if (!strncmp("ipv4", lowerCmd, len))
     {
         mgen.SetDefaultSocketType(ProtoAddress::IPv4);
     }
-    else if (!strncmp("ipv6", cmd, len))
+    else if (!strncmp("ipv6", lowerCmd, len))
     {
 #ifdef HAVE_IPV6 
         ProtoSocket::SetHostIPv6Capable();
@@ -260,35 +279,33 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
 #endif // HAVE_IPV6
             DMSG(0, "MgenApp::ProcessCommand(ipv6) Warning: system not IPv6 capable?\n");
     }
-    else if (!strncmp("background", cmd, len))
+    else if (!strncmp("background", lowerCmd, len))
     {
         // do nothing (this command was scanned immediately at startup)
     }
-    else if (!strcmp("convert", cmd))
+    else if (!strcmp("convert", lowerCmd))
     {
         convert = true;             // set flag to do the conversion
         strcpy(convert_path, val);  // save path of file to convert
     }
-    else if (!strncmp("sink", cmd, len))
+    else if (!strncmp("sink", lowerCmd, len))
     {
         mgen.SetSinkPath(val);
     }
-    else if (!strncmp("block", cmd, len))
+    else if (!strncmp("block", lowerCmd, len))
     {
         mgen.SetSinkBlocking(false);
     }
-    else if (!strncmp("source", cmd, len))
+    else if (!strncmp("source", lowerCmd, len))
     {
-        mgen.SetSinkPath(val);
-        
+        mgen.SetSourcePath(val);
         ProtoAddress tmpAddress;
-        MgenTransport* theMgenTransport = mgen.GetMgenTransport(SINK,0,tmpAddress,true,false);
+        MgenTransport* theMgenTransport = mgen.GetMgenTransport(SOURCE,0,tmpAddress,true,false);
         if (!theMgenTransport)          
         {
             DMSG(0,"MgenApp::OnCommand() Error getting MgenAppSinkTransport.\n");
             return false;
         }
-
         MgenAppSinkTransport* theTransport = static_cast<MgenAppSinkTransport*>(theMgenTransport);
         theTransport->SetSource(true);
         if (!theTransport->Open()) return false;
@@ -301,12 +318,12 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
 		theTransport->StartInputNotification();        
 #endif  // !WIN32        
     }
-    else if (!strncmp("ifinfo", cmd, len))
+    else if (!strncmp("ifinfo", lowerCmd, len))
     {
         strncpy(ifinfo_name, val, 63);  
         ifinfo_name[63] = '\0'; 
     }
-    else if (!strncmp("precise", cmd, len))
+    else if (!strncmp("precise", lowerCmd, len))
     {
         char status[4];  // valid status is "on" or "off"
         strncpy(status, val, 3);
@@ -328,7 +345,7 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
             return false;
         }
     }
-    else if (!strncmp("instance", cmd, len))
+    else if (!strncmp("instance", lowerCmd, len))
     {
         if (control_pipe.IsOpen())
             control_pipe.Close();
@@ -342,7 +359,7 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
             return false; 
         }
     }
-    else if (!strncmp("command", cmd, len))
+    else if (!strncmp("command", lowerCmd, len))
     {
         if (!OpenCmdInput(val))
         {
@@ -350,7 +367,7 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
             return false;
         }
     }
-    else if (!strncmp("hostaddr", cmd, len))
+    else if (!strncmp("hostaddr", lowerCmd, len))
     {
        char status[4];  // valid status is "on" or "off"
        strncpy(status, val, 3);
@@ -372,33 +389,60 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
                return false;
            }
        }
-       else if (!strncmp("off", status, len))
-       {
-           mgen.ClearHostAddress();
-       }
-       else
-       {
-           DMSG(0, "MgenApp::ProcessCommand(precise) Error: invalid <status>\n");
-           return false;
-       }
     }
-    else if (!strncmp("stop", cmd, len))
+    else if (!strncmp("logdata", lowerCmd, len))
     {
-        Stop();
+      char status[4];  // valid status is "on" or "off"
+      strncpy(status, val, 3);
+      status[3] = '\0';
+      unsigned int len = strlen(status);
+      for (unsigned int i = 0; i < len; i++)
+	status[i] = tolower(status[i]);
+      if (!strncmp("on", status, len))
+	mgen.SetLogData(true);
+      else if (!strncmp("off",status,len))
+	mgen.SetLogData(false);
+      else
+      {
+	DMSG(0, "MgenApp::ProcessCommand(logData) Error: wrong argument to logData:%s\n",status);
+	return false;
+      }
     }
-    else if (!strncmp("boost", cmd, len))
+    else if (!strncmp("loggpsdata", lowerCmd, len))
     {
-        if (!dispatcher.BoostPriority())
-          fprintf(stderr,"Unable to boost process priority.\n");
+      char status[4];  // valid status is "on" or "off"
+      strncpy(status, val, 3);
+      status[3] = '\0';
+      unsigned int len = strlen(status);
+      for (unsigned int i = 0; i < len; i++)
+	status[i] = tolower(status[i]);
+      if (!strncmp("on", status, len))
+	mgen.SetLogGpsData(true);
+      else if (!strncmp("off",status,len))
+	mgen.SetLogGpsData(false);
+      else
+      {
+	DMSG(0, "MgenApp::ProcessCommand(loggpsdata) Error: wrong argument to loggpsdata:%s\n",status);
+	return false;
+      }
     }
-    else if (!strncmp("help", cmd, len))
+    else if (!strncmp("stop", lowerCmd, len))
     {
-        fprintf(stderr, "mgen: version %s\n", MGEN_VERSION);
-        Usage();
-        return false;
+      Stop();
+    }
+    else if (!strncmp("boost", lowerCmd, len))
+    {
+      if (!dispatcher.BoostPriority())
+	fprintf(stderr,"Unable to boost process priority.\n");
+    }
+    else if (!strncmp("help", lowerCmd, len))
+    {
+      fprintf(stderr, "mgen: version %s\n", MGEN_VERSION);
+      Usage();
+      return false;
     }
     return true;
-}  // end MgenApp::OnCommand()
+ }  // end MgenApp::OnCommand()
 
 bool MgenApp::OnStartup(int argc, const char*const* argv)
 {          

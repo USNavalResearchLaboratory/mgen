@@ -9,8 +9,14 @@
 # 1) System specific additional libraries, include paths, etc
 #    (Where to find X11 libraries, etc)
 #
-SYSTEM_INCLUDES = -I/opt/local/include
-SYSTEM_LDFLAGS =  
+# Use libpcap installed by Xcode
+#SYSTEM_INCLUDES = -I/opt/local/include
+#SYSTEM_LDFLAGS = 
+
+# Use libpcap installed from tcpdump.org
+SYSTEM_INCLUDES = -I/usr/local/include
+SYSTEM_LDFLAGS = -L/usr/local/lib
+
 SYSTEM_LIBS = -lresolv -lpthread -lpcap
 
 # 2) System specific capabilities
@@ -39,7 +45,8 @@ SYSTEM_LIBS = -lresolv -lpthread -lpcap
 # (We export these for other Makefiles as needed)
 #
 
-export SYSTEM_HAVES = -D_HAVE_PCAP -DHAVE_IPV6 -DMACOSX -DHAVE_ASSERT -DHAVE_GETLOGIN -DHAVE_FLOCK -DHAVE_DIRFD $(DNETSEC) -DSOCKLEN_T=int
+export SYSTEM_HAVES = -D_HAVE_PCAP -DHAVE_IPV6 -DMACOSX -DHAVE_ASSERT -DHAVE_GETLOGIN \
+-DHAVE_FLOCK -DHAVE_DIRFD $(DNETSEC) -DUSE_SELECT -DSOCKLEN_T=int
 
 SYSTEM = macosx
 CC = g++

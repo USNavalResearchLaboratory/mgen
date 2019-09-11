@@ -1,9 +1,12 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Express 2012 for Windows Desktop
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual C++ Express 2010
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mgen", "mgen.vcxproj", "{992F1B16-C3A2-48E1-ADA7-C660A1E3DE84}"
+	ProjectSection(ProjectDependencies) = postProject
+		{DE94F096-A09B-44B6-8EFE-C7BF1F65C4C9} = {DE94F096-A09B-44B6-8EFE-C7BF1F65C4C9}
+	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Protokit", "..\..\protolib\makefiles\win32\Protokit.vcxproj", "{DE94F096-A09B-44B6-8EFE-C7BF1F65C4C9}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Protokit", "..\..\protolib\makefiles\win64\Protokit.vcxproj", "{DE94F096-A09B-44B6-8EFE-C7BF1F65C4C9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

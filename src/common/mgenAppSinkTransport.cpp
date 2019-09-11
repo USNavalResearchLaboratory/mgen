@@ -14,9 +14,9 @@
 
 class Mgen;
 
-MgenSinkTransport* MgenSinkTransport::Create(Mgen& theMgen)
+MgenSinkTransport* MgenSinkTransport::Create(Mgen& theMgen, Protocol theProtocol)
 {
-    return static_cast<MgenSinkTransport*>(new MgenAppSinkTransport(theMgen,SINK));
+    return static_cast<MgenSinkTransport*>(new MgenAppSinkTransport(theMgen,theProtocol));
 }
 
 MgenAppSinkTransport::MgenAppSinkTransport(Mgen& theMgen,
@@ -142,7 +142,7 @@ bool MgenAppSinkTransport::Open(ProtoAddress::Type addrType, bool bindOnOpen)
     }
     if (descriptor < 0)
     {
-        DMSG(0, "MgenAppSinkTransport::Open() error opening file: %s\n", GetErrorString());
+        DMSG(0, "MgenAppSinkTransport::Open() open(%s) error: %s\n", path, GetErrorString());
         descriptor = ProtoDispatcher::INVALID_DESCRIPTOR;
         return false;
     }  
@@ -190,6 +190,7 @@ bool MgenAppSinkTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_a
     struct timeval currentTime;
     ProtoSystemTime(currentTime);
     LogEvent(SEND_EVENT,&theMsg,currentTime,txBuffer); 
+    messages_sent++;
     return true;
     
 } // end MgenAppSinkTransport::SendMessage
@@ -354,7 +355,7 @@ bool MgenAppSinkTransport::Open()
     }
     if (descriptor < 0)
     {
-        DMSG(0, "MgenAppSinkTransport::Open() error opening file: %s\n", GetErrorString());
+        DMSG(0, "MgenAppSinkTransport::Open() open(%s) error: %s\n", path, GetErrorString());
         descriptor = ProtoDispatcher::INVALID_DESCRIPTOR;
         return false;
     }  

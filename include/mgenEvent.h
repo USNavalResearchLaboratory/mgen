@@ -60,6 +60,7 @@ class DrecEvent : public MgenBaseEvent
     Type GetType() const {return event_type;};
     Protocol GetProtocol() const {return protocol;}
     const ProtoAddress& GetGroupAddress() const {return group_addr;}
+    const ProtoAddress& GetSourceAddress() const {return source_addr;}
     const char* GetInterface()  const
     {return (('\0' != interface_name[0]) ? interface_name : (const char*)NULL);}
     UINT16 GetPortCount() const {return port_count;}
@@ -74,6 +75,7 @@ class DrecEvent : public MgenBaseEvent
       INTERFACE,
       PORT,
       RXBUFFER,
+      SRC,
       INVALID_OPTION  
     };
     static const StringMapper OPTION_LIST[];
@@ -87,6 +89,7 @@ class DrecEvent : public MgenBaseEvent
     Protocol        protocol;
     // JOIN/LEAVE event parameters
     ProtoAddress  group_addr; 
+    ProtoAddress  source_addr;  // Source address for SSM
     char            interface_name[16];
     // LISTEN/IGNORE event parameters
     UINT16  port_count;  // (port_count is also used to hold the JOIN event PORT option)

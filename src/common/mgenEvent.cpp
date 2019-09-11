@@ -691,6 +691,8 @@ DrecEvent::DrecEvent()
    port_count(0), port_list(NULL), rx_buffer_size(0)
 {
     interface_name[0] = '\0';
+    group_addr.Invalidate();
+    source_addr.Invalidate();
 }
 
 const StringMapper DrecEvent::TYPE_LIST[] = 
@@ -740,6 +742,7 @@ const StringMapper DrecEvent::OPTION_LIST[] =
     {"INTERFACE", INTERFACE},
     {"PORT",      PORT},
     {"RXBUFFER",  RXBUFFER},
+    {"SRC",       SRC},
     {"XXXX",      INVALID_OPTION}  
 };
 
@@ -821,7 +824,7 @@ bool DrecEvent::InitFromString(const char* string)
     
     switch(event_type)
     {
-        case JOIN:    // "{JOIN|LEAVE} <groupAddr> [<interfaceName>][PORT <port>]"
+        case JOIN:    // "{JOIN|LEAVE} <groupAddr> [SRC <source-address>] [INTERFACE <interfaceName>][PORT <port>]"
         case LEAVE:
             if (1 != sscanf(ptr, "%s", fieldBuffer))
             {
@@ -838,7 +841,7 @@ bool DrecEvent::InitFromString(const char* string)
             ptr += strlen(fieldBuffer);
             while ((' ' == *ptr) || ('\t' == *ptr)) ptr++;
             
-            // Look for options [INTERFACE <interfaceName>] or [PORT <port>]
+            // Look for options [SRC <sourceAddress>] [INTERFACE <interfaceName>] or [PORT <port>/<portList>]
             while ('\0' != *ptr)
             {
                 // Read option label
@@ -868,21 +871,60 @@ bool DrecEvent::InitFromString(const char* string)
                         break;
                         
                     case PORT:
-                        // Read <portNumber>
+                        // Read <portNumber>/<portList>
                         if (1 != sscanf(ptr, "%s", fieldBuffer))
                         {
-                            DMSG(0, "DrecEvent::InitFromString() Error: missing <portNumber>\n");
+                            DMSG(0, "DrecEvent::InitFromString() Error: missing <portNumber>/<portList>\n");
                             return false;   
                         }
-                        if (1 != sscanf(ptr, "%hu", &port_count))
+                        // Parse port list and build array
+                        if (!(port_list = CreatePortArray(fieldBuffer, &port_count)))
                         {
-                            DMSG(0, "DrecEvent::InitFromString() Error: invalid <portNumber>\n");
-                            return false; 
+                            DMSG(0,"DrecEvent::InitFromString() Error: missing <port>/<portList>\n");
+                            return false;
                         }
                         // Point to next field, skipping any white space
                         ptr += strlen(fieldBuffer);
                         while ((' ' == *ptr) || ('\t' == *ptr)) ptr++;
                         break;
+
+                    case SRC: // Source address for SSM
+
+                        if (1 != sscanf(ptr, "%s", fieldBuffer))
+                        {
+                            DMSG( 0, "DrecEvent::InitFromString() Error: "
+                                  "missing <sourceAddress>\n" );
+                            return false;
+                        }
+
+                        // Source address must not be unspecified, multicast
+                        // or a broadcast address
+                        if (!source_addr.ResolveFromString(fieldBuffer) ||
+                            source_addr.IsUnspecified() ||
+                            source_addr.IsMulticast() ||
+                            source_addr.IsBroadcast() )
+                        {
+                            DMSG( 0, "DrecEvent::InitFromString() Error: "
+                                  "invalid <sourceAddress>\n" ); 
+                            return false; 
+                        }
+
+                        // Compare type of source-address and group-address,
+                        // both must be same..
+                        if ( group_addr.GetType() != source_addr.GetType() ) {
+                            DMSG( 0, "DrecEvent::InitFromString() Error: "
+                                  "<groupAddress> and <sourceAddress> are "
+                                  " not of same type\n" ); 
+                            return false; 
+                        }
+
+                        // Point to next field, skipping any white space
+                        ptr += strlen(fieldBuffer);
+                        while ((' ' == *ptr) || ('\t' == *ptr)) ptr++;
+            
+                        break;
+
+
 
 		    case RXBUFFER:
                         break; //RXBUFFER is not a leave option, however this case gets rid of a compiler warning.                     

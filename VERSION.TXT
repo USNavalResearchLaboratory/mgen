@@ -1,3 +1,16 @@
+Version 5.02b
+=============
+    - Contains bug fix to correctly set mgen TCP send and recv'd
+      message tx times under heavy load. 
+    - Contains bug fix to correctly set binary time in mgen send
+      messages.
+
+Version 5.02
+============
+    - Contains bug fix to close open UDP sockets
+    - Contains bug fix to handle incoming tcp connections on windows
+      correctly
+
 Version 5.01c
 =============
     - Contains bug fixes for compilation under Visual Studio 6.0

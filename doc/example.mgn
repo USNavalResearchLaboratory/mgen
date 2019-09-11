@@ -36,6 +36,9 @@ BURST [REGULAR 10.0 PERIODIC [10.0 256] FIXED 5.0]
 # This JOIN is for UNIX
 0.0 JOIN 224.225.1.2 
 
+# This SSM JOIN is for UNIX (Currently SSM is supported only in UNIX)
+#0.0 JOIN 224.225.1.2 SRC 25.25.25.1
+
 # For WIN32, the PORT option is needed for JOINs
 #0.0 JOIN 224.225.1.2 PORT 5001
 
@@ -44,6 +47,9 @@ BURST [REGULAR 10.0 PERIODIC [10.0 256] FIXED 5.0]
 #0.0 JOIN 224.225.1.2 INTERFACE eth0
 
 5.0 LEAVE 224.225.1.2
+
+# This SSM LEAVE is for UNIX (Currently SSM is supported only in UNIX)
+#5.0 LEAVE 224.224.1.2 SRC 25.25.25.1 INTERFACE eth0
 
 # If an interface was dictated on the JOIN, 
 # it is also required for the LEAVE

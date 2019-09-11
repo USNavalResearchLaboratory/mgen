@@ -13,7 +13,7 @@ UNIX = ../makefiles
 
 INCLUDES = $(SYSTEM_INCLUDES) -I$(UNIX) -I$(INCLUDE) -I$(PROTOLIB)/include
 
-CFLAGS = -g -DPROTO_DEBUG -D_RAPR_JOURNAL -DHAVE_GPS -DUNIX -Wall -Wcast-align -pedantic -fPIC $(SYSTEM_HAVES) $(INCLUDES)
+CFLAGS = -g -DPROTO_DEBUG -DHAVE_GPS -DUNIX -Wall -Wcast-align -pedantic -fPIC $(SYSTEM_HAVES) $(INCLUDES)
 
 #CFLAGS = -g -fno-inline -D_HAVE_PCAP -DPROTO_DEBUG -DHAVE_GPS -DUNIX -Wall -Wcast-align -pedantic  -fPIC $(SYSTEM_HAVES) $(INCLUDES) 
 
@@ -22,13 +22,13 @@ LDFLAGS = $(SYSTEM_LDFLAGS)
 LIBS = $(SYSTEM_LIBS) -lm 
 #LIBS = $(SYSTEM_LIBS) -lm -lpcap
 
-TARGETS = mgen mpmgr
+TARGETS = mgen mpmgr 
 
 # Rule for C++ .cpp extension
 .cpp.o:
 	$(CC) -c $(CFLAGS) -o $*.o $*.cpp
 
-all:    mgen mpmgr
+all:    mgen mpmgr 
     
 # MGEN depends upon the NRL Protean Group's development library
 LIBPROTO = $(PROTOLIB)/lib/libprotokit.a
@@ -43,35 +43,44 @@ MGEN_SRC = $(COMMON)/mgen.cpp $(COMMON)/mgenEvent.cpp \
            $(COMMON)/gpsPub.cpp $(COMMON)/mgenAppSinkTransport.cpp
           
 MGEN_OBJ = $(MGEN_SRC:.cpp=.o)
-
     
 MGEN_APP_SRC = $(COMMON)/mgenApp.cpp
 MGEN_APP_OBJ = $(MGEN_APP_SRC:.cpp=.o) 
 
 mgen:    $(MGEN_APP_OBJ) $(MGEN_OBJ) $(LIBPROTO)
-	$(CC) -g $(CFLAGS) -o $@ $(MGEN_APP_OBJ) $(MGEN_OBJ) $(LDFLAGS) $(LIBPROTO) $(LIBS)  
-
+	$(CC) -g $(CFLAGS) -o $@ $(MGEN_APP_OBJ) $(MGEN_OBJ) $(LDFLAGS) $(LIBPROTO) $(LIBS) 
 
 MPMGR_SRC = $(COMMON)/mpmgr.cpp $(COMMON)/gpsPub.cpp
 
 MPMGR_OBJ = $(MPMGR_SRC:.cpp=.o)
 
+# Mgen shared memory payload manager
 mpmgr:    $(MPMGR_OBJ) $(LIBPROTO)
-	$(CC) -g $(CFLAGS) -o $@ $(MPMGR_OBJ) $(LDFLAGS) $(LIBPROTO) $(LIBS)
+	$(CC) -g $(CFLAGS) -o $@ $(MPMGR_OBJ) $(LDFLAGS) $(LIBPROTO) $(LIBS) 
 
 # pcap2mgen utility (converts UDP content of appropriate pcap file to mgen log
 P2M_SRC = $(COMMON)/pcap2mgen.cpp
 P2M_OBJ = $(P2M_SRC:.cpp=.o) 
 
 pcap2mgen:    $(P2M_OBJ) $(MGEN_OBJ) $(LIBPROTO)
-	$(CC) -g $(CFLAGS) -o $@ $(P2M_OBJ) $(MGEN_OBJ) $(LDFLAGS) $(LIBS) $(LIBPROTO) 
+	$(CC) -g $(CFLAGS) -o $@ $(P2M_OBJ) $(MGEN_OBJ) $(LDFLAGS) $(LIBPROTO) $(LIBS) 
+
+MPM_SRC = $(COMMON)/mgenPayloadMgr.cpp
+MPM_OBJ = $(MPM_SRC:.cpp=.o)
+
+MPM_APP_SRC = $(COMMON)/mgenPayloadMgrApp.cpp
+MPM_APP_OBJ = $(MPM_APP_SRC:.cpp=.o)
+
+# mgenPayloadMgr (template for mgen payload manager application)
+mgenPayloadMgr:	 $(MPM_APP_OBJ) $(MPM_OBJ) $(LIBPROTO) $(MGEN_OBJ) 
+		 $(CC) -g $(CFLAGS) -o $@ $(MPM_APP_OBJ) $(MPM_OBJ) $(MGEN_OBJ) $(LDFLAGS) $(LIBPROTO) $(LIBS)
 
 # mgenBlast is a simple program to benchmark mgen performance
 MM_SRC = $(COMMON)/mgenBlast.cpp
 MM_OBJ = $(MM_SRC:.cpp=.o)
 
 mgenBlast:	$(MM_OBJ) $(MGEN_OBJ) $(LIBPROTO)
-		$(CC) -g $(CFLAGS) -o $@ $(MM_OBJ) $(MGEN_OBJ) $(LDFLAGS) $(LIBS) $(LIBPROTO)
+		$(CC) -g $(CFLAGS) -o $@ $(MM_OBJ) $(MGEN_OBJ) $(LDFLAGS) $(LIBPROTO) $(LIBS) 
      	    
 clean:	
 	rm -f $(COMMON)/*.o  $(UNIX)/*.o $(UNIX)/mgen $(UNIX)/mpmgr $(NS)/*.o;

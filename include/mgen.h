@@ -13,6 +13,7 @@ class MgenController
     
     virtual void OnMsgReceive(MgenMsg& msg) = 0;
     virtual void OnOffEvent(char * buffer,int len) = 0;
+    virtual void OnStopEvent(char * buffer, int len) = 0;
   protected:
     MgenController() {};
 
@@ -34,12 +35,14 @@ class DrecGroupList
     
     bool JoinGroup(Mgen&                     mgen,
                    const ProtoAddress&       groupAddress, 
+		   const ProtoAddress&       sourceAddress,
                    const char*               interfaceName = NULL,
                    UINT16                    thePort = 0,
                    bool                      deferred = false);
     
     bool LeaveGroup(Mgen&                    mgen,
-                    const ProtoAddress&      groupAddress, 
+                    const ProtoAddress&      groupAddress,
+		    const ProtoAddress&      sourceAddress,
                     const char*              interfaceName = NULL,
                     UINT16                   thePort = 0);
     
@@ -51,6 +54,7 @@ class DrecGroupList
         friend class DrecGroupList;
       public:
         DrecMgenTransport(const ProtoAddress&  groupAddr, 
+			  const ProtoAddress&  sourceAddr,
                           const char*            interfaceName,
                           UINT16         thePort);
         ~DrecMgenTransport();
@@ -71,6 +75,7 @@ class DrecGroupList
       private:
         MgenTransport*          flow_transport;
         ProtoAddress            group_addr;
+	ProtoAddress            source_addr; // Source address used for SSM (src specific mcast)
         char                    interface_name[16];
         UINT16          port;
         DrecMgenTransport*      prev;
@@ -78,6 +83,7 @@ class DrecGroupList
     };  // end class DrecGroupList::DrecMgenTransport
     
     DrecMgenTransport* FindMgenTransportByGroup(const ProtoAddress& groupAddr,
+						const ProtoAddress& sourceAddr,
                                                 const char*           interfaceName = NULL,
                                                 UINT16        thePort = 0);
     
@@ -133,15 +139,15 @@ class Mgen
       FLUSH,     // flush log after _each_ event
       CHECKSUM,  // turn on _both_ tx and rx checksum options
       TXCHECKSUM,// include checksums in transmitted MGEN messages
-      RXCHECKSUM, // force checksum validation at receiver _always_
-      LOGDATA,   // log payload data on/off
-      QUEUE      // Turn off tx_timer when pending queue exceeds this limit
+      RXCHECKSUM,// force checksum validation at receiver _always_
+      QUEUE,     // Turn off tx_timer when pending queue exceeds this limit
+      REUSE      // Toggle socket reuse on and off
     };
     static Command GetCommandFromString(const char* string);
     enum CmdType {CMD_INVALID, CMD_ARG, CMD_NOARG};
     static const char* GetCmdName(Command cmd);
     static CmdType GetCmdType(const char* cmd);
-	void SetController(MgenController* theController)
+    void SetController(MgenController* theController)
     {controller = theController;}
     MgenController* GetController() {return controller;}
     ProtoSocket::Notifier& GetSocketNotifier() {return socket_notifier;}
@@ -151,6 +157,7 @@ class Mgen
     bool GetChecksumEnable() {return checksum_enable;}
     bool GetChecksumForce() {return checksum_force;}
     bool GetLogData() {return log_data;}
+    bool GetLogGpsData() {return log_gps_data;}
     bool OpenLog(const char* path, bool append, bool binary);
     void CloseLog();
     void SetLogFile(FILE* filePtr);
@@ -159,6 +166,7 @@ class Mgen
     bool GetLocalTime() {return local_time;}
     bool GetLogFlush() {return log_flush;}
     bool GetLogTx() {return log_tx;}
+    bool GetReuse() {return reuse;}
     typedef int (*LogFunction)(FILE*, const char*, ...);
 #ifndef _WIN32_WCE
     static LogFunction Log;
@@ -183,6 +191,8 @@ class Mgen
     {addr_type = addrType;}
     ProtoAddress::Type GetDefaultSocketType() {return addr_type;}
     
+    void SetDefaultReuse(bool reuseTemp) { reuse = reuseTemp;}
+
     void SetPositionCallback(MgenPositionFunc* callback,
                              const void*       clientData) 
     {
@@ -191,7 +201,11 @@ class Mgen
     }
     void SetSinkPath(const char* theSinkPath) 
 	{
-		strncpy(sink_path,theSinkPath,strlen(theSinkPath) + 1);
+        strncpy(sink_path, theSinkPath, PATH_MAX);
+	}
+    void SetSourcePath(const char* theSourcePath) 
+	{
+		strncpy(source_path, theSourcePath, PATH_MAX);
 	}
     void SetSinkBlocking(bool sinkNonBlocking) {sink_non_blocking = sinkNonBlocking;}
     void SetHostAddress(const ProtoAddress hostAddr)
@@ -201,6 +215,10 @@ class Mgen
     void SetLogData(bool logData)
     {
       log_data = logData;
+    }
+    void SetLogGpsData(bool logGpsData)
+    {
+      log_gps_data = logGpsData;
     }
     void ClearHostAddress()
     {
@@ -244,13 +262,16 @@ class Mgen
     MgenTransport* FindMgenTransportBySocket(const ProtoSocket& socket);
 
     MgenTransport* FindTransportByInterface(const char*           interfaceName,
-                                            UINT16        thePort = 0);
+                                            UINT16        thePort = 0,
+                                            ProtoAddress::Type addrType = ProtoAddress::INVALID);
 
     bool LeaveGroup(MgenTransport* transport,
-                    const ProtoAddress& groupAddress, 
+                    const ProtoAddress& groupAddress,
+		    const ProtoAddress& sourceAddress,
                     const char*           interfaceName = NULL);
 	    
-    MgenTransport* JoinGroup(const ProtoAddress&   groupAddress, 
+    MgenTransport* JoinGroup(const ProtoAddress&   groupAddress,
+			     const ProtoAddress&   sourceAddress,
                              const char*           interfaceName,
                              UINT16                thePort);    
 
@@ -392,9 +413,11 @@ class Mgen
     bool               default_queue_limit_lock;
     
     char               sink_path[PATH_MAX];
+    char               source_path[PATH_MAX];
     bool               sink_non_blocking;
     
     bool               log_data;
+    bool               log_gps_data;
     ProtoAddress       host_addr;
     bool               checksum_enable;       
     
@@ -423,6 +446,7 @@ class Mgen
     bool               log_tx;
     bool               log_open;
     bool               log_empty;
+    bool               reuse;
     
 }; // end class Mgen 
 

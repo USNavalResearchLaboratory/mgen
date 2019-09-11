@@ -6,11 +6,11 @@
   <articleinfo>
     <title><inlinemediaobject>
         <imageobject>
-          <imagedata fileref="mgenLogo.gif" />
+          <imagedata fileref="mgenLogo.gif"/>
         </imageobject>
       </inlinemediaobject><inlinemediaobject>
         <imageobject>
-          <imagedata fileref="drecLogo.gif" />
+          <imagedata fileref="drecLogo.gif"/>
         </imageobject>
       </inlinemediaobject>MGEN User's and Reference Guide Version 5.0</title>
 
@@ -127,23 +127,26 @@
      [txcheck][rxcheck][check][stop]
      [convert &lt;binaryLog&gt;][debug &lt;debugLevel&gt;]
      [localtime &lt;localtime&gt;] [queue &lt;queue&gt;]
-     [broadcast {on|off}]</programlisting>
+     [broadcast {on|off}] [logdata {on|off}]
+     [loggpsdata {on|off"]
+
+</programlisting>
 
     <sect2 id="Example_Usage">
       <title>Example Usage</title>
 
       <para>To run mgen with script file "script.mgn" and log to stdout (by
-      default):<literal></literal></para>
+      default):<literal/></para>
 
       <para><literal>mgen input script.mgn</literal></para>
 
       <para>To monitor ports 5000,5004,5005, and 5006 for received UDP traffic
-      and log to a specific file "log.drc":<literal></literal></para>
+      and log to a specific file "log.drc":<literal/></para>
 
       <para><literal>mgen port 5000,5004-5006 output log.drc</literal></para>
 
       <para>The "event" command can be used to achieve equivalent operation
-      with the command-line syntax:<literal></literal></para>
+      with the command-line syntax:<literal/></para>
 
       <para><literal>mgen event "listen udp 5000,5004-5006" output
       log.drc</literal></para>
@@ -170,8 +173,7 @@
       ssh, peer-to-peer protocols, etc). Here is an example using ssh to set
       up a TCP connection to a remote machine, start an mgen receiver at the
       remote machine to log receive messages, and attempt to transmit a 2 Mbps
-      stream of MGEN messages via the ssh
-      connection:<literal></literal></para>
+      stream of MGEN messages via the ssh connection:<literal/></para>
 
       <para><literal>mgen event "ON 1 SINK DST 127.0.0.1/5001 PERIODIC [200
       1250]" \ sink STDOUT output /dev/null | ssh &lt;remoteHost&gt; sh -c
@@ -196,7 +198,7 @@
       LISTEN command is used to monitor these (and other) ports so that mgen
       can receive its own traffic for demonstration purposes. This script
       illustrates the usage of a number of MGEN script
-      commands.<literal></literal></para>
+      commands.<literal/></para>
 
       <programlisting># MGEN script begins here
 # These are some "Transmission Event" script lines
@@ -224,11 +226,26 @@
 # Join an IP multicast group
 0.0 JOIN 224.225.1.2 INTERFACE eth0
 
+# Join a SSM multicast group (Supported only for *nix)
+#0.0 JOIN 232.1.1.1 SRC 25.25.25.1 INTERFACE eth0
+
 # For WIN32, use the "PORT" option
 0.0 JOIN 224.225.1.2 PORT 5002
 
+# For OSX use the "interface" option if a default multicast route is not defined
+#0.0 JOIN 224.1.2.3 interface en0
+
+# Join a multicast group across a range of ports
+0.0 JOIN 224.1.2.5 PORT 5005-5010
+
+# On IPv6 systems set the port option when IPv4 group membership is requested
+0.0 JOIN 224.1.2.4 port 5001
+
 # Later, leave the group
 5.0 LEAVE 224.225.1.2 INTERFACE eth0
+
+# This SSM LEAVE is for UNIX (Currently SSM is supported only in UNIX)
+#5.0 LEAVE 224.224.1.2 SRC 25.25.25.1 INTERFACE eth0
 
 # Incrementally ignore some receive traffic
 6.0 IGNORE UDP 5000-500
@@ -252,6 +269,10 @@
 
     <informaltable>
       <tgroup cols="2">
+        <colspec colwidth="48*"/>
+
+        <colspec colwidth="52*"/>
+
         <tbody>
           <row>
             <entry><literal>ipv4</literal></entry>
@@ -365,7 +386,7 @@
             spaces and thus must be encapsulated in quotes on the command
             line. Note that the &lt;eventTime&gt; may be omitted and the
             action indicated will be taken by mgen immediately. When the
-            <para><emphasis></emphasis></para><para><emphasis>event</emphasis></para>command
+            <para><emphasis/></para><para><emphasis>event</emphasis></para>command
             is issued during run-time, the &lt;eventTime&gt; (if provided)
             specifies a delay relative to the current time (e.g. the event
             will occur with after the given delay).</entry>
@@ -412,11 +433,11 @@
             UDP traffic. The format of the &lt;recvPortList&gt; is a
             comma-delimited list of individual or inclusive ranges of port
             values (No spaces allowed in the list). Note this is the
-            equivalent of a scripted <para></para><para>0.0 LISTEN UDP
+            equivalent of a scripted <para/><para>0.0 LISTEN UDP
             &lt;recvPortList&gt;</para>reception event and can also be
             equivalently achieved with the
             <para><emphasis>event</emphasis></para> command using the
-            syntax:<para></para><literal> <literal>mgen event "LISTEN UDP
+            syntax:<para/><literal> <literal>mgen event "LISTEN UDP
             &lt;portList&gt;"Example:mgen port
             5000,5002,5005-5009</literal></literal></entry>
           </row>
@@ -638,6 +659,35 @@
             socket. As with tos, ttl and interface, broadcast is a "per
             socket" attribute. By default BROADCAST is set to ON.</entry>
           </row>
+
+          <row>
+            <entry><literal>logdata {on|off}</literal></entry>
+
+            <entry>Controls whether MGEN will log the optional data attribute
+            field at MGEN receivers (including within MGEN binary log files).
+            It does not affect whether MGEN senders send the requested data
+            attribute. By default LOGDATA is set to ON.</entry>
+          </row>
+
+          <row>
+            <entry><literal>loggpsdata {on|off}</literal></entry>
+
+            <entry>Controls whether MGEN will log the gps data fields at MGEN
+            receivers. It does not affect whether MGEN senders send the GPS
+            data. By default LOGGPSDATA is set to ON. Note that as opposed to
+            the logdata attribute, GPS data will be saved in any interim
+            binary log file regardless of this flag. This flag only controls
+            whether the gps data is logged in the formatted log files.</entry>
+          </row>
+
+          <row>
+            <entry><literal>boost</literal></entry>
+
+            <entry>The boost option sets the mgen process to realtime process
+            priority. Care should be taken using the "precise" and "boost"
+            options together as the mgen process can take over a machine at
+            high packet rates (e.g. ctrl-c may not be handled).</entry>
+          </row>
         </tbody>
       </tgroup>
     </informaltable>
@@ -693,7 +743,7 @@
     future.</para>
 
     <para>Scheduled transmission and reception events in the script use lines
-    in the format of:<literal></literal></para>
+    in the format of:<literal/></para>
 
     <para><literal>[&lt;eventTime&gt;] &lt;eventType&gt; &lt;parameters
     ...&gt; [&lt;options ...&gt;]</literal></para>
@@ -711,7 +761,7 @@
 
     <para>Global commands are generally used to define default behaviors for
     MGEN operation or other options independent of event scheduling. The
-    format for global command script lines is:<literal></literal></para>
+    format for global command script lines is:<literal/></para>
 
     <para><literal>&lt;commandType&gt; [&lt;command parameters
     ...&gt;]</literal></para>
@@ -738,16 +788,15 @@
       <para><literal>&lt;eventTime&gt; {ON|MOD|OFF} &lt;flowId&gt;
       [&lt;options ...&gt;]</literal></para>
 
-      <para><literal></literal>The first scripted event for a given flow
-      identified by a &lt;flowId&gt; must be an <link
-      linkend="_ON_Event">ON</link> event. Subsequently, <link
-      linkend="_MOD_Event">MOD</link>, events can be used to modify
-      characteristics of the given flow until it is terminated with an <link
-      linkend="_OFF_Event">OFF</link> event. After a flow has been terminated
-      with the <link linkend="_OFF_Event">OFF</link> command, a flow with the
-      same &lt;flowId&gt; value may be initiated with another <link
-      linkend="_ON_Event">ON</link> event. The &lt;options&gt; fields are used
-      to describe the characteristics of flows initiated with <link
+      <para><literal/>The first scripted event for a given flow identified by
+      a &lt;flowId&gt; must be an <link linkend="_ON_Event">ON</link> event.
+      Subsequently, <link linkend="_MOD_Event">MOD</link>, events can be used
+      to modify characteristics of the given flow until it is terminated with
+      an <link linkend="_OFF_Event">OFF</link> event. After a flow has been
+      terminated with the <link linkend="_OFF_Event">OFF</link> command, a
+      flow with the same &lt;flowId&gt; value may be initiated with another
+      <link linkend="_ON_Event">ON</link> event. The &lt;options&gt; fields
+      are used to describe the characteristics of flows initiated with <link
       linkend="_ON_Event">ON</link> events and modified with subsequence MOD
       events. The <link linkend="_OFF_Event">OFF</link> event uses no
       options.</para>
@@ -755,7 +804,7 @@
       <sect3 id="_ON_Event">
         <title>ON Event</title>
 
-        <para>Script syntax:<literal></literal></para>
+        <para>Script syntax:<literal/></para>
 
         <para><literal>&lt;eventTime&gt; ON &lt;flowId&gt; &lt;protocol&gt;
         [connect] DST &lt;addr&gt;/&lt;port&gt; &lt;pattern [params]&gt;
@@ -804,7 +853,7 @@
         for the loopback address (IP address 127.0.0.1) port number 5000
         beginning immediately when the script is executed. The messages will
         consist of 1024 byte messages at a regular rate of 1.0 per
-        second:<literal></literal></para>
+        second:<literal/></para>
 
         <para><literal>0.0 ON 1 UDP DST 127.0.0.1/5000 PERIODIC [1.0
         1024]</literal></para>
@@ -813,7 +862,7 @@
       <sect3 id="_MOD_Event">
         <title>MOD Event</title>
 
-        <para>Script syntax:<literal></literal></para>
+        <para>Script syntax:<literal/></para>
 
         <para><literal>&lt;eventTime&gt; MOD &lt;flowId&gt; [&lt;options
         ...&gt;]</literal></para>
@@ -838,7 +887,7 @@
         transmission pattern 5.0 seconds after script execution. The changed
         "flow 1" will then generate messages 512 bytes in size at an average
         rate of 10.0 messages per second following a Poisson
-        (exponentially-distributed interval)<literal></literal></para>
+        (exponentially-distributed interval)<literal/></para>
 
         <para><literal>5.0 MOD 1 POISSON [10.0 512]</literal></para>
 
@@ -884,7 +933,7 @@
 
         <para>This script line will terminate generation of MGEN message
         traffic for "flow 1" at 10.0 seconds after script
-        execution.<literal></literal></para>
+        execution.<literal/></para>
 
         <para><literal>10.0 OFF 1</literal></para>
       </sect3>
@@ -927,7 +976,7 @@
       <sect3 id="Destination__DST">
         <title>Destination (DST)</title>
 
-        <para>Option syntax:<literal></literal></para>
+        <para>Option syntax:<literal/></para>
 
         <para><literal>... DST &lt;addr&gt;/&lt;port&gt; ...</literal></para>
 
@@ -939,7 +988,7 @@
         destination address may be a unicast (point-to-point) or multicast
         address.</para>
 
-        <para>Examples:<literal></literal></para>
+        <para>Examples:<literal/></para>
 
         <para><literal>#Start a flow to loopback address port
         5000</literal></para>
@@ -956,7 +1005,7 @@
       <sect3 id="_Source_Port_SRC">
         <title>Source Port (SRC)</title>
 
-        <para>Option syntax:<literal></literal></para>
+        <para>Option syntax:<literal/></para>
 
         <para><literal>... SRC &lt;port&gt; ...</literal></para>
 
@@ -994,7 +1043,7 @@
         but different source ports. Flow 1 is also assigned non-default
         type-of-service using the TOS option. The use of the SRC option
         ensures that two different sockets are used to support the two
-        different types of service.<literal></literal></para>
+        different types of service.<literal/></para>
 
         <para><literal>#Start flow 1 using source port 5001(TOS = 0x10) and
         flow 2 using port 5002</literal></para>
@@ -1009,7 +1058,7 @@
       <sect3 id="_COUNT">
         <title>COUNT</title>
 
-        <para>Option syntax:<literal></literal></para>
+        <para>Option syntax:<literal/></para>
 
         <para><literal>... COUNT &lt;msgCount&gt; ...</literal></para>
 
@@ -1018,7 +1067,8 @@
         one and only one mgen message will be sent. This attribute defaults to
         "-1", meaning mgen will send an unlimited number of messages until an
         <link linkend="_OFF_Event">OFF</link> event occurs or the mgen program
-        completes.</para>
+        completes. If a message count is specified, the mgen flow will be
+        stopped after the requested number of messages has been sent.</para>
 
         <para>Note that an <link linkend="_OFF_Event">OFF</link> event will
         override any message COUNT specified (e.g. the flow will be terminated
@@ -1030,7 +1080,7 @@
       <sect3 id="Pattern__PER">
         <title>Pattern (PERIODIC, POISSON, BURST, JITTER, CLONE)</title>
 
-        <para>Option syntax:<literal></literal></para>
+        <para>Option syntax:<literal/></para>
 
         <para><literal>... &lt;patternType&gt; [parameters ...]
         ...</literal></para>
@@ -1055,7 +1105,7 @@
         <sect4 id="PERIODIC_Pattern">
           <title>PERIODIC Pattern:</title>
 
-          <para>Option syntax:<literal></literal></para>
+          <para>Option syntax:<literal/></para>
 
           <para><literal>... PERIODIC [&lt;rate&gt;
           &lt;size&gt;]...</literal></para>
@@ -1068,7 +1118,7 @@
           is unlimited. Note the &lt;rate&gt; must be greater than or equal to
           0.0 messages/second for the TCP and UDP protocols.</para>
 
-          <para>Example:<literal></literal></para>
+          <para>Example:<literal/></para>
 
           <para><literal>#Start an MGEN flow sending 1024 byte
           messages</literal></para>
@@ -1089,7 +1139,7 @@
         <sect4 id="POISSON_Pattern">
           <title>POISSON Pattern:</title>
 
-          <para>Option syntax:<literal></literal></para>
+          <para>Option syntax:<literal/></para>
 
           <para><literal>... POISSON [&lt;aveRate (msg/sec)&gt; &lt;size
           (bytes)&gt;] ...</literal></para>
@@ -1103,7 +1153,7 @@
           unlimited. Note the &lt;rate&gt; must be greater than or equal to
           0.0 messages/second for the TCP and UDP protocols.</para>
 
-          <para>Example:<literal></literal></para>
+          <para>Example:<literal/></para>
 
           <para><literal>#Start an MGEN flow sending 1024 byte
           messages</literal></para>
@@ -1125,7 +1175,7 @@
         <sect4 id="BURST_Pattern">
           <title>BURST Pattern:</title>
 
-          <para>Option syntax:<literal></literal></para>
+          <para>Option syntax:<literal/></para>
 
           <para><literal>... BURST [REGULAR|RANDOM &lt;aveInterval (sec)&gt;
           &lt;patternType&gt; [&lt;patternParams&gt;] FIXED|EXPONENTIAL
@@ -1173,7 +1223,7 @@
           interval, the flow will tend to follow the characteristics of the
           core pattern (i.e. 100% duty cycle).</para>
 
-          <para>Example:<literal></literal></para>
+          <para>Example:<literal/></para>
 
           <para><literal>#Start a bursty MGEN flow with bursts of 1024 byte
           messages</literal></para>
@@ -1202,7 +1252,7 @@
         <sect4 id="JITTER_Pattern">
           <title>JITTER Pattern:</title>
 
-          <para>Option syntax:<literal></literal></para>
+          <para>Option syntax:<literal/></para>
 
           <para><literal>... JITTER [&lt;rate&gt; &lt;size&gt;
           &lt;jitterFraction&gt;]...</literal></para>
@@ -1220,7 +1270,7 @@
           unlimited. Note the &lt;rate&gt; must be greater than or equal to
           0.0 messages/second for the TCP and UDP protocols.</para>
 
-          <para>Example:<literal></literal></para>
+          <para>Example:<literal/></para>
 
           <para><literal>#Start an MGEN flow sending 1024 byte
           messages</literal></para>
@@ -1302,7 +1352,7 @@
       <sect3 id="_Broadcast">
         <title>BROADCAST</title>
 
-        <para>Option syntax:<literal></literal></para>
+        <para>Option syntax:<literal/></para>
 
         <para><literal>... BROADCAST {ON|OFF} ...</literal></para>
 
@@ -1311,10 +1361,23 @@
         default BROADCAST is ON.</para>
       </sect3>
 
+      <sect3 id="_Logdata">
+        <title>LOGDATA</title>
+
+        <para>Option syntax:<literal/></para>
+
+        <para><literal>... LOGDATA {ON|OFF} ...</literal></para>
+
+        <para>Controls whether MGEN will log the optional data attribute field
+        at MGEN receivers (including within MGEN binary log files). It does
+        not affect whether MGEN senders send the requested data attribute. By
+        default LOGDATA is ON.</para>
+      </sect3>
+
       <sect3 id="_Type-Of-Service_TOS">
         <title>Type-Of-Service (TOS)</title>
 
-        <para>Option syntax:<literal></literal></para>
+        <para>Option syntax:<literal/></para>
 
         <para><literal>... TOS &lt;value&gt; ...</literal></para>
 
@@ -1335,7 +1398,7 @@
         socket. See the <link linkend="_Source_Port_SRC">SRC</link> option to
         make sure different flows use different sockets.</para>
 
-        <para>Example:<literal></literal></para>
+        <para>Example:<literal/></para>
 
         <para><literal>#Start flow 1 with default TOS</literal></para>
 
@@ -1370,7 +1433,7 @@
           <tgroup cols="4">
             <tbody>
               <row>
-                <entry></entry>
+                <entry/>
 
                 <entry>IPTOS_TOS_MASKIPTOS_TOS(tos)</entry>
 
@@ -1536,7 +1599,7 @@
       <sect3 id="_Time-To-Live_TTL">
         <title>Multicast Time-To-Live (TTL)</title>
 
-        <para>Option syntax:<literal></literal></para>
+        <para>Option syntax:<literal/></para>
 
         <para><literal>... TTL &lt;value&gt; ...</literal></para>
 
@@ -1550,7 +1613,7 @@
         MGEN flows. The &lt;value&gt; field must be in the range of 1-255. The
         default multicast TTL assumed by MGEN is 3.</para>
 
-        <para>Example:<literal></literal></para>
+        <para>Example:<literal/></para>
 
         <para><literal>#Start an IP multicast flow with a maximum hop count
         ttl = 2</literal></para>
@@ -1562,7 +1625,7 @@
       <sect3 id="_IPv6_Flow_Label">
         <title>Socket Transmit Buffer Size (TXBUFFER)</title>
 
-        <para>Option syntax:<literal></literal></para>
+        <para>Option syntax:<literal/></para>
 
         <para><literal>... TXBUFFER &lt;txBufferSize&gt; ...</literal></para>
 
@@ -1577,7 +1640,7 @@
       <sect3 id="Socket_Receive_Buffer_Size__RXBUFFER">
         <title>Socket Receive Buffer Size (RXBUFFER)</title>
 
-        <para>Option syntax:<literal></literal></para>
+        <para>Option syntax:<literal/></para>
 
         <para><literal>... RXBUFFER &lt;rxBufferSize&gt; ...</literal></para>
 
@@ -1592,7 +1655,7 @@
       <sect3 id="IPv6_Flow_Label__LABEL">
         <title>IPv6 Flow Label (LABEL)</title>
 
-        <para>Option syntax:<literal></literal></para>
+        <para>Option syntax:<literal/></para>
 
         <para><literal>... label &lt;value&gt; ...</literal></para>
 
@@ -1607,7 +1670,7 @@
         0x0??00000</literal> where "??" specifies the first octet of the flow
         label. Other operating systems may behave differently.</para>
 
-        <para>Example:<literal></literal></para>
+        <para>Example:<literal/></para>
 
         <para><literal># Start an IPv6 flow with flow label =
         0x03d00000</literal></para>
@@ -1636,7 +1699,7 @@
         MGEN flows. If no INTERFACE option is used, MGEN will behave according
         to the operating system's default behavior.</para>
 
-        <para>Example:<literal></literal></para>
+        <para>Example:<literal/></para>
 
         <para><literal>#Start an IP multicast flow on Ethernet interface named
         "eth1"</literal></para>
@@ -1648,7 +1711,7 @@
       <sect3 id="Sequence_Number_Initialization__SEQUENCE">
         <title>Sequence Number Initialization (SEQUENCE)</title>
 
-        <para>Option syntax: <literal></literal></para>
+        <para>Option syntax: <literal/></para>
 
         <para><literal>... SEQUENCE &lt;sequenceNumber&gt;
         ...</literal></para>
@@ -1662,7 +1725,7 @@
         events for pending flows when it is desired that mgen return to a
         particular point in a script after being stopped and restarted.</para>
 
-        <para>Example:<literal></literal></para>
+        <para>Example:<literal/></para>
 
         <para><literal>#Modify the sequence number of an existing flow such
         that</literal></para>
@@ -1715,7 +1778,7 @@
       <sect3 id="_LISTEN">
         <title>LISTEN</title>
 
-        <para>Script syntax:<literal></literal></para>
+        <para>Script syntax:<literal/></para>
 
         <para><literal>&lt;eventTime&gt; LISTEN &lt;protocol&gt;
         &lt;portList&gt;</literal></para>
@@ -1730,7 +1793,7 @@
         the list are specified in the format
         "&lt;lowValue&gt;-&lt;hiValue&gt;".</para>
 
-        <para>Example:<literal></literal></para>
+        <para>Example:<literal/></para>
 
         <para><literal>#Monitor UDP port numbers 5000, 5003, 5004, 5005,
         5009</literal></para>
@@ -1748,7 +1811,7 @@
       <sect3 id="_IGNORE">
         <title>IGNORE</title>
 
-        <para>Script syntax:<literal></literal></para>
+        <para>Script syntax:<literal/></para>
 
         <para><literal>&lt;eventTime&gt; IGNORE &lt;protocol&gt;
         &lt;portList&gt;</literal></para>
@@ -1764,7 +1827,7 @@
         monitoring. Port ranges within the list are specified in the format
         <literal>"&lt;lowValue&gt;-&lt;hiValue&gt;".</literal></para>
 
-        <para>Example:<literal></literal></para>
+        <para>Example:<literal/></para>
 
         <para><literal>#Stop monitoring UDP port numbers 5003, 5004, 5005,
         5009</literal></para>
@@ -1781,27 +1844,40 @@
       <sect3 id="_JOIN">
         <title>JOIN</title>
 
-        <para>Script syntax:<literal></literal></para>
+        <para>Script syntax:<literal/></para>
 
-        <para><literal>&lt;eventTime&gt; JOIN&lt;groupAddress&gt;
-        [INTERFACE&lt;interfaceName&gt;]
-        [PORT&lt;portNumber&gt;]</literal></para>
+        <para><literal>&lt;eventTime&gt; JOIN &lt;groupAddress&gt; [SRC
+        &lt;srcAddress&gt;] [INTERFACE &lt;interfaceName&gt;] [PORT
+        &lt;portNumber| portList&gt;]</literal></para>
 
         <para>The JOIN event is used to prompt mgen to "join" the specific IP
-        multicast group indicated by the &lt;groupAddress&gt; field. The
+        multicast group indicated by the &lt;groupAddress&gt; field. The SRC
+        option can be used to join a source specific multicast (SSM) channel.
+        Note that the SRC option is not presently available on windows. The
         INTERFACE option forces the membership join request on the network
         interface identified by the &lt;interfaceName&gt; field. If no
         INTERFACE option is given, the operating system's default behavior is
         observed. Note it is possible to join the same group on multiple,
         different interfaces.</para>
 
-        <para>The PORT option is provided principally for operation on WIN32
-        systems where the IP multicast join must be performed on the same
-        socket bound to a specific &lt;portNumber&gt;. Note that a
-        corresponding <link linkend="_LISTEN">LISTEN</link> event for the
-        indicated &lt;portNumber&gt; is required in order to receive traffic.
-        Unix-based operating systems generally allow for IP multicast group
-        membership to be independent of specific socket port bindings.</para>
+        <para>The PORT option should be used on WIN32 systems where the IP
+        multicast join must be performed on the same socket bound to a
+        specific &lt;portNumber&gt;. </para>
+
+        <para>Unix-based operating systems generally allow for IP multicast
+        group membership to be independent of specific socket port bindings.
+        Note that a corresponding <link linkend="_LISTEN">LISTEN</link> event
+        for the indicated &lt;portNumber&gt; is required in order to receive
+        traffic if not set as a JOIN command option. Specify the PORT option
+        as a JOIN command option if your Unix based system does not support
+        port binding independence.</para>
+
+        <para>Not that on IPv6 systems (and when mgen is compiled with the
+        HAVE_IPV6 compile option) the JOIN port option must be specified when
+        joining an IPv4 group.</para>
+
+        <para>On OSX systems, the interface option must be used if a default
+        multicast route is not defined on the system.</para>
 
         <para>As many IP group memberships as the operating system will
         support is permitted by mgen. This is generally a limit of the maximum
@@ -1811,7 +1887,7 @@
         systems can allow for many memberships (often 20, but OS-specific) per
         socket.</para>
 
-        <para>Examples:<literal></literal></para>
+        <para>Examples:<literal/></para>
 
         <para><literal>#JOIN group 224.1.2.3 at time 0.0</literal></para>
 
@@ -1822,19 +1898,30 @@
 
         <para><literal>0.0 JOIN 224.1.2.4 INTERFACE eth1</literal></para>
 
+        <para><literal>#JOIN SSM channel 232.1.1.1 with source 26.26.26.1 on
+        interface "eth1"</literal></para>
+
+        <para><literal>0.0 JOIN 224.1.2.4 SRC 25.25.25.1 INTERFACE
+        eth1</literal></para>
+
         <para><literal>#JOIN group 224.1.2.5 using socket bound to port
         5000</literal></para>
 
         <para><literal>0.0 JOIN 224.1.2.5 PORT 5000</literal></para>
+
+        <para>#JOIN group 224.1.2.6 using sockets bound to ports
+        5001-5005</para>
+
+        <para>0.0 JOIN 224.1.2.6 PORT 5001-5005</para>
       </sect3>
 
       <sect3 id="_LEAVE">
         <title>LEAVE</title>
 
-        <para>Script syntax:<literal></literal></para>
+        <para>Script syntax:<literal/></para>
 
-        <para><literal>&lt;eventTime&gt; LEAVE &lt;groupAddress&gt;
-        [INTERFACE&lt;interfaceName&gt;] [PORT
+        <para><literal>&lt;eventTime&gt; LEAVE &lt;groupAddress&gt; [SRC
+        &lt;srcAddress&gt;] [INTERFACE &lt;interfaceName&gt;] [PORT
         &lt;portNumber]</literal></para>
 
         <para>The LEAVE event is used to prompt mgen to "leave" the specific
@@ -1842,9 +1929,10 @@
         &lt;groupAddress&gt; must have been joined with a prior <link
         linkend="_JOIN">JOIN</link> event. The INTERFACE and/or PORT options
         <emphasis>must</emphasis> be used if they were used with the
-        corresponding <link linkend="_JOIN">JOIN</link> event.</para>
+        corresponding <link linkend="_JOIN">JOIN</link> event. Note that the
+        SSM SRC option is not presently available on windows.</para>
 
-        <para>Examples:<literal></literal></para>
+        <para>Examples:<literal/></para>
 
         <para><literal>#LEAVE group 224.1.2.3 at time 10.0</literal></para>
 
@@ -1855,10 +1943,14 @@
 
         <para><literal>10.0 LEAVE 224.1.2.4 INTERFACE eth1</literal></para>
 
-        <para><literal>#LEAVE group 224.1.2.4 on interface
-        "eth1"and</literal></para>
+        <para><literal>#LEAVE SSM channel 232.1.1.1 with source 25.25.25.1 on
+        interface "eth1" at time 10.0</literal></para>
 
-        <para><literal>#port 5000 at time 10.0</literal></para>
+        <para><literal>10.0 LEAVE 224.1.2.4 SRC 25.25.25.1 INTERFACE
+        eth1</literal></para>
+
+        <para><literal>#LEAVE group 224.1.2.4 on interface "eth1"and port 5000
+        at time 10.0</literal></para>
 
         <para><literal>10.0 LEAVE 224.1.2.4 INTERFACE eth1 PORT
         5000</literal></para>
@@ -1986,6 +2078,15 @@
             be queued before mgen turns off the transmission timer for a
             flow.</entry>
           </row>
+
+          <row>
+            <entry><link linkend="_Logdata">LOGDATA</link></entry>
+
+            <entry>Controls whether MGEN will log the optional data attribute
+            field at MGEN receivers (including within MGEN binary log files).
+            It does not affect whether MGEN senders send the requested data
+            attribute. By default LOGDATA is set to ON.</entry>
+          </row>
         </tbody>
       </tgroup>
     </informaltable>
@@ -1993,7 +2094,7 @@
     <sect2 id="_START">
       <title>START</title>
 
-      <para>Script syntax:<literal></literal></para>
+      <para>Script syntax:<literal/></para>
 
       <para><literal>START &lt;hour:min:sec&gt;[GMT]</literal></para>
 
@@ -2020,7 +2121,7 @@
     <sect2 id="_OFFSET">
       <title>OFFSET</title>
 
-      <para>Script syntax:<literal></literal></para>
+      <para>Script syntax:<literal/></para>
 
       <para><literal>OFFSET &lt;seconds&gt;</literal></para>
 
@@ -2041,7 +2142,7 @@
     <sect2 id="_TOS">
       <title>TOS</title>
 
-      <para>Script syntax:<literal></literal></para>
+      <para>Script syntax:<literal/></para>
 
       <para><literal>TOS &lt;value&gt;</literal></para>
 
@@ -2057,7 +2158,7 @@
     <sect2 id="_LABEL">
       <title>LABEL</title>
 
-      <para>Script syntax:<literal></literal></para>
+      <para>Script syntax:<literal/></para>
 
       <para><literal>LABEL &lt;value&gt;</literal></para>
 
@@ -2078,7 +2179,7 @@
     <sect2 id="_TTL">
       <title>TTL</title>
 
-      <para>Script syntax:<literal></literal></para>
+      <para>Script syntax:<literal/></para>
 
       <para><literal>TTL &lt;value&gt;</literal></para>
 
@@ -2099,7 +2200,7 @@
     <sect2 id="_TXBUFFER">
       <title>TXBUFFER</title>
 
-      <para>Script syntax:<literal></literal></para>
+      <para>Script syntax:<literal/></para>
 
       <para><literal>TXBUFFER &lt;txBufferSize&gt; ...</literal></para>
 
@@ -2113,7 +2214,7 @@
     <sect2 id="_RXBUFFER">
       <title>RXBUFFER</title>
 
-      <para>Script syntax:<literal></literal></para>
+      <para>Script syntax:<literal/></para>
 
       <para><literal>RXBUFFER &lt;rxBufferSize&gt; ...</literal></para>
 
@@ -2139,7 +2240,7 @@
     <sect2 id="_QUEUE">
       <title>QUEUE</title>
 
-      <para>Script syntax:<literal></literal></para>
+      <para>Script syntax:<literal/></para>
 
       <para><literal>QUEUE</literal></para>
 
@@ -2197,7 +2298,7 @@
     <sect2 id="_INTERFACE">
       <title>INTERFACE</title>
 
-      <para>Script syntax:<literal></literal></para>
+      <para>Script syntax:<literal/></para>
 
       <para><literal>&lt;interfaceName&gt;</literal></para>
 
@@ -2222,7 +2323,7 @@
     <sect2 id="_INPUT">
       <title>INPUT</title>
 
-      <para>Script syntax:<literal></literal></para>
+      <para>Script syntax:<literal/></para>
 
       <para><literal>INPUT &lt;scriptFile&gt;</literal></para>
 
@@ -2243,7 +2344,7 @@
     <sect2 id="_OUTPUT">
       <title>OUTPUT</title>
 
-      <para>Script syntax:<literal></literal></para>
+      <para>Script syntax:<literal/></para>
 
       <para><literal>OUTPUT &lt;logFile&gt;</literal></para>
 
@@ -2253,7 +2354,7 @@
       scripts provided as input to mgen. The file named by &lt;logFile&gt;
       will be overwritten if it already exists.</para>
 
-      <para>Example:<literal></literal></para>
+      <para>Example:<literal/></para>
 
       <para><literal>#Use the file "logFile.drc" for logging</literal></para>
 
@@ -2263,7 +2364,7 @@
     <sect2 id="_LOG">
       <title>LOG</title>
 
-      <para>Script syntax:<literal></literal></para>
+      <para>Script syntax:<literal/></para>
 
       <para><literal>LOG &lt;logFile&gt;</literal></para>
 
@@ -2273,17 +2374,37 @@
       scripts provided as input to mgen. The file named by &lt;logFile&gt;
       will be appended if it already exists.</para>
 
-      <para>Example:<literal></literal></para>
+      <para>Example:<literal/></para>
 
       <para><literal>#Append the file "logFile.drc"</literal></para>
 
       <para><literal>LOG logFile.drc</literal></para>
     </sect2>
 
+    <sect2 id="_Logdata">
+      <title>LOGDATA</title>
+
+      <para>Script syntax:<literal/></para>
+
+      <para><literal>LOGDATA {on|off}}</literal></para>
+
+      <para>Controls whether MGEN will log the optional data attribute field
+      at MGEN receivers (including within MGEN binary log files). It does not
+      affect whether MGEN senders send the requested data attribute. By
+      default LOGDATA is set to ON.</para>
+
+      <para>Example:<literal/></para>
+
+      <para><literal>#Don't log optional data attribute at
+      receiver</literal></para>
+
+      <para><literal>LOGDATA off</literal></para>
+    </sect2>
+
     <sect2 id="_SAVE">
       <title>SAVE</title>
 
-      <para>Script syntax:<literal></literal></para>
+      <para>Script syntax:<literal/></para>
 
       <para><literal>SAVE &lt;saveFile&gt;</literal></para>
 
@@ -2308,7 +2429,7 @@
       <para>if an empty &lt;saveFile&gt; is provided on the first launch of
       mgen.</para>
 
-      <para>Example:<literal></literal></para>
+      <para>Example:<literal/></para>
 
       <para><literal># This script executes another MGEN script,
       using</literal></para>
@@ -2345,7 +2466,7 @@
   <sect1 id="_MGEN_Log_File">
     <title>MGEN Log File Format</title>
 
-    <para><anchor id="b5" /><anchor id="b7" />The MGEN message format contains
+    <para><anchor id="b5"/><anchor id="b7"/>The MGEN message format contains
     information to facilitate network performance measurements through
     post-analysis of MGEN log files. Some of the types of performance
     statistics which can be determined include:</para>
@@ -2679,7 +2800,7 @@
       not yet supported in MGEN 4.x. The documentation will be updated when
       this option is supported).</para>
 
-      <para>Example RECV event log lines:<literal></literal></para>
+      <para>Example RECV event log lines:<literal/></para>
 
       <para><literal>22:59:52.312721 RECV proto&gt;&lt;protocol&gt; flow&gt;1
       seq&gt;1 src&gt;132.250.68.21/5000 dst&gt;132.259.43.96/5002
@@ -2701,7 +2822,7 @@
       <title>Log File RERR Events</title>
 
       <para>The format of the RERR (Receive Error) event log file line
-      is:<literal></literal></para>
+      is:<literal/></para>
 
       <para><literal>&lt;eventTime&gt; RERR proto&gt;&lt;protocol&gt;
       type&gt;&lt;errorType&gt;
@@ -2720,8 +2841,7 @@
     <sect2 id="_Log_File_SEND_Events">
       <title>Log File SEND Events</title>
 
-      <para>The format of the SEND event log file line
-      is:<literal></literal></para>
+      <para>The format of the SEND event log file line is:<literal/></para>
 
       <para><literal>&lt;eventTime&gt; SEND proto&gt;&lt;protocol&gt;
       flow&gt;&lt;flowId&gt; seq&gt;&lt;sequenceNumber&gt;
@@ -2742,8 +2862,8 @@
 
       <para>The format of the JOIN log file event line is:</para>
 
-      <para>&lt;eventTime&gt; JOIN group&gt; &lt;groupAddress&gt;
-      [interface&gt; &lt;interfaceName&gt;]</para>
+      <para>&lt;eventTime&gt; JOIN group&gt; &lt;groupAddress&gt; [src&gt;
+      &lt;srcAddress&gt;] [interface&gt; &lt;interfaceName&gt;]</para>
 
       <para>The &lt;groupAddress&gt; is the IP multicast group address which
       was joined. The format of this field is either a dotted decimal IPv4
@@ -2757,6 +2877,9 @@
 
       <para><literal>22:59:51:129574 JOIN group&gt;224.1.2.4
       interface&gt;eth1</literal></para>
+
+      <para><literal>22:59:51:129574 JOIN group&gt;224.1.2.4 src&gt;25.25.25.1
+      interface&gt;eth1</literal></para>
     </sect2>
 
     <sect2 id="_Log_File_LEAVE">
@@ -2764,8 +2887,8 @@
 
       <para>The format of log file LEAVE event lines is:</para>
 
-      <para>&lt;eventTime&gt; LEAVE group&gt;&lt;groupAddress&gt;
-      [interface&gt;&lt;interfaceName&gt;]</para>
+      <para>&lt;eventTime&gt; LEAVE group&gt;&lt;groupAddress&gt; [src&gt;
+      &lt;srcAddress&gt;] [interface&gt;&lt;interfaceName&gt;]</para>
 
       <para>The &lt;groupAddress&gt; is the IP multicast group address which
       was left. The format of this field is either a dotted decimal IPv4
@@ -2774,19 +2897,21 @@
       the corresponding <link linkend="_LEAVE">LEAVE</link> script
       event.</para>
 
-      <para>Example LEAVE event log lines:<literal></literal></para>
+      <para>Example LEAVE event log lines:<literal/></para>
 
       <para><literal>22:59:59:234757 LEAVE group&gt;224.1.2.3</literal></para>
 
       <para><literal>22:59:59:753683 LEAVE group&gt;224.1.2.4
       interface&gt;eth1</literal></para>
+
+      <para><literal>22:59:59:753683 LEAVE group&gt;224.1.2.4
+      src&gt;25.25.25.1 interface&gt;eth1</literal></para>
     </sect2>
 
     <sect2 id="_Log_File_LISTEN">
       <title>Log File LISTEN Events</title>
 
-      <para>The format of the LISTEN event log file line
-      is:<literal></literal></para>
+      <para>The format of the LISTEN event log file line is:<literal/></para>
 
       <para><literal>&lt;eventTime&gt; LISTEN proto&gt;&lt;protocol&gt;
       port&gt;&lt;portNumber&gt;</literal></para>
@@ -2795,7 +2920,7 @@
       type being used. Supported protocols include "UDP" and "TCP". The
       &lt;portNumber&gt; field is the host port number to be monitored.</para>
 
-      <para>Example LISTEN event log lines:<literal></literal></para>
+      <para>Example LISTEN event log lines:<literal/></para>
 
       <para><literal>22:59:48:834205 LISTEN proto&gt;UDP
       port&gt;5000</literal></para>
@@ -2817,7 +2942,7 @@
       The &lt;portNumber&gt; field is the host port number to be no longer
       monitored.</para>
 
-      <para>Example IGNORE event log lines:<literal></literal></para>
+      <para>Example IGNORE event log lines:<literal/></para>
 
       <para><literal>23:00:00:723467 IGNORE proto&gt;UDP
       port&gt;5000</literal></para>
@@ -2829,8 +2954,7 @@
     <sect2 id="_Log_File_ON">
       <title>Log File ON Events</title>
 
-      <para>The format of the ON event log file line
-      is:<literal></literal></para>
+      <para>The format of the ON event log file line is:<literal/></para>
 
       <para><literal>&lt;eventTime&gt; ON flow&gt;&lt;flowID&gt;
       srcPort&gt;&lt;srcPort&gt;
@@ -2870,7 +2994,7 @@
       sharing the connection, CONNECT events will be logged for each
       flow.</para>
 
-      <para>Example CONNECT event log line:<literal></literal></para>
+      <para>Example CONNECT event log line:<literal/></para>
 
       <para><literal>23:00:00:723467 CONNECT flow&gt;1 srcPort&gt;4000
       dst&gt;192.168.1.102/5000</literal></para>
@@ -2922,14 +3046,12 @@
       Note that if a TCP connection was prematurely terminated, no SHUTDOWN
       event will be logged.</para>
 
-      <para>Example Client SHUTDOWN event log line
-      (client):<literal></literal></para>
+      <para>Example Client SHUTDOWN event log line (client):<literal/></para>
 
       <para><literal>23:00:00:723467 SHUTDOWN flow&gt;&lt;flowId&gt;
       src&gt;192.168.1.102/5000 dstPort&gt;6000</literal></para>
 
-      <para>Example Server SHUTDOWN event log line
-      (server):<literal></literal></para>
+      <para>Example Server SHUTDOWN event log line (server):<literal/></para>
 
       <para><literal>23:00:00:723467 SHUTDOWN src&gt;192.168.1.100/5000
       dst&gt;6000</literal></para>
@@ -2978,14 +3100,12 @@
       be logged. (NOTE: Indication of unscheduled TCP disconnection is not
       available relieably under windows at this time.)</para>
 
-      <para>Example Client DISCONNECT event log
-      line:<literal></literal></para>
+      <para>Example Client DISCONNECT event log line:<literal/></para>
 
       <para><literal>23:00:00:723467 DISCONNECT flow&gt;1 srcPort&gt;4000
       dst&gt;192.168.1.102/5000</literal></para>
 
-      <para>Example Server DISCONNECT event log line
-      :<literal></literal></para>
+      <para>Example Server DISCONNECT event log line :<literal/></para>
 
       <para><literal>23:00:00:723467 DISCONNECT src&gt;192.168.1.100/4000
       dstPort&gt;5000</literal></para>
@@ -3017,14 +3137,12 @@
       OFF event may be logged for both planned and unplanned socket
       disconnects.)</para>
 
-      <para>Example Client OFF event log line
-      (client):<literal></literal></para>
+      <para>Example Client OFF event log line (client):<literal/></para>
 
       <para><literal>23:00:00:723467 OFF flow&gt;1 srcPort&gt;4000
       dst&gt;192.168.1.102/5000</literal></para>
 
-      <para>Example Server OFF event log line
-      (server):<literal></literal></para>
+      <para>Example Server OFF event log line (server):<literal/></para>
 
       <para><literal>23:00:00:723467 OFF src&gt;192.168.1.100/4000
       dstPort&gt;5000</literal></para>
@@ -3038,7 +3156,7 @@
       <title>Log File START and STOP Events</title>
 
       <para>The format of the START and STOP event log file line
-      is:<literal></literal></para>
+      is:<literal/></para>
 
       <para><literal>&lt;eventTime&gt;
       START</literal>or<literal>&lt;eventTime&gt;STOP</literal></para>
@@ -3749,7 +3867,7 @@ The format of the RECV event binary log file record is:
   <sect1>
     <title>Compile options</title>
 
-    <para></para>
+    <para/>
 
     <sect2>
       <title>RANDOM_FILL</title>
@@ -3804,7 +3922,7 @@ The format of the RECV event binary log file record is:
   <sect1>
     <title>Known issues</title>
 
-    <para></para>
+    <para/>
 
     <sect2>
       <title>Macosx Windows TCP Interaction</title>

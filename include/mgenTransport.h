@@ -73,7 +73,7 @@ class MgenTransport
     virtual void IsClient(bool isClient) {;}
     virtual bool IsConnected() {return true;}
     virtual bool IsConnecting() {return false;}
-    virtual bool IsListening() {return false;}
+    virtual bool IsListening() {return true;}
     virtual bool Listen(UINT16 port,ProtoAddress::Type addrType,bool bindOnOpen) {return false;}
     virtual bool SetRxBufferSize(unsigned int rxBufferSize) {return false;} // for multicast joins in mgen
     virtual void SetEventOptions(const MgenEvent* theEvent) {;}
@@ -81,8 +81,11 @@ class MgenTransport
     virtual bool TransmittingFlow(UINT32 flowId) {return false;}
     virtual unsigned int GroupCount() {return 0;}
     virtual bool JoinGroup(const ProtoAddress& groupAddress, 
+			               const ProtoAddress& sourceAddress,
                            const char* interfaceName = NULL) {return false;}
+    virtual ProtoAddress::Type GetAddressType() { return ProtoAddress::INVALID; }
     virtual bool LeaveGroup(const ProtoAddress& theAddress, 
+			    const ProtoAddress& sourceAddress,
                             const char* interfaceName = NULL) {return false;}
 #ifdef HAVE_IPV6	  
     virtual void SetFlowLabel(UINT32 label) {;}
@@ -143,7 +146,8 @@ class MgenTransport
         DMSG(0,"SocketTransport::SocketTransport() Error: Invalid protocol specified.\n");		
         return ProtoSocket::INVALID_PROTOCOL;
     }
-    
+    int GetMessagesSent() {return messages_sent;}
+    void SetMessagesSent(int messagesSent) {messages_sent = messagesSent;}
     Mgen& GetMgen() {return mgen;}
   private: 
     MgenTransport*  prev;  
@@ -158,6 +162,7 @@ class MgenTransport
     MgenFlow*       pending_head;
     MgenFlow*       pending_tail;
     MgenFlow*       pending_current;
+    int             messages_sent;
 };  // end class MgenTransport
 
 /** 
@@ -224,6 +229,7 @@ class MgenSocketTransport : public MgenTransport
     
     virtual ~MgenSocketTransport();
     bool Listen(UINT16 port,ProtoAddress::Type addrType, bool bindOnOpen);
+    ProtoAddress::Type GetAddressType() { return socket.GetAddressType(); }
 
     bool            broadcast;
     unsigned char   tos;
@@ -250,8 +256,10 @@ class MgenUdpTransport : public MgenSocketTransport
     void OnEvent(ProtoSocket& theSocket,ProtoSocket::Event theEvent);
     bool Open(ProtoAddress::Type addrType, bool bindOnOpen);    
     bool JoinGroup(const ProtoAddress& groupAddress, 
+		   const ProtoAddress& sourceAddress,
                    const char* interfaceName = NULL);
     bool LeaveGroup(const ProtoAddress& theAddress, 
+		    const ProtoAddress& sourceAddress,
                     const char* interfaceName = NULL);
     bool SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer);
     bool Listen(UINT16 port,ProtoAddress::Type addrType, bool bindOnOpen);
@@ -363,7 +371,7 @@ class MgenTcpTransport : public MgenSocketTransport
     char                    rx_msg_buffer[TX_BUFFER_SIZE];
     unsigned int            rx_buffer_index;
     char                    rx_checksum_buffer[4];
-    UINT16          rx_fragment_pending;
+    UINT16                  rx_fragment_pending;
     UINT16                  rx_msg_index;
     UINT32                  rx_checksum;
 	
@@ -382,7 +390,7 @@ class MgenSinkTransport : public MgenTransport
     ~MgenSinkTransport();
 
     // MgenSinkTransport implementation
-    static MgenSinkTransport* Create(Mgen& theMgen);
+    static MgenSinkTransport* Create(Mgen& theMgen, Protocol theProtocol);  // SINK or SOURCE
     bool IsOpen() {return true;} 
     void Close() {return;} 
     bool HasListener() {return true;}
@@ -445,7 +453,7 @@ class MgenAppSinkTransport : public MgenSinkTransport, public ProtoChannel
     bool Open();
     bool OnOutputReady();
 	bool Write(char* buffer, unsigned int* nbytes);
-    bool SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer); 
+	bool SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer); 
     bool OnInputReady();
 	bool Read(char* buffer, UINT32 nBytes, UINT32& bytesRead);
 	void OnEvent(ProtoChannel& theChannel,ProtoChannel::Notification theNotification);

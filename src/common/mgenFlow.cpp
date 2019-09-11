@@ -3,6 +3,10 @@
 #include "mgen.h"
 #include <time.h>  // for gmtime(), struct tm, etc
 
+#ifndef ENABLE_EVENT_VALIDATION
+#define _VALIDATE_EVENTS_OFF
+#endif
+
 MgenFlow::MgenFlow(unsigned int         flowId, 
                    ProtoTimerMgr&       timerMgr,
                    MgenController*      theController,
@@ -10,7 +14,7 @@ MgenFlow::MgenFlow(unsigned int         flowId,
                    int                  defaultQueueLimit,
                    UINT32               defaultV6Label)
   : off_pending(false),old_transport(NULL),queue_limit(defaultQueueLimit),
-    message_limit(-1), messages_sent(0),
+    message_limit(-1), 
     flow_id(flowId), payload(0), flow_label(defaultV6Label),      
     flow_transport(NULL), seq_num(0), 
     pending_messages(0),
@@ -47,7 +51,6 @@ bool MgenFlow::InsertEvent(MgenEvent* theEvent, bool mgenStarted, double current
 
     if (mgenStarted)
     {   
-
         // Process "immediate" events or enqueue "scheduled" events     
         if (eventTime < currentTime)
         {
@@ -56,6 +59,8 @@ bool MgenFlow::InsertEvent(MgenEvent* theEvent, bool mgenStarted, double current
             if (ValidateEvent(theEvent))
             {
                 Update(theEvent);
+		// LJT event-test
+		event_list.Remove(theEvent);
             }
             else
             {
@@ -109,6 +114,9 @@ bool MgenFlow::InsertEvent(MgenEvent* theEvent, bool mgenStarted, double current
  */
 bool MgenFlow::ValidateEvent(const MgenEvent* event)
 {
+#ifdef _VALIDATE_EVENTS_OFF
+  return true;
+#endif
     const MgenEvent* prevEvent = (MgenEvent*)event->Prev();
     MgenEvent::Type prevType = prevEvent ? prevEvent->GetType() : 
                                            MgenEvent::INVALID_TYPE;
@@ -195,8 +203,9 @@ bool MgenFlow::DoOnEvent(const MgenEvent* event)
       dst_addr = event->GetDstAddr();
 
     if (event->OptionIsSet(MgenEvent::COUNT))
-      message_limit = event->GetCount();
-
+      {
+	message_limit = event->GetCount();
+      }
 #ifdef WIN32
     if (protocol == TCP)
     { 
@@ -216,8 +225,15 @@ bool MgenFlow::DoOnEvent(const MgenEvent* event)
     if (event->GetQueueLimit())
       queue_limit = event->GetQueueLimit();
     
-    flow_transport = mgen.GetMgenTransport(protocol, src_port,event->GetDstAddr(),false,event->GetConnect());
-    
+    // When we have a message_limit the transport keeps track of
+    // how many messages we have successfully sent so (for now
+    // we should provide a better fix for this - have flow keep track?)
+    // we should find closed sockets only.
+    if (message_limit > 0)
+      flow_transport = mgen.GetMgenTransport(protocol, src_port,event->GetDstAddr(),true,event->GetConnect());
+    else
+      flow_transport = mgen.GetMgenTransport(protocol, src_port,event->GetDstAddr(),false,event->GetConnect());
+
     if (!flow_transport)
     {
         DMSG(0, "MgenFlow::Update() Error: unable to get %s flow transport.\n",MgenEvent::GetStringFromProtocol(protocol));
@@ -238,7 +254,7 @@ bool MgenFlow::DoOnEvent(const MgenEvent* event)
     theMsg.SetFlowId(flow_id);
     struct timeval currentTime;
     ProtoSystemTime(currentTime);
-    
+
     if (off_pending)
     {
         off_pending = false;
@@ -464,8 +480,8 @@ bool MgenFlow::DoGenericEvent(const MgenEvent* event)
 
     if (event->OptionIsSet(MgenEvent::COUNT))
     {
-        messages_sent = 0;
-        message_limit = event->GetCount();
+      flow_transport->SetMessagesSent(0);
+      message_limit = event->GetCount();
     }          
 
     char *tmpPayload = event->GetPayload();
@@ -489,8 +505,9 @@ bool MgenFlow::Update(const MgenEvent* event)
     {
     case MgenEvent::ON:
       {   
+#ifndef _VALIDATE_EVENTS_OFF
           ASSERT(!tx_timer.IsActive());
-
+#endif
           if (!DoOnEvent(event)) return false;
 
           // Note the lack of "break" here is _intentional_
@@ -500,6 +517,13 @@ bool MgenFlow::Update(const MgenEvent* event)
       {
           // Do MOD specific events, remember we fall thru!
 
+#ifdef _VALIDATE_EVENTS_OFF
+	if (!flow_transport)
+	  {
+	    DMSG(0,"MgenFlow::Update() Error MgenFlow() flow>%d not started yet.\n",flow_id);
+	    break;
+	  }
+#endif
           DoModEvent(event);  
 
           // Do ON ~and~ MOD events, remember we fall thru!
@@ -562,7 +586,16 @@ bool MgenFlow::Update(const MgenEvent* event)
               if (tx_timer.IsActive()) tx_timer.Deactivate();
               break;
           }
-          
+
+	  // Inform rapr so it can reuse the flowid
+	  if (controller)
+	  {
+	      char buffer [512];
+	      sprintf(buffer, "offevent flow>%lu", (unsigned long)flow_id);
+	      unsigned int len = strlen(buffer);
+	      controller->OnOffEvent(buffer,len);
+	  }  
+
           StopFlow();
           break;
       }
@@ -636,21 +669,30 @@ bool MgenFlow::GetNextInterval()
 //  an OFF_EVENT or when COUNT has been exceeded.
 void MgenFlow::StopFlow()
 {
-  pending_messages = message_limit = messages_sent = 0;
+  pending_messages = message_limit = 0;
+  if (flow_transport) flow_transport->SetMessagesSent(0);
   off_pending = false;
 
   // Inform rapr so it can reuse the flowid
   if (controller)
   {
       char buffer [512];
-      sprintf(buffer, "offevent flow>%lu", (unsigned long)flow_id);
+      sprintf(buffer, "stopFlow flow>%lu", (unsigned long)flow_id);
       unsigned int len = strlen(buffer);
-      controller->OnOffEvent(buffer,len);
+      controller->OnStopEvent(buffer,len);
   }  
   // remove flow from pending flows list 
   if (flow_transport) flow_transport->RemoveFlow(this);
   if (tx_timer.IsActive()) tx_timer.Deactivate();
-  
+
+#ifdef _VALIDATE_EVENTS_OFF
+  // Since we aren't validating events when controlled by rapr, we may not have an off
+  // even that will deactivate the timer.
+  if (event_timer.IsActive())
+    {
+      event_timer.Deactivate();
+    }
+#endif // _VALIDATE_EVENTS_OFF  
   if (flow_transport) 
     {
         MgenMsg theMsg;
@@ -680,6 +722,18 @@ void MgenFlow::StopFlow()
             // we don't log another off event for this flow
 	    // later on in the shutdown process
             flow_transport->LogEvent(OFF_EVENT,&theMsg,currentTime);
+
+	    // Tell rapr we've turned the flow off, may result in 
+	    // multiple attempts to unlock the flow_id but that should
+	    // be ok
+	    if (controller)
+	      {
+		char buffer [512];
+		sprintf(buffer, "offevent flow>%lu",(unsigned long)flow_id);
+		unsigned int len = strlen(buffer);
+		controller->OnOffEvent(buffer,len);
+	      }
+
 	    // the close event will ensure were aren't closing a 
 	    // socket another flow is using
 	    flow_transport->Close(); 
@@ -711,7 +765,7 @@ bool MgenFlow::SendMessage()
         return false;
     }
 
-    if (message_limit > 0 && messages_sent >= message_limit)
+    if (!flow_transport || message_limit > 0 && flow_transport->GetMessagesSent() >= message_limit)
     {
         // Deactivate timer but wait for an OFF_EVENT to actually 
         // stop flow, unless we have an unlimited rate - in that
@@ -732,14 +786,16 @@ bool MgenFlow::SendMessage()
 #else
     theMsg.SetSeqNum(MgenSequencer::GetNextSequence(flow_id));
 #endif
-
     struct timeval currentTime;
     ProtoSystemTime(currentTime);
 
-    // TxTime is set here initially but updated the transport's
+    // TxTime is set here initially but updated in the transport's
     // SendMessage function when the message is actually 
-    // transmitted.  (We may be delayed by pending messages)
+    // transmitted.  (We may be delayed by pending messages and the
+    // tx time needs to be as close as possible to when we start
+    // sending data to the socket - for tcp in particular)
     theMsg.SetTxTime(currentTime);
+
     theMsg.SetDstAddr(dst_addr);
     if (payload != NULL) theMsg.SetPayload(payload);
 
@@ -760,7 +816,7 @@ bool MgenFlow::SendMessage()
     theMsg.SetGPSLongitude(999); 
     theMsg.SetGPSAltitude(-999);
 #ifdef HAVE_GPS
-    if (get_position)
+    if (NULL != get_position)
     {
         GPSPosition pos;
         get_position(get_position_data, pos);
@@ -776,7 +832,7 @@ bool MgenFlow::SendMessage()
               theMsg.SetGPSStatus(MgenMsg::CURRENT);
         }
     }
-    if (payload_handle)
+    if (NULL != payload_handle)
     {
         unsigned char payloadLen = 0;
         GPSGetMemory(payload_handle,0,(char*)&payloadLen,1);
@@ -784,6 +840,44 @@ bool MgenFlow::SendMessage()
           theMsg.SetMpPayload(GPSGetMemoryPtr(payload_handle,1),payloadLen);
     }
 #endif // HAVE_GPS
+    
+#ifdef ANDROID
+    // For Android, we have implemented a temporary hack that depends upon
+    // the freely available "GPSLogger" Android application.  This mgen
+    // code assumes that GPSLogger is configured to log (in text file format)
+    // to the file "sdcard/Android/data/com.mendhak.gpslogger/files/gpslogger.txt"
+    // If the file is not available or empty, a null GPS position is reported
+    GPSPosition pos;
+    memset(&pos, 0, sizeof(GPSPosition));  // init to invalid (null) position
+    const char* cmd = "tail -1 /storage/sdcard0/Android/data/com.mendhak.gpslogger/files/gpslogger.txt";
+    FILE* filePtr = popen(cmd, "r");
+    if (NULL != filePtr)
+    {
+        int year, month, day, hour, minute, second;
+        double lat,lon, alt;
+        if (9 == fscanf(filePtr, "%d-%d-%dT%d:%d:%dZ,%lf,%lf,%lf",
+                         &year, &month, &day, &hour, &minute, &second,
+                         &lat, &lon, &alt))
+        {
+            pos.x = lon;
+            pos.y = lat;
+            pos.z = alt;
+            pos.sys_time = currentTime;  // TBD - parse the logged time and see if not stale
+            pos.gps_time = currentTime;  // TBD - parse the logged time and see if not stale
+            pos.xyvalid = pos.zvalid = true;
+            pos.tvalid = pos.stale = false;
+            theMsg.SetGPSLatitude(pos.y);
+            theMsg.SetGPSLongitude(pos.x);
+            if (pos.zvalid)
+              theMsg.SetGPSAltitude((INT32)(pos.z+0.5));
+            if (pos.stale)
+              theMsg.SetGPSStatus(MgenMsg::STALE);
+            else
+              theMsg.SetGPSStatus(MgenMsg::CURRENT);
+        }
+    }
+    
+#endif  // ANDROID    
     
 #ifdef HAVE_IPV6
     if (ProtoAddress::IPv6 == dst_addr.GetType())
@@ -797,8 +891,11 @@ bool MgenFlow::SendMessage()
     bool success = false;
     
     // txbuffer only used by udp and sink transports
-    success = flow_transport->SendMessage(theMsg,dst_addr,txBuffer);
-    
+    if (flow_transport != NULL)
+      success = flow_transport->SendMessage(theMsg,dst_addr,txBuffer);
+    else
+      success = 0;
+
     if (!success)
     {
         // message was not sent, so sequence number is decremented back one
@@ -829,8 +926,7 @@ bool MgenFlow::SendMessage()
     }
     else
     {
-        messages_sent++; 
-        if (GetPending()) pending_messages--;
+      if (GetPending()) pending_messages--;
     }
     
     return success;
@@ -841,11 +937,12 @@ bool MgenFlow::SendMessage()
 bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
 {
 
-    if (message_limit > 0 && messages_sent >= message_limit)
+  if (!flow_transport || message_limit > 0 && flow_transport->GetMessagesSent() >= message_limit)
     {
-        // deactivate timer but wait for an OFF_EVENT 
-        // to actually stop flow
+        // deactivate timer and stopMgenSequencer flow immediately rather than
+        // waiting for an OFF_EVENT . 
         if (tx_timer.IsActive()) tx_timer.Deactivate();
+	StopFlow();
         return false;
     }
     // If we moved to a new transport, finish sending
@@ -902,6 +999,14 @@ bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
             flow_transport->StartOutputNotification();
             return true;
         }
+	// Inform rapr so it can reuse the flowid
+	if (controller)
+	  {
+	    char buffer [512];
+	    sprintf(buffer, "offevent flow>%lu", (unsigned long)flow_id);
+	    unsigned int len = strlen(buffer);
+	    controller->OnOffEvent(buffer,len);
+	  }  
         StopFlow();
         return false;        
     }
@@ -1022,6 +1127,9 @@ bool MgenFlow::OnEventTimeout(ProtoTimer& /*theTimer*/)
     // 1) Update flow as needed using "next_event"
     Update(next_event);
     
+    // ljt event test
+    MgenEvent* processedEvent = next_event;
+
     // 2) Set (or kill) event_timer according to "next_event->next"
     double currentTime = next_event->GetTime();
     next_event = (MgenEvent*)next_event->Next();
@@ -1030,11 +1138,18 @@ bool MgenFlow::OnEventTimeout(ProtoTimer& /*theTimer*/)
         double nextInterval = next_event->GetTime() - currentTime;
         nextInterval = nextInterval > 0.0 ? nextInterval : 0.0;
         event_timer.SetInterval(nextInterval);
+	// ljt event test
+	event_list.Remove(processedEvent);
         return true;
     }
     else
     {
+#ifdef _VALIDATE_EVENTS_OFF
+      if (event_timer.IsActive())
+#endif // _VALIDATE_EVENTS_OFF
         event_timer.Deactivate();
+      // ljt event test
+        event_list.Remove(processedEvent);
         return false;
     }
 }  // end MgenFlow::OnEventTimeout()

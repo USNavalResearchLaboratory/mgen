@@ -329,10 +329,9 @@ UINT16 MgenMsg::Pack(char* buffer,UINT16 bufferLen, bool includeChecksum,UINT32&
     }
     return msgLen;
 }  // end MgenMsg::Pack()
-bool MgenMsg::Unpack(const char* buffer, UINT16 bufferLen,bool forceChecksum,bool logData)
+bool MgenMsg::Unpack(const char* buffer, UINT16 bufferLen,bool forceChecksum,bool log_data)
 {
     // init optional fields
-    
     host_addr.Invalidate();
     gps_status = INVALID_GPS;
     reserved = 0;
@@ -392,6 +391,7 @@ bool MgenMsg::Unpack(const char* buffer, UINT16 bufferLen,bool forceChecksum,boo
     memcpy(&temp16, buffer+len, sizeof(INT16));
     UINT16 dstPort = ntohs(temp16);
     len += sizeof(INT16);
+    
     // dst_addr(type)
     ProtoAddress::Type addrType;
     switch (buffer[len++])
@@ -471,26 +471,26 @@ bool MgenMsg::Unpack(const char* buffer, UINT16 bufferLen,bool forceChecksum,boo
     // GPS position information
     if ((len+13) <= bufferLen)
 	{
-        // latitude
-        memcpy(&temp32, buffer+len, sizeof(INT32));
-        latitude = ((double)ntohl(temp32))/60000.0 - 180.0;
-        len += sizeof(INT32);
-        // longitude
-        memcpy(&temp32, buffer+len, sizeof(INT32));
-        longitude = ((double)ntohl(temp32))/60000.0 - 180.0;
-        len += sizeof(INT32);
-        // altitude 
-        memcpy(&temp32, buffer+len, sizeof(INT32));
-        altitude = ntohl(temp32);
-        len += sizeof(INT32);
-        // status
-        gps_status = (GPSStatus)buffer[len++];
+	  // latitude
+	  memcpy(&temp32, buffer+len, sizeof(INT32));
+	  latitude = ((double)ntohl(temp32))/60000.0 - 180.0;
+	  len += sizeof(INT32);
+	  // longitude
+	  memcpy(&temp32, buffer+len, sizeof(INT32));
+	  longitude = ((double)ntohl(temp32))/60000.0 - 180.0;
+	  len += sizeof(INT32);
+	  // altitude 
+	  memcpy(&temp32, buffer+len, sizeof(INT32));
+	  altitude = ntohl(temp32);
+	  len += sizeof(INT32);
+	  // status
+	  gps_status = (GPSStatus)buffer[len++];
 	}
     else
-	{
+      {
         packet_header_len = len;  
         return true;
-	}
+      }
     
     // "reserved" field
     if (len < bufferLen)
@@ -511,7 +511,7 @@ bool MgenMsg::Unpack(const char* buffer, UINT16 bufferLen,bool forceChecksum,boo
         if (0 != payload_len) {
             payload_len = payload_len < (bufferLen - len) ? payload_len : (bufferLen - len);
 
-	    if (logData)
+	    if (log_data)
 	    {
 	      payload = new MgenPayload();
 	      char *tmpStr = new char[payload_len];
@@ -1005,6 +1005,7 @@ bool MgenMsg::LogRecvEvent(FILE*                    logFile,
                            bool                     logBinary, 
                            bool                     local_time,
 			   bool                     log_data,
+			   bool                     log_gps_data,
                            char*                    msgBuffer,
                            bool                     flush,
                            const struct timeval&    theTime)
@@ -1156,9 +1157,10 @@ bool MgenMsg::LogRecvEvent(FILE*                    logFile,
           DMSG(0, "MgenMsg::LogRecvEvent() invalid GPS status\n");
           Mgen::Log(logFile, "\n");
           return false;
-        } // end switch (gps_status)       
-        Mgen::Log(logFile, "gps>%s,%f,%f,%ld ", statusString,
-                  latitude, longitude, altitude);
+        } // end switch (gps_status)
+	if (log_gps_data)
+	  Mgen::Log(logFile, "gps>%s,%f,%f,%ld ", statusString,
+		    latitude, longitude, altitude);
         UINT16 payload_len = payload == NULL ? 0 : payload->GetPayloadLen();
         if (payload_len && log_data)
         {
@@ -1223,6 +1225,11 @@ bool MgenMsg::LogSendEvent(FILE*    logFile,
         memcpy(header+index, &temp16, sizeof(INT16));
         index += sizeof(INT16);
         
+        // the tx_time in the txBuffer is used as the
+	// SEND message event time.  For TCP messages
+	// this needs to be the time of the first
+	// TCP section sent.
+
         // Write mgen_msg_size since we are relying
         // on mgen_len for segment size in recv
         // processing...
@@ -1257,24 +1264,24 @@ bool MgenMsg::LogSendEvent(FILE*    logFile,
         
 #ifdef _WIN32_WCE
         struct tm timeStruct;
-        timeStruct.tm_hour = tx_time.tv_sec / 3600;
+        timeStruct.tm_hour = theTime.tv_sec / 3600;
         UINT32 hourSecs = 3600 * timeStruct.tm_hour;
-        timeStruct.tm_min = (tx_time.tv_sec - hourSecs) / 60;
-        timeStruct.tm_sec = tx_time.tv_sec - hourSecs - (60*timeStruct.tm_min);
+        timeStruct.tm_min = (theTime.tv_sec - hourSecs) / 60;
+        timeStruct.tm_sec = theTime.tv_sec - hourSecs - (60*timeStruct.tm_min);
         timeStruct.tm_hour = timeStruct.tm_hour % 24;
         struct tm* timePtr = &timeStruct;
 #else
         struct tm* timePtr;
         if (local_time)
-          timePtr = localtime((time_t*)&tx_time.tv_sec);
+          timePtr = localtime((time_t*)&theTime.tv_sec);
         else
-          timePtr = gmtime((time_t*)&tx_time.tv_sec);
+          timePtr = gmtime((time_t*)&theTime.tv_sec);
         
 #endif // if/else _WIN32_WCE
         
         Mgen::Log(logFile, "%02d:%02d:%02d.%06lu ",
                   timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                  (UINT32)tx_time.tv_usec); 
+                  (UINT32)theTime.tv_usec); 
         
         Mgen::Log(logFile,"SEND proto>%s flow>%lu seq>%lu srcPort>%hu dst>%s/%hu",
                   MgenEvent::GetStringFromProtocol(protocol),
@@ -1444,6 +1451,19 @@ void MgenMsg::LogDrecEvent(LogEventType eventType, const DrecEvent *event, UINT1
                                         timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
                                         (UINT32)eventTime.tv_usec,
                                         event->GetGroupAddress().GetHostString());
+
+                // If source is valid, it means it is SSM, print source as well
+                if ( event->GetSourceAddress().IsValid() )
+                {
+                     const char* source;
+
+                     source = event->GetSourceAddress().GetHostString();
+                     if (source)
+                     {
+                         Mgen::Log(logFile, " source>%s", source );
+                     }
+                }
+
                 const char* iface = event->GetInterface();
                 if (iface) Mgen::Log(logFile, " interface>%s", iface);
                 if (portNumber)
@@ -1458,6 +1478,20 @@ void MgenMsg::LogDrecEvent(LogEventType eventType, const DrecEvent *event, UINT1
                                         timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
                                         (UINT32)eventTime.tv_usec,
                                         event->GetGroupAddress().GetHostString());
+
+                // If source is valid, it means it is SSM, print source as well
+                if ( event->GetSourceAddress().IsValid() )
+                {
+                    const char* source;
+
+                    source = event->GetSourceAddress().GetHostString();
+
+                    if (source)
+                    {
+                        Mgen::Log(logFile, " source>%s", source );
+                    }
+                }
+
                 const char* iface = event->GetInterface();
                 if (iface) Mgen::Log(logFile, " interface>%s", iface);
                 if (portNumber)
@@ -1498,6 +1532,7 @@ bool MgenMsg::ConvertBinaryLog(const char* path,Mgen& mgen)
     bool local_time = mgen.GetLocalTime();
     bool log_flush = mgen.GetLogFlush();
     bool log_data = mgen.GetLogData();
+    bool log_gps_data = mgen.GetLogGpsData();
 
     if (NULL == log_file) return false;
     FILE* file = fopen(path, "rb");
@@ -1685,12 +1720,13 @@ bool MgenMsg::ConvertBinaryLog(const char* path,Mgen& mgen)
               msg.SetSrcAddr(srcAddr);
               msg.SetTxTime(eventTime);
               msg.Unpack(buffer+index, recordLength - index, false, log_data);
-              msg.LogRecvEvent(log_file, false, local_time, log_data, NULL, log_flush,eventTime);
+              msg.LogRecvEvent(log_file, false, local_time, log_data, log_gps_data, NULL, log_flush,eventTime);
               
               break;
           }
         case SEND_EVENT:
           {
+
               MgenMsg msg;
               // get tcp mgen_msg_len
               if (theProtocol == TCP)
@@ -1703,7 +1739,7 @@ bool MgenMsg::ConvertBinaryLog(const char* path,Mgen& mgen)
               }
               msg.SetProtocol(theProtocol);
               msg.Unpack(buffer+index, recordLength, false, log_data);
-              msg.LogSendEvent(log_file,false, local_time, NULL, log_flush,msg.tx_time);
+              msg.LogSendEvent(log_file,false, local_time, NULL, log_flush, msg.tx_time);
               break;
           }
         case LISTEN_EVENT:
