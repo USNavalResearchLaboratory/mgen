@@ -1,0 +1,14 @@
+#$ns_ at 5.0     "$node_(0) startup txlog output mcast_validation24-n0.drc"
+#$ns_ at 10.0	"$node_(0) event {ON    1   UDP DST -1/699 PERIODIC \[4.88 256 \]}"
+#$ns_ at 600.0	"$node_(0) event {MOD   1   UDP DST -1/699 PERIODIC \[24.41 256 \]}"
+#$ns_ at 1200.0	"$node_(0) event {MOD   1   UDP DST -1/699 PERIODIC \[48.82 256 \]}"
+#$ns_ at 1800.0	"$node_(0) event {OFF   1}"
+OUTPUT C:\op_models\11.5.A\mgen\opnet\ns2_2node$node_(0)_output.txt
+TXLOG
+0.0 LISTEN UDP 699
+10.0 ON 1 UDP DST 224.1.1.1/699 PERIODIC [32 32]
+10.0 ON 2 UDP DST 224.1.1.1/699 PERIODIC [16 64]
+10.0 ON 3 UDP DST 224.1.1.1/699 PERIODIC [8 128]
+10.0 ON 4 UDP DST 224.1.1.1/699 PERIODIC [4 256]
+10.0 ON 5 UDP DST 224.1.1.1/699 PERIODIC [2 512]
+10.0 ON 6 UDP DST 224.1.1.1/699 PERIODIC [1 1024]

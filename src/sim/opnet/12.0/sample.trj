@@ -1,0 +1,20 @@
+Version: 3
+Position_Unit: Meters
+Altitude_Unit: Meters
+Coordinate_Method: fixed
+Altitude_Method: absolute
+locale: C
+Calendar_Start: unused
+Coordinate_Count: 6
+# X Position        ,Y Position          ,Altitude            ,Traverse Time       ,Wait Time           ,Pitch               ,Yaw                 ,Roll                
+286.732             ,286.732             ,0                   ,0h0m0.0s            ,0h0m0.0s            ,Autocomputed        ,Autocomputed        ,Unspecified         
+560.814             ,282.515             ,0                   ,0h1m38.68s          ,0h0m0.0s            ,Autocomputed        ,Autocomputed        ,Unspecified         
+830.68              ,552.381             ,0                   ,0h2m17.39s          ,0h0m0.0s            ,Autocomputed        ,Autocomputed        ,Unspecified         
+565.031             ,843.329             ,0                   ,0h2m21.83s          ,0h0m0.0s            ,Autocomputed        ,Autocomputed        ,Unspecified         
+286.732             ,843.329             ,0                   ,0h1m40.19s          ,0h0m0.0s            ,Autocomputed        ,Autocomputed        ,Unspecified         
+524.005             ,116.167             ,0                   ,0h0m1.0s            ,0h0m0.0s            ,Autocomputed         ,Autocomputed
+485.252168          ,232.580339          ,0.000000            ,0h0m48.672892s      ,0h0m0.0s            ,Autocomputed         ,Autocomputed
+485.252168   ,232.580339   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed
+0.940083   ,358.421316   ,0.000000   ,0h2m1.091314s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed
+0.940083   ,358.421316   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed
+431.680283   ,416.231398   ,0.000000   ,0h3m43.768358s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed

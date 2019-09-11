@@ -1,0 +1,3 @@
+OUTPUT C:\op_models\nrl\mgen\opnet\12.0\Mnode4_5node_log.txt
+0.0 LISTEN UDP 5000
+10.4 ON 4 UDP DST 192.0.0.100/5000 PERIODIC [1.0 100] TOS 0x20 TTL 255 SRC 20000

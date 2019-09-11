@@ -1,0 +1,84 @@
+Generating doxygen output on Windows:
+
+1. Make sure the doc/doxy-config file points to the correct location
+   of graphwiz's "dot" exectuable for your system. (DOT_PATH variable)
+2. Load the doxygen configuration file (doc/doxy-config) into the 
+   doxygen wizard.
+3. Start, output will be put in /doc/html.
+
+Generating doxygen output on Linux:
+
+1. Make sure the doc/doxy-config file points to the correct location of
+   graphwiz's "dot" exectuable for your system.  (DOT_PATH variable)
+2. Run "doxygen doxy-config", output will be put in /doc/html
+
+-------------------------------------------------------------------------
+
+How to document classes:
+
+/**
+ * @class ClassName
+ * 
+ * @brief Enter a brief description of the
+ * class, the first sentence 
+ * will be included in the brief description.
+ *
+ * Anything after the first sentence, and included
+ * in the "@class" block will be part of the
+ * detailed description, available from 
+ * the doxygen class file.
+ *
+ * The "@brief" description will be used to
+ * describe the class on the class list.
+ *
+ */
+
+How to document functions:
+
+/**
+ *
+ * @brief Description of the function.  Will appear before function
+ * definition.  Don't really need "@brief" as JAVADOC_AUTOBRIEF is 
+ * turned on.
+ *
+ * @param Defailed parameter text, if needed.  Will appear in
+ * separate parameter secion.
+ *
+ * @retval Detailed text about return value, if needed.
+ *
+ */
+
+Other Notes:
+
+1.  Sometimes the html directory has to be cleared out and the entire
+doxygen output regenerated if the graphics get screwed up.
+
+2.  Need "dot" from graphwiz.  In some doxygen implementations it is
+included.
+
+3.  Can generate called/call graphs.  To enable or disable call graphs
+for each function, toggle CALL_GRAPH and CALLER_GRAPH variables in the
+config file.  To enable for specific functions when CALL_GRAPH is set
+to no, use the @callgraph/@callergraph commands.
+
+4. @sa "See also" alias.
+   @note "Note" alias
+   @exception 
+   @class
+   @param
+   @return
+   @retval
+
+  ProtoGraph::~Vertice has an example of function text and a @note.
+
+5.  Can turn off documentation of inherited functions and properties.
+
+8.  Modify INPUT in config file to add additional code/directories, e.g.
+
+INPUT = ../common
+
+#Add protolib to the doxygen output
+#INPUT += ../../protolib/common 
+
+#To add files
+#INPUT += ../../protolib/common/protoApp.h ../../protolib/common/protoApp.cpp

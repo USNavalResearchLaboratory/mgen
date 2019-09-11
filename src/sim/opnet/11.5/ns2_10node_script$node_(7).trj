@@ -1,0 +1,26 @@
+Version: 3
+Position_Unit: Meters
+Altitude_Unit: Meters
+Coordinate_Method: fixed
+Altitude_Method: absolute
+locale: C
+Calendar_Start: unused
+Coordinate_Count: 17
+# X Position        ,Y Position          ,Altitude            ,Traverse Time       ,Wait Time           ,Pitch               ,Yaw             ,Roll
+497.507757   ,394.206479   ,0.000000   ,0h0m1.000000s   ,0h0m29.000000s   ,Autocomputed   ,Autocomputed   ,Unspecified
+125.918511   ,122.519642   ,0.000000   ,0h5m6.878409s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+125.918511   ,122.519642   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+457.234794   ,42.901338   ,0.000000   ,0h3m47.165680s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+457.234794   ,42.901338   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+22.374478   ,217.288315   ,0.000000   ,0h3m6.633389s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+22.374478   ,217.288315   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+150.818402   ,178.893205   ,0.000000   ,0h0m45.061561s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+150.818402   ,178.893205   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+51.673609   ,490.847172   ,0.000000   ,0h1m14.177585s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+51.673609   ,490.847172   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+160.158872   ,70.297869   ,0.000000   ,0h1m38.465932s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+160.158872   ,70.297869   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+571.398252   ,310.703016   ,0.000000   ,0h4m50.626387s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+571.398252   ,310.703016   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+143.570235   ,207.978879   ,0.000000   ,0h4m33.870745s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+477.854456   ,270.255222   ,0.000000   ,0h0m27.120313s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified

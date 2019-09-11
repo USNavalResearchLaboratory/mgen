@@ -1,0 +1,3 @@
+OUTPUT C:\op_models\nrl\mgen\opnet\12.0\tcp_3node_script$node_(0)_output.txt
+10.0 ON 1 TCP SRC 5002 DST 192.0.0.102/5002 PERIODIC [1 256]
+1800.0 OFF 1

@@ -1,0 +1,4 @@
+;; These two lines control tab settings
+;; ident-tabs-mode - always use spaces
+(setq-default ident-tabs-mode nil);
+(setq default-tab-width 4);

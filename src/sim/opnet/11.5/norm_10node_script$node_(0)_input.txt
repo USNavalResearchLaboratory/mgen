@@ -1,0 +1,11 @@
+#$ns_ at 5.0     "$node_(0) startup txlog output mcast_validation24-n0.drc"
+#$ns_ at 10.0	"$node_(0) event {ON    1   UDP DST -1/699 PERIODIC \[4.88 256 \]}"
+#$ns_ at 600.0	"$node_(0) event {MOD   1   UDP DST -1/699 PERIODIC \[24.41 256 \]}"
+#$ns_ at 1200.0	"$node_(0) event {MOD   1   UDP DST -1/699 PERIODIC \[48.82 256 \]}"
+#$ns_ at 1800.0	"$node_(0) event {OFF   1}"
+OUTPUT C:\op_models\11.5.A\mgen\opnet\norm_10node_script$node_(0)_output.txt
+0.0 LISTEN SINK 699
+10.0 ON 1 SINK DST 224.1.1.1/699 PERIODIC [4.88 256]
+600.0 MOD 1 SINK DST 224.1.1.1/699 PERIODIC [24.41 256]
+1200.0 MOD 1 SINK DST 224.1.1.1/699 PERIODIC [48.82 256]
+1800.0 OFF 1

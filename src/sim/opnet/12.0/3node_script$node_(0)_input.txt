@@ -1,0 +1,4 @@
+OUTPUT C:\op_models\nrl\mgen\opnet\12.0\3node_script$node_(0)_output.txt
+0.0 LISTEN UDP 5000
+10.0 ON 1 UDP DST 224.1.1.1/5000 PERIODIC [1 256]
+30.0 OFF 1

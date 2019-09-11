@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<network locale="C" version="1.6">
+	<subnet name="top" selected="FALSE">
+		<property name="view string" value="Default View"/>
+		<property name="overlay visualizations" value="FALSE"/>
+		<property name="show view banners" value="FALSE"/>
+		<property name="selection behavior" value="Share"/>
+		<property name="subnet manifestation" value="Never"/>
+		<property name="node manifestation" value="Featured, Associate"/>
+		<property name="link manifestation" value="Featured, Associate"/>
+		<property name="path manifestation" value="Featured"/>
+		<property name="demand manifestation" value="Featured"/>
+		<property name="hop distance" value="1"/>
+		<property name="layout iterations" value="30"/>
+		<property name="full color connections between featured" value="TRUE"/>
+	</subnet>
+</network>

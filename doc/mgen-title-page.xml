@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<article>
+  <title><phrase>Multi-Generator (MGEN)</phrase><inlinemediaobject>
+      <imageobject>
+        <imagedata fileref="mgenLogo.gif" />
+      </imageobject>
+    </inlinemediaobject><inlinemediaobject>
+      <imageobject>
+        <imagedata fileref="drecLogo.gif" />
+      </imageobject>
+    </inlinemediaobject></title>
+
+  <abstract>
+    <title>Multi-Generator (MGEN)</title>
+
+    <para>The Multi-Generator (MGEN) is open source software developed by the
+    <ulink url="http://www.nrl.navy.mil/">Naval Research Laboratory</ulink>
+    (NRL) PROTocol Engineering Advanced Networking (PROTEAN) Research Group.
+    MGEN provides the ability to perform IP network performance tests and
+    measurements using TCP and UDP/IP traffic .</para>
+
+    <para>The toolset generates real-time traffic patterns so that the network
+    can be loaded in a variety of ways. The generated traffic can also be
+    received and logged for analysis. Script files are used to drive the
+    generated loading patterns over the course of time. These script files can
+    be used to emulate the traffic patterns of unicast and/or multicast UDP
+    and TCP IP applications. The receive portion of this tool set can be
+    scripted to dynamically join and leave IP multicast groups. MGEN log data
+    can be used to calculate performance statistics on throughput, packet loss
+    rates, communication delay, and more. MGEN currently runs on various
+    Unix-based (including MacOS X) and Win32 platforms.</para>
+
+    <para>Mgen can also be used in network simulation environments like ns-2
+    and opnet. For ns-2, an MGEN Agent is available that can operate within
+    the simulation environment. Mgen commands may be passed to the ns-2 MGEN
+    agent in ns-2 TCL scripts as with other ns-2 agents. [TODO: Words on
+    opnet]</para>
+
+    <para>The current version of MGEN is 5.x although previous versions (MGEN
+    4.x and MGEN 3.x) are available. Note that version MGEN 3.x is not
+    interoperable with the later versions. At present, only MGEN 3.x has
+    graphical user interface support. Here are some screenshots of the
+    graphical user interfaces available in MGEN 3.x.</para>
+  </abstract>
+
+  <section>
+    <title>MGEN Version 5.0</title>
+
+    <para>This is an updated version of the MGEN toolset. This version
+    supports TCP messaging, IPv6 networking, and provides support for Win32
+    platforms in addition to a broad base of Unix-based platforms. This
+    version features a more modular code architecture than previous versions.
+    Support for additional statistical traffic generation patterns (JITTER and
+    CLONE), transport buffering, message count, and payload enhancements have
+    been been added in addition to other features documented in the release
+    notes. At this point in time, MGEN 5.x encompasses the feature set of MGEN
+    4.x. Mgen 5.x can also be embedded in a <ulink
+    url="http://cs.itd.nrl.navy.mil/work/rapr/index.php"><emphasis>RAPR</emphasis>
+    </ulink>(real-time application representative) application.</para>
+  </section>
+
+  <section>
+    <title>MGEN 5.x Downloads</title>
+
+    <para>MGEN 5.x source and binary distributions are available for download
+    at:</para>
+
+    <para><ulink
+    url="http://downloads.pf.itd.nrl.navy.mil/mgen/">http://downloads.pf.itd.nrl.navy.mil/mgen</ulink></para>
+
+    <para>The<emphasis> trpr </emphasis>(Trace Plot Real Time) analysis
+    program and <emphasis>gpsLogger</emphasis> Global Positioning System (GPS)
+    utilities are available at the <ulink
+    url="http://cs.itd.nrl.navy.mil/work/proteantools/index.php">Protean Tools
+    webpage</ulink>. The gpsLogger utility allows MGEN to report GPS host
+    position information in the test message payload. This can be useful for
+    mobile network testing and evaluation.</para>
+  </section>
+
+  <section>
+    <title>MGEN 5.x Documentation</title>
+
+    <para>An on-line <ulink
+    url="http://pf.itd.nrl.navy.mil/mgen/mgen.html">MGEN User's and Reference
+    Guide</ulink> for MGEN 4.x is also available.</para>
+  </section>
+
+  <section>
+    <title>MGEN 5.x Installation</title>
+
+    <para>In some cases, prebuilt binary distributions are available. However,
+    the mgen application can be easily built on most Unix-based platforms and
+    Win32 platforms. The <emphasis>MGEN</emphasis> source code is also
+    available for checkout from a downloads directory at <ulink
+    url="http://downloads.pf.itd.nrl.navy.mil/mgen">http://downloads.pf.itd.nrl.navy.mil/projects/mgen</ulink>.
+    See the instructions there for further details. Note that the NRL <ulink
+    url="http://cs.itd.nrl.navy.mil/work/protolib/index.php">Protolib</ulink>
+    source code distribution is required and is also available via downloads
+    from the NRL at our <ulink
+    url="http://downloads.pf.itd.nrl.navy.mil/">downloads</ulink> site.</para>
+
+    <section>
+      <title>UNIX</title>
+
+      <para>The mgen program can be built with gcc on most Unix
+      platforms.</para>
+
+      <orderedlist>
+        <listitem>
+          <para>Download and unpack the MGEN source code distribution.</para>
+        </listitem>
+
+        <listitem>
+          <para>Change to the mgen build directory:</para>
+
+          <programlisting>cd mgen/makefiles/</programlisting>
+        </listitem>
+
+        <listitem>
+          <para>Select appropriate Makefile.&lt;os&gt;for your operating
+          system and build the application:</para>
+
+          <programlisting>make -f Makefile.&lt;os&gt; mgen</programlisting>
+        </listitem>
+      </orderedlist>
+    </section>
+
+    <section>
+      <title>WIN32</title>
+
+      <para>A Visual C++ workspace and project is provided to build the
+      <emphasis>mgen</emphasis> tool. Note that the Microsoft Platform SDK may
+      be required to build <emphasis>mgen</emphasis> with some of its more
+      advance networking features such as IPv6 support.</para>
+
+      <orderedlist>
+        <listitem>
+          <para>Download and unpack the MGEN source code distribution.</para>
+        </listitem>
+
+        <listitem>
+          <para>Change to the mgen win32 build directory:</para>
+
+          <programlisting>cd mgen/makefiles/win32</programlisting>
+        </listitem>
+
+        <listitem>
+          <para>Open the Visual C++ workspace mgen-&lt;VSVersion&gt;.sln file
+          appropriate to your Visual Studio version, e.g.</para>
+
+          <programlisting>mgen-2008-express.sln</programlisting>
+        </listitem>
+
+        <listitem>
+          <para>Type F7 to build the mgen.exe program. (The executable will be
+          found in the directory "mgen/win32/Release" or "mgen/win32/Debug"
+          depending upon which build configuration was selected.)</para>
+        </listitem>
+      </orderedlist>
+    </section>
+  </section>
+
+  <section>
+    <title>MGEN Version 4.0</title>
+
+    <para>This is an older version of the MGEN toolset. This version supports
+    UDP messaging only, IPv6 networking, and provides support for Win32
+    platforms in addition to a broad base of Unix-based platforms. See the
+    documentation for other features available in MGEN 4.x.</para>
+
+    <section>
+      <title>MGEN 4.x Downloads</title>
+
+      <para>This version will no longer continue to be updated. However,
+      binary and source code distributions remain available at:</para>
+
+      <para><ulink
+      url="http://downloads.pf.itd.nrl.navy.mil/mgen/mgen4">http://downloads.pf.itd.nrl.navy.mil/mgen/mgen4</ulink></para>
+
+      <para>The <emphasis>gpsLogger</emphasis> and <emphasis>trpr
+      </emphasis>log file analysis program is also compatible with MGEN 4.x
+      log files. An online user's guide is available at <ulink
+      url="http://downloads.pf.itd.nrl.navy.mil/mgen/mgen3/MgenUserGuide.html">MGEN
+      4.x User's Guide.</ulink></para>
+    </section>
+  </section>
+
+  <section>
+    <title>MGEN Version 3.3</title>
+
+    <para>This is the older version of MGEN Toolset which builds and runs on
+    various Unix-based platforms. It has a graphical user interface and
+    optional support for operation with ISI's <ulink
+    url="http://www.isi.edu/div7/rsvp">rsvpd.</ulink></para>
+
+    <section>
+      <title>MGEN 3.x Downloads</title>
+
+      <para>This version will no longer continue to be updated. However,
+      binary and source code distributions remain available at:</para>
+
+      <para><ulink
+      url="http://downloads.pf.itd.nrl.navy.mil/mgen/mgen4">http://downloads.pf.itd.nrl.navy.mil/mgen/mgen3</ulink></para>
+
+      <para>Some additional post-processing utilities can be found at <ulink
+      url="http://downloads.pf.itd.nrl.navy.mil/mgen/mgen3/utilities">MGEN 3.x
+      Utilities</ulink> The trpr log file analysis program is also compatible
+      with MGEN 3.x log files. An online user's guide is availalbe at <ulink
+      url="http://downloads.pf.itd.nrl.navy.mil/mgen/mgen3/MgenUserGuide.html">MGEN
+      3.x User's Guide.</ulink></para>
+    </section>
+  </section>
+
+  <section>
+    <title>Contact</title>
+
+    <para>Contact If you are interested in more information about MGEN, please
+    contact <email>mgen@pf.itd.nrl.navy.mi</email>l. There is also an <ulink
+    url="http://pf.itd.nrl.navy.mil/mailman/listinfo/mgen-users">MGEN Users
+    Mailing List.</ulink> This mailing list is monitored by the MGEN
+    developer(s).</para>
+  </section>
+</article>

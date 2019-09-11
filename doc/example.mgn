@@ -1,0 +1,72 @@
+#################################################
+# Example MGEN script
+
+#################################################
+# These are some "Transmission Event" script lines
+
+TXBUFFER 1000
+# Here is a plain old constant bit rate flow to the loopback interface
+0.0 ON  1 UDP SRC 5001 DST 127.0.0.1/5000 PERIODIC [1 4096]
+
+# Here is a series of Poisson distributed packet transmissions 
+# to a multicast group
+0.0 ON  2 UDP SRC 5000 TXBUFFER 2000 DST 224.225.1.2/5001 POISSON [1 4096]
+
+# Here is a "burst" transmission flow to the loopback interface
+# The bursts are at regular 10 sec. intervals with fixed 5 sec. duration
+0.0 ON  3 UDP DST 127.0.0.1/5000 \
+BURST [REGULAR 10.0 PERIODIC [10.0 256] FIXED 5.0] 
+
+# This will send ONE 5 megabyte TCP message
+# Note that the target node must be listening to the destionation
+# tcp address
+#0.0 ON 1 TCP SRC 5000 DST 192.168.1.100/7000 PERIODIC [1 5242880] COUNT 1
+
+4.0 MOD 2 PERIODIC [10 1024]
+
+# To terminate flows after 10.0 seconds
+10.0 OFF 1
+10.0 OFF 2
+30.0 OFF 3
+
+#################################################
+# These are some "Reception Event" script lines
+0.0 LISTEN UDP 5000-5001,6000,6003
+
+# This JOIN is for UNIX
+0.0 JOIN 224.225.1.2 
+
+# For WIN32, the PORT option is needed for JOINs
+#0.0 JOIN 224.225.1.2 PORT 5001
+
+# For either, you can optionally dictate an interface, too 
+# (WIN32 uses IP address for interface name)
+#0.0 JOIN 224.225.1.2 INTERFACE eth0
+
+5.0 LEAVE 224.225.1.2
+
+# If an interface was dictated on the JOIN, 
+# it is also required for the LEAVE
+#5.0 LEAVE 224.224.1.2 INTERFACE eth0
+
+6.0 IGNORE UDP 5000
+
+8.0 IGNORE UDP 5001,6000,6003
+
+###################################################
+# Listen to TCP socket 5000 at 10 seconds into test
+20.0 LISTEN TCP 5000
+
+# At 11 seconds into test, send 20 1024 byte 
+# packets as fast as possible over the loopback
+# interface 
+
+21.0 ON 1 TCP DST 127.0.0.1/5000 PERIODIC [-1 1024] COUNT 20
+
+# turn off the flow 1 at 15 seconds
+25.0 OFF 1
+
+# ignore port 5000 
+25.0 IGNORE TCP 5000
+
+

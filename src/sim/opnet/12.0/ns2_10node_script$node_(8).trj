@@ -1,0 +1,30 @@
+Version: 3
+Position_Unit: Meters
+Altitude_Unit: Meters
+Coordinate_Method: fixed
+Altitude_Method: absolute
+locale: C
+Calendar_Start: unused
+Coordinate_Count: 21
+# X Position        ,Y Position          ,Altitude            ,Traverse Time       ,Wait Time           ,Pitch               ,Yaw             ,Roll
+281.068479   ,570.316465   ,0.000000   ,0h0m1.000000s   ,0h0m29.000000s   ,Autocomputed   ,Autocomputed   ,Unspecified
+120.723031   ,341.782605   ,0.000000   ,0h2m49.985408s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+120.723031   ,341.782605   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+452.147744   ,402.293880   ,0.000000   ,0h3m44.602320s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+452.147744   ,402.293880   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+365.847993   ,211.570532   ,0.000000   ,0h0m58.241261s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+365.847993   ,211.570532   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+115.823312   ,525.730681   ,0.000000   ,0h2m3.983533s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+115.823312   ,525.730681   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+9.744119   ,225.509231   ,0.000000   ,0h3m32.274156s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+9.744119   ,225.509231   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+291.472413   ,7.607372   ,0.000000   ,0h2m13.491102s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+291.472413   ,7.607372   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+433.994674   ,468.776252   ,0.000000   ,0h2m23.479857s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+433.994674   ,468.776252   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+92.617566   ,231.855093   ,0.000000   ,0h2m17.405354s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+92.617566   ,231.855093   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+9.747539   ,370.107179   ,0.000000   ,0h1m47.457652s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+9.747539   ,370.107179   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+201.737683   ,258.007442   ,0.000000   ,0h2m7.419618s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+398.702960   ,91.133542   ,0.000000   ,0h0m31.659738s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified

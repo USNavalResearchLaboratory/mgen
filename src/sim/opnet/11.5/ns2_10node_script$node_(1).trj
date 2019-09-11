@@ -1,0 +1,32 @@
+Version: 3
+Position_Unit: Meters
+Altitude_Unit: Meters
+Coordinate_Method: fixed
+Altitude_Method: absolute
+locale: C
+Calendar_Start: unused
+Coordinate_Count: 23
+# X Position        ,Y Position          ,Altitude            ,Traverse Time       ,Wait Time           ,Pitch               ,Yaw             ,Roll
+524.005781   ,116.167053   ,0.000000   ,0h0m1.000000s   ,0h0m29.000000s   ,Autocomputed   ,Autocomputed   ,Unspecified
+485.252168   ,232.580339   ,0.000000   ,0h0m48.672892s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+485.252168   ,232.580339   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+0.940083   ,358.421316   ,0.000000   ,0h2m1.091314s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+0.940083   ,358.421316   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+431.680283   ,416.231398   ,0.000000   ,0h3m43.768358s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+431.680283   ,416.231398   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+479.434668   ,506.733188   ,0.000000   ,0h0m27.907850s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+479.434668   ,506.733188   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+126.480820   ,152.015848   ,0.000000   ,0h5m33.600433s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+126.480820   ,152.015848   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+382.846166   ,298.157064   ,0.000000   ,0h1m35.708386s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+382.846166   ,298.157064   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+496.404119   ,333.030656   ,0.000000   ,0h0m36.225355s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+496.404119   ,333.030656   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+98.790401   ,281.301157   ,0.000000   ,0h4m27.309733s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+98.790401   ,281.301157   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+326.040213   ,484.735369   ,0.000000   ,0h1m46.609254s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+326.040213   ,484.735369   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+142.645344   ,410.344498   ,0.000000   ,0h0m49.481795s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+142.645344   ,410.344498   ,0.000000   ,0h0m30.000000s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+47.312246   ,204.775506   ,0.000000   ,0h1m29.678363s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified
+95.755722   ,400.828552   ,0.000000   ,0h0m39.946267s   ,0h0m0.0s   ,Autocomputed   ,Autocomputed   ,Unspecified

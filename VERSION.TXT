@@ -1,0 +1,130 @@
+Version 5.02
+============
+    - Contains bug fix to close open UDP sockets
+    - Contains bug fix to handle incoming tcp connections on windows
+      correctly
+
+Version 5.01c
+=============
+    - Contains bug fixes for compilation under Visual Studio 6.0
+    - Contains fix to retain src port when flow mod command is
+      issued.
+    - Other unenumerated bug fixes.
+
+Version 5.01b
+=============
+    - Transport classes have been abstracted.  Socket, UDP, TCP, and SINK
+      transport classes now subclass base transport class.
+    - New SINK class is based on ProtoChannel.
+    - New pattern options JITTER and CLONE.
+    - Transport buffering has been added (QUEUE option).
+    - Message COUNT support added.  (Concrete limit for messages sent
+      per flow.)
+    - Log file changes (new TCP messages and additional message content)
+    - Thanks to Laurie Thompson for lots of good work on all of this stuff.
+    - Changed long/unsigned long/etc types to INT32/UINT32/etc to support
+      builds on 64-bit and other architectures.
+    - Applied SO_BROADCAST socket option provided by Eric Auerswald.
+
+Version 4.2b7
+=============
+    - Added support for TCP protocol.  
+    - Mgen contains support to enable it to be embedded in a 
+      rapr application.
+      - Payload can be specified for a specific flow on the command
+        line. 
+      - Specifying a "0" src port will cause the OS to randomly
+        assign one.  (NOT specifying a src port does the same)
+      - Support for a mgen "controller" class added.
+    - Compile option to random fill the payload buffer. 
+    - Added new "localtime" command line option to enable logging
+      in localtime versus gmtime.  gmtime is the default.
+    - Mgen now a subclass of MgenSocketList
+    - Various tweaks to keep purify happy.
+
+Version 4.2b6
+=============
+    - Tweaks so gcc 4.x compiles will succeed
+    - Includes ProtoSocket tweaks for NT4 support
+
+Version 4.2b5
+=============
+    - Various tweaks and changes
+
+Version 4.2b4
+=============
+    - Added several new options and updated documentation
+    - Added "instance <instanceName>" for run-time control of MGEN
+    - Added "hostAddr {on|off}" to include "host" source addr
+    - Added "precise {on|off}" for optional precision timing of
+      messages at expense of added CPU loading.
+    - Added short message check to unpacking routine
+      (prevents segmentation fault possible when checking corrupt UDP packets)
+    - Performance tweaks and Protolib updates
+    
+Version 4.2b3
+=============
+    - Some protolib changes
+    - Performance tweaks (read all available data from recv ready sockets)
+
+Version 4.2b1
+=============
+    - Added "flush" option and made per-packet flushing of log
+      file optional (non-default) behavior
+    - MGEN ported to new "Protolib 2" ("Protokit") code base
+
+Version 4.1b1
+=============
+    - Added "sink/source" options for streaming MGEN messages to
+      other processes (e.g. ssh, norm, etc - tested on Unix only)
+    - Changed packet format so that message "length" comes first
+    - Added "checksum" option
+    - Added "event" command-line command to insert script flow events
+      from command-line
+    - Added option to build ns-2 "Agent/Mgen" simulation agent.
+
+Version 4.0x6
+=============
+    - Fixed problem when flows 0.0 pkt/sec were scripted.
+    - Added script parameter checks
+    - Added code to detect ambiguous script keyword abbreviations
+    - Added default tos,ttl,txbuffer,rxbuffer, and interface.
+      All of the above may be used as command-line and/or
+      script arguments. Script arguments may be socket-specific
+      or global. 
+
+    
+Version 4.0x5
+=============
+    - Fixed location of gps_status field to match documented (intended)
+      MGEN message payload format.
+      
+    - Added "offset <sec>" command to skip into script by an offset
+    
+    - Added "save <saveFile>" command to save flow sequence and
+      script offset time upon exit.
+      
+    - Added binary log file option and "convert" command to convert
+      binary MGEN logs to default text format.
+      
+    - Added new "BURST" pattern.
+    
+    - Added IPv6 Flow Label support.
+    
+    - Added "MGEN Payload Manager (mpmgr)" support to allow limited
+      user-defined payload to be added to MGEN 4.x messages.
+
+Version 4.0x4
+=============
+    - Fixed bug with MGEN message size logging
+    
+Version 4.0x3
+=============
+    - Added logging of MGEN START/STOP events
+    - Added support for START, INPUT, and OUTPUT global commands
+    
+Version 4.0x2
+=============
+    - Initial working MGENv4 build.
+    
+    

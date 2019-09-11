@@ -1,0 +1,29 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 9.00
+# Visual C++ Express 2005
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Protokit", "..\protolib\win32\Protokit.vcproj", "{22949B91-CECA-4278-A39E-7AB0C3983E2F}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mgen", "mgen.vcproj", "{992F1B16-C3A2-48E1-ADA7-C660A1E3DE84}"
+	ProjectSection(ProjectDependencies) = postProject
+		{22949B91-CECA-4278-A39E-7AB0C3983E2F} = {22949B91-CECA-4278-A39E-7AB0C3983E2F}
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{22949B91-CECA-4278-A39E-7AB0C3983E2F}.Debug|Win32.ActiveCfg = Debug|Win32
+		{22949B91-CECA-4278-A39E-7AB0C3983E2F}.Debug|Win32.Build.0 = Debug|Win32
+		{22949B91-CECA-4278-A39E-7AB0C3983E2F}.Release|Win32.ActiveCfg = Release|Win32
+		{22949B91-CECA-4278-A39E-7AB0C3983E2F}.Release|Win32.Build.0 = Release|Win32
+		{992F1B16-C3A2-48E1-ADA7-C660A1E3DE84}.Debug|Win32.ActiveCfg = Debug|Win32
+		{992F1B16-C3A2-48E1-ADA7-C660A1E3DE84}.Debug|Win32.Build.0 = Debug|Win32
+		{992F1B16-C3A2-48E1-ADA7-C660A1E3DE84}.Release|Win32.ActiveCfg = Release|Win32
+		{992F1B16-C3A2-48E1-ADA7-C660A1E3DE84}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

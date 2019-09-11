@@ -1,0 +1,2 @@
+OUTPUT C:\op_models\nrl\mgen\opnet\12.0\ns2_10node_script$node_(8)_output.txt
+0.0 LISTEN UDP 5000

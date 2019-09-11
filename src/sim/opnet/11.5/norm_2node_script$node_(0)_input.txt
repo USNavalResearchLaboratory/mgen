@@ -1,0 +1,4 @@
+OUTPUT C:\op_models\11.5.A\mgen\opnet\norm_2node_script$node_(0)_output.txt
+0.0 LISTEN SINK 699
+5.0 ON 1 SINK DST 224.1.1.1/699 PERIODIC [100 256]
+1800.0 OFF 1
