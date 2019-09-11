@@ -1315,7 +1315,9 @@ MessageStatus MgenTcpTransport::SendMessage(MgenMsg& theMsg, const ProtoAddress&
     while (1)
     {
         unsigned int numBytes = tx_buffer_pending;   
-        if (socket.Send(((char*)tx_msg_buffer)+tx_buffer_index,numBytes))
+        if (socket.IsConnected()
+            &&
+            socket.Send(((char*)tx_msg_buffer)+tx_buffer_index,numBytes))
         {
             // If we had an error, let socket notification tell 
             // us when to try again...
