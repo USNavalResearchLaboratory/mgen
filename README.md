@@ -5,7 +5,9 @@ This directory contains source code for the NRL Multi-Generator
 MGEN 4.2b6.  The transport classes have been abstracted and new
 features have been added.
 
-Note: 5.02c now includes/is compiled against protolib-3.0b1
+Requires Protolib:
+    https://www.nrl.navy.mil/itd/ncs/products/protolib
+    https://github.com/USNavalResearchLaboratory/protolib
 
 Primary new features included in 5.02c
 
@@ -53,7 +55,7 @@ doc         - Documentation directory.
               example.mgn (Example MGEN script file)
 
 protolib    - NRL Protolib source tree (See
-              <http:://protolib.pf.itd.nrl.navy.mil>)
+              <https://www.nrl.navy.mil/itd/ncs/products/protolib>)
 
 makefiles   - Directory with os-specific Makefiles.
               Linux specific makefiles are at the top level,
