@@ -132,6 +132,7 @@
      [loggpsdata {on|off}] [gpsfile &lt;fileName&gt;]
      [df {on|off}][analytics] [window &lt;secs&gt;]]
      [report] [suspend &lt;flowId(s)&gt;] [resume &lt;flowId(s)&gt;] [reset &lt;flowId(s)&gt;]
+     [retry &lt;count&gt;[/&lt;delay&gt;]
 
 </programlisting>
 
@@ -786,6 +787,20 @@
             given flow id, list of comma separated flow ids, or
             range.<para>See <link linkend="_RESET">RESET</link> for more
             detailed information.</para></entry>
+          </row>
+
+          <row>
+            <entry><literal>retry
+            &lt;count&gt;[/&lt;delay&gt;]</literal></entry>
+
+            <entry>Sets the default retry behavior for all data flows. If the
+            underlying TCP socket for a flow fails to connect, or disconnects,
+            attempt to reconnect the socket &lt;count&gt; times after
+            &lt;delay&gt; seconds. The default retry interval is 5 seconds.
+            The transport will attempt to reconnect over the life of the flow
+            if the retry count is set to -1. If multiple flows are sharing the
+            transport a common retry pattern should be used by all the flows
+            or the last attribute set "wins". </entry>
           </row>
         </tbody>
       </tgroup>
@@ -2179,6 +2194,39 @@
         need to be managed). See <link linkend="_SUSPEND">SUSPEND</link> for
         an example scenario.</para>
       </sect3>
+
+      <sect3 id="_RESET">
+        <title><link linkend="_RETRY">RETRY</link></title>
+
+        <para>Option syntax:</para>
+
+        <para>... RETRY &lt;count&gt;[|&lt;delay&gt;] ...</para>
+
+        <para>If the underlying TCP socket for the flow fails to connect, or
+        disconnects, attempt to reconnect the socket &lt;count&gt; times after
+        &lt;delay&gt; seconds. The default retry interval is 5 seconds. The
+        transport will attempt to reconnect over the life of the flow if the
+        retry count is set to -1. If multiple flows are sharing the transport
+        a common retry pattern should be used by all the flows or the last
+        attribute set "wins". </para>
+
+        <para>For example:</para>
+
+        <para>Attempt to connect every five seconds:</para>
+
+        <para><programlisting>ON 1 TCP DST 127.0.0.1/5000 PERIODIC [1 1024] RETRY -1/5 </programlisting></para>
+
+        <para>Attempt to connect twice after initial failure every 3 seconds
+        </para>
+
+        <para><programlisting>ON 1 TCP DST 127.0.0.1/5000 PERIODIC [1 1024] RETRY 2/3 </programlisting></para>
+
+        <para>RECONNECT events are logged at each reconnect attempt: </para>
+
+        <programlisting>17:36:12.762619 RECONNECT flow&gt;1 srcPort&gt;35859 dst&gt;127.0.0.1/5000 
+17:36:17.763483 RECONNECT flow&gt;1 srcPort&gt;46864 dst&gt;127.0.0.1/5000 
+17:36:22.764783 RECONNECT flow&gt;1 srcPort&gt;46866 dst&gt;127.0.0.1/5000 </programlisting>
+      </sect3>
     </sect2>
 
     <sect2 id="_Reception_Events">
@@ -2629,6 +2677,20 @@
             cause the counter for the flow to be reset and an additional 10
             messages would be sent. If the counter has already expired the
             reset message will have no effect.</para></entry>
+          </row>
+
+          <row>
+            <entry><link
+            linkend="_RETRY_GLOBAL">RETRY&lt;count&gt;[/&lt;delay&gt;]</link></entry>
+
+            <entry>Sets the default retry count and delay for all data flows.
+            If the underlying TCP socket for the flow fails to connect, or
+            disconnects, attempt to reconnect the socket &lt;count&gt; times
+            after &lt;delay&gt; seconds. The default retry interval is 5
+            seconds. The transport will attempt to reconnect over the life of
+            the flow if the retry count is set to -1. If multiple flows are
+            sharing the transport a common retry pattern should be used by all
+            the flows or the last attribute set "wins". </entry>
           </row>
         </tbody>
       </tgroup>
@@ -3262,6 +3324,39 @@
       messages would be sent. If the counter has already expired the reset
       message will have no effect.</para>
     </sect2>
+
+    <sect2 id="_RETRY_GLOBAL">
+      <title id="_GLOBAL_RETRY">RETRY</title>
+
+      <para>Script syntax:<literal/></para>
+
+      <para><literal>RETRY &lt;count&gt;[/&lt;delay&gt;]</literal></para>
+
+      <para>Sets the default retry behavior for all flows. If the underlying
+      TCP socket for the flow fails to connect, or disconnects, attempt to
+      reconnect the socket &lt;count&gt; times after &lt;delay&gt; seconds.
+      The default retry interval is 5 seconds. The transport will attempt to
+      reconnect over the life of the flow if the retry count is set to -1. If
+      multiple flows are sharing the transport a common retry pattern should
+      be used by all the flows or the last attribute set "wins".</para>
+
+      <para>For example:</para>
+
+      <para>Attempt to connect every five seconds:</para>
+
+      <para><programlisting>ON 1 TCP DST 127.0.0.1/5000 PERIODIC [1 1024] RETRY -1/5 </programlisting></para>
+
+      <para>Attempt to connect twice after initial failure every 3
+      seconds</para>
+
+      <para><programlisting>ON 1 TCP DST 127.0.0.1/5000 PERIODIC [1 1024] RETRY 2/3 </programlisting></para>
+
+      <para>RECONNECT events are logged at each reconnect attempt:</para>
+
+      <programlisting>17:36:12.762619 RECONNECT flow&gt;1 srcPort&gt;35859 dst&gt;127.0.0.1/5000 
+17:36:17.763483 RECONNECT flow&gt;1 srcPort&gt;46864 dst&gt;127.0.0.1/5000 
+17:36:22.764783 RECONNECT flow&gt;1 srcPort&gt;46866 dst&gt;127.0.0.1/5000 </programlisting>
+    </sect2>
   </sect1>
 
   <sect1 id="_MGEN_Log_File">
@@ -3403,6 +3498,15 @@
 
               <entry>Indicates when an mgen TCP "client" or "sender" has
               established a TCP connection from the indicated source port or
+              to the destination ip address and port.</entry>
+            </row>
+
+            <row>
+              <entry><link
+              linkend="_Log_File_RECONNECT">RECONNECT</link></entry>
+
+              <entry>Indicates when an mgen TCP "client" as attempted to
+              reestablished a TCP connection from the indicated source port or
               to the destination ip address and port.</entry>
             </row>
 
@@ -3911,6 +4015,31 @@
       dstPort&gt;5000</literal></para>
     </sect2>
 
+    <sect2 id="_Log_File_RECONNECT">
+      <title>Log File RECONNECT Events</title>
+
+      <para>The format of the RECONNECT event log file line is:</para>
+
+      <para>&lt;eventTime&gt; RECONNECT flow&gt;&lt;flowID&gt;
+      srcPort&gt;&lt;srcPort&gt; dst&gt;&lt;dstAddr&gt;&lt;dstPort&gt;
+      (client)</para>
+
+      <para>This event indicates an attempt to reconnect a TCP connection with
+      the indicated address and port that has disconnected either because the
+      connection could not be established in the first place or because the
+      connection was prematurely terminated. In the TCP client's log file, the
+      dst address and port reflect the address and port of the node the client
+      was attempting to connect or reconnect to. The &lt;flowID&gt; field
+      corresponds to the TCP flow ID of the connection. Note that if multiple
+      flows are sharing a TCP socket reconnect events will be logged for each
+      flow.</para>
+
+      <para>Example Client RECONNECT event log line:<literal/></para>
+
+      <para><literal>23:00:00:723467 DISCONNECT flow&gt;1 srcPort&gt;4000
+      dst&gt;10.0.0.2/5000</literal></para>
+    </sect2>
+
     <sect2 id="_Log_File_OFF">
       <title>Log File OFF Events</title>
 
@@ -4142,8 +4271,9 @@ The format of the RECV event binary log file record is:
 
       <para>The &lt;type&gt; field contains the record type. The record type
       for TCP corresponds to the tcp event type (ON, CONNECT, DISCONNECT,
-      OFF). The &lt;protocol&gt; field indicates the protocol of the message
-      TCP &lt;2&gt;. &lt;0&gt; indicates an invalid protocol.</para>
+      RECONNECT, OFF). The &lt;protocol&gt; field indicates the protocol of
+      the message TCP &lt;2&gt;. &lt;0&gt; indicates an invalid
+      protocol.</para>
 
       <para>The &lt;eventRecordLength&gt; field contains the length of this
       record, starting with the next byte. Thus, it contains the length of the

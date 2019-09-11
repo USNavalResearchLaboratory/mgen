@@ -1714,6 +1714,7 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
             case DISCONNECT_EVENT:
             case OFF_EVENT:
             case SHUTDOWN_EVENT:
+	    case RECONNECT_EVENT:
               {
                   // get "eventTime"
                   struct timeval eventTime;
@@ -1827,6 +1828,18 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
                                             flow_id,addr.GetHostString(),addr.GetPort(),dstPort);
                             else
                                 Mgen::Log(logFile, "DISCONNECT src>%s/%hu dstPort>%hu",
+                                            addr.GetHostString(),addr.GetPort(), dstPort);
+                            break;
+			    
+		      case RECONNECT_EVENT:
+			// We will only have client side connect events but log
+			// both in the event this changes.
+			    Mgen::LogTimestamp(logFile, eventTime, localTime);
+                            if (flow_id)
+                                Mgen::Log(logFile, "RECONNECT flow>%lu dst>%s/%hu srcPort>%hu",
+                                            flow_id,addr.GetHostString(),addr.GetPort(),dstPort);
+                            else
+                                Mgen::Log(logFile, "RECONNECT src>%s/%hu dstPort>%hu",
                                             addr.GetHostString(),addr.GetPort(), dstPort);
                             break;
 
