@@ -24,7 +24,7 @@ Primary new features included 5.02b:
 5)  Message COUNT support. (Concrete limit for messages sent per flow).
 6)  Modifications to the log file.  (New TCP messages and additional
     message content).
-7)  Works with the RAPR toolkit. <http://cs.itd.nrl.navy.mil/work/rapr/index.php>
+7)  Works with the RAPR toolkit. <https://www.nrl.navy.mil/itd/ncs/products/rapr>
 8)  Compile time option to randomly fill payload buffer.
 9)  OS can now choose src port.
 10) Command line option to log in localtime or gmtime.
@@ -34,7 +34,7 @@ Primary new features included 5.02b:
 13) Includes bug fix for retaining src port upon flow MOD command.
 
 Please refer to the Mgen User's Guide for more information on these
-and other features at <http://pf.itd.nrl.navy.mil/mgen/mgen.html> or
+and other features at <https://www.nrl.navy.mil/itd/ncs/products/mgen> or
 in the distribution.
 
 FILES AND DIRECTORIES:

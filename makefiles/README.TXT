@@ -62,10 +62,3 @@ g++ -fpic -I/usr/include/python2.7 -c gpsPub.cpp gpsPub_wrap.c
 g++ -shared gpsPub.o gpsPub_wrap.o -o _gpsPub.so
 
 You must regenerate gpsPub_wrap.c via swig if gpsPub.cpp changes.
-
--------------
-
-Brian Adamson adamson@itd.nrl.navy.mil
-
-
-19 May 2015

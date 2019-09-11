@@ -4,6 +4,7 @@
 #include "mgenMsg.h"
 #include "mgenVersion.h"
 #include "mgenEvent.h"
+#include "protoString.h"  // for ProtoTokenator
 
 #include <string.h>
 #include <stdio.h>   
@@ -18,12 +19,11 @@
 
 // For WinCE, we provide an option logging function
 // to get log output to our debug window
-#ifndef _WIN32_WCE
+
 #include <errno.h>
 Mgen::LogFunction Mgen::Log = fprintf;
-#else
-Mgen::LogFunction Mgen::Log = fprintf;
 
+#ifdef _WIN32_WCE
 /**
  * This function is used on our WinCE build where there is no
  * real "stdout" for default MGEN output
@@ -33,13 +33,35 @@ int Mgen::LogToDebug(FILE* /*filePtr*/, const char* format, ...)
     va_list args;
     va_start(args, format);
     char charBuffer[2048];
-    charBuffer[2048] = '\0';
+    charBuffer[2047] = '\0';
     int count = _vsnprintf(charBuffer, 2047, format, args);
     va_end(args);
     return count;
 }  // end Mgen::LogToDebug()
+#endif // _WIN32_WCE
 
-#endif // if/else !_WIN32_WCE
+void Mgen::LogTimestamp(FILE* filePtr, const struct timeval& theTime, bool localTime)
+{
+#ifdef _WIN32_WCE
+    struct tm timeStruct;
+    timeStruct.tm_hour = theTime.tv_sec / 3600;
+    UINT32 hourSecs = 3600 * timeStruct.tm_hour;
+    timeStruct.tm_min = (theTime.tv_sec - hourSecs) / 60;
+    timeStruct.tm_sec = theTime.tv_sec - hourSecs - (60*timeStruct.tm_min);
+    timeStruct.tm_hour = timeStruct.tm_hour % 24;
+    struct tm* timePtr = &timeStruct;
+#else
+    struct tm* timePtr;
+    if (localTime)
+      timePtr = localtime((time_t*)&theTime.tv_sec);
+    else
+      timePtr = gmtime((time_t*)&theTime.tv_sec);
+#endif // if/else _WIN32_WCE
+    Mgen::Log(filePtr, "%02d:%02d:%02d.%06lu ",
+                  timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
+                  (UINT32)theTime.tv_usec);
+}  // end Mgen::LogTimeStamp()
+
 
 Mgen::Mgen(ProtoTimerMgr&         timerMgr,
            ProtoSocket::Notifier& socketNotifier)
@@ -56,17 +78,21 @@ Mgen::Mgen(ProtoTimerMgr&         timerMgr,
   default_broadcast(true), default_tos(0), 
   default_multicast_ttl(1), default_unicast_ttl(255), 
   default_df(DF_DEFAULT),
-  default_queue_limit(0), 
+  default_queue_limit(0),
+  default_retry_count(0), default_retry_delay(5),
   default_broadcast_lock(false),
   default_tos_lock(false), default_multicast_ttl_lock(false), 
   default_unicast_ttl_lock(false),
   default_df_lock(false),
   default_tx_buffer_lock(false), default_rx_buffer_lock(false), 
   default_interface_lock(false), default_queue_limit_lock(false),
+  default_retry_count_lock(false), default_retry_delay_lock(false),
   sink_non_blocking(true),
   log_data(true), log_gps_data(true),
   checksum_enable(false), 
   addr_type(ProtoAddress::IPv4), 
+  analytic_window(MgenAnalytic::DEFAULT_WINDOW),
+  compute_analytics(false), report_analytics(false),
   get_position(NULL), get_position_data(NULL),
   log_file(NULL), log_binary(false), local_time(false), log_flush(false), 
   log_file_lock(false), log_tx(false), log_open(false), log_empty(true),
@@ -84,12 +110,12 @@ Mgen::Mgen(ProtoTimerMgr&         timerMgr,
     default_interface[0] = '\0';
     sink_path[0] = '\0';
     source_path[0] = '\0';
-
 }
 
 Mgen::~Mgen()
 {
     Stop();
+    analytic_table.Destroy();
     if (save_path) delete save_path;
 }
 
@@ -107,6 +133,12 @@ bool Mgen::Start()
 #endif //HAVE_IPV6  
     struct timeval currentTime;
     ProtoSystemTime(currentTime);
+    // Initialize remote control flow_status bitmasks
+    if (!flow_status.Init())
+    {
+        PLOG(PL_ERROR, "Mgen::Start() error: unable to initialize flow_status (out of memory?)\n");
+        return false;
+    }
                 
     if (start_sec < 0.0)
     {
@@ -336,44 +368,29 @@ MgenTransport* Mgen::FindMgenTransport(Protocol theProtocol,
                                        MgenTransport* mgenTransport,
                                        const char* interfaceName)
 { 
-    MgenTransport* next;
-    if (!mgenTransport) {next = transport_list.head;}
-    else {next = mgenTransport->next;}
-    
-    while (next)
+    MgenTransport* next = (NULL == mgenTransport) ? transport_list.head : mgenTransport->next;
+    while (NULL != next)
     {
-        // Same protocol and srcPort?
-      if (
-          (next->GetProtocol() == theProtocol) 
-          &&
-          (srcPort == 0 || next->srcPort == srcPort) 
-          &&
-          ((NULL == interfaceName ) ||
-           (NULL != interfaceName && NULL != next->GetInterface() && !strcmp(interfaceName,next->GetInterface())))
-          &&
-          // ignore events && unconnected udp sockets
-          // have invalid addrs and should match
-          (((!dstAddress.IsValid() && !next->dstAddress.IsValid()) && theProtocol == UDP)
-           ||
-           // For tcp ignore events we want to close the
-           // listening socket too which won't have a dst address
-           (theProtocol == TCP && !dstAddress.IsValid())
-           || 
-           (dstAddress.IsValid() && next->dstAddress.IsEqual(dstAddress)))
-          
-          // We should only have one sink
-          || 
-          (next->GetProtocol() == SINK && theProtocol == SINK)
-          )
+         // Same protocol and srcPort?
+        if (((next->GetProtocol() == theProtocol) &&
+            ((0 == srcPort) || (next->srcPort == srcPort)) &&
+             ((NULL == interfaceName ) ||
+              ((NULL != next->GetInterface()) && (0 == strcmp(interfaceName,next->GetInterface())))) &&
+             // ignore events && unconnected udp sockets
+             // have invalid addrs and should match
+             ((!dstAddress.IsValid() && !next->dstAddress.IsValid() && (theProtocol == UDP)) ||
+              // For tcp ignore events we want to close the
+              // listening socket too which won't have a dst address
+              (theProtocol == TCP && !dstAddress.IsValid()) ||
+              (dstAddress.IsValid() && next->dstAddress.IsValid() && next->dstAddress.IsEqual(dstAddress)))) ||
+              // We should only have one sink
+             (next->GetProtocol() == SINK && theProtocol == SINK))
         {
-	  if (!closedOnly) { return next; }
-	  if (!next->IsOpen())  { return next;}
-
-
+	        if (!closedOnly) return next;
+	        if (!next->IsOpen()) return next;
         }
         next = next->next;   
     }
-
     return (MgenTransport*)NULL;
     
 }  // end MgenTransport::FindMgenTransport()
@@ -432,7 +449,7 @@ MgenTransport* Mgen::FindTransportByInterface(const char*           interfaceNam
                     {
                         if (0 == next->GroupCount())
                         {
-                            next->SetMulticastInterface('\0');
+                            next->SetMulticastInterface(NULL);
                             return nextTransport;
                         }
                         else
@@ -643,6 +660,30 @@ void Mgen::Stop()
     transport_list.Destroy();
 }  // end Mgen::Stop()
 
+void Mgen::ProcessFlowCommand(MgenFlowCommand::Status status, UINT32 flowId)
+{
+    MgenFlow* flow = flow_list.FindFlowById(flowId);
+    if (NULL == flow)
+    {   
+        PLOG(PL_ERROR, "Mgen::ProcessFlowCommand() error: unknown flow id\n");
+        return;
+    }
+    switch (status)
+    {
+    case MgenFlowCommand::FLOW_SUSPEND:
+        flow->Suspend();
+        break;
+    case MgenFlowCommand::FLOW_RESUME:
+        flow->Resume();
+        break;
+    case MgenFlowCommand::FLOW_RESET:
+        flow->Reset();
+        break;
+    default:
+        break;  // no change
+    }
+}  // Mgen::ProcessFlowCommand()
+
 bool Mgen::OnStartTimeout(ProtoTimer& /*theTimer*/)
 {
     start_sec = -1.0;
@@ -677,7 +718,7 @@ bool Mgen::OnDrecEventTimeout(ProtoTimer& /*theTimer*/)
  * Process JOIN, LEAVE, IGNORE, LISTEN events
  */
 
-void Mgen::ProcessDrecEvent(const DrecEvent& event)
+bool Mgen::ProcessDrecEvent(const DrecEvent& event)
 {       
     // 1) Process the next DREC event
     switch (event.GetType())
@@ -700,6 +741,7 @@ void Mgen::ProcessDrecEvent(const DrecEvent& event)
                                          offset_pending))
           {
               DMSG(0, "Mgen::ProcessDrecEvent(JOIN) Warning: error joining group\n");
+              return false;
           }	  
           else
           {
@@ -719,6 +761,7 @@ void Mgen::ProcessDrecEvent(const DrecEvent& event)
                                              offset_pending))
               {
                   DMSG(0,"Mgen::ProcessDrecEvent(JOIN) Warning: error joining group\n");
+                  return false;
               }
               else
               {
@@ -745,6 +788,7 @@ void Mgen::ProcessDrecEvent(const DrecEvent& event)
                                             event.GetGroupPort()))
             {
                 DMSG(0, "Mgen::ProcessDrecEvent(LEAVE) Warning: error leaving group\n");
+                return false;
             }
             else
             {
@@ -762,6 +806,7 @@ void Mgen::ProcessDrecEvent(const DrecEvent& event)
                                                 port[i]))
                     {
                         DMSG(0,"Mgen::ProcessDrecEvent(LEAVE) warning: error leaving group\n");
+                        return false;
                     }
                     else
                     {
@@ -777,6 +822,7 @@ void Mgen::ProcessDrecEvent(const DrecEvent& event)
       {
           const UINT16* port = event.GetPortList();
           UINT16 portCount = event.GetPortCount();
+          bool result = false;
           for (UINT16 i = 0; i < portCount; i++)
           {
               
@@ -786,9 +832,15 @@ void Mgen::ProcessDrecEvent(const DrecEvent& event)
                 
               {
                   // Listen increments reference count
-                  if (!theMgenTransport->Listen(port[i],addr_type,true))
-                    continue;
-                  
+                  if (theMgenTransport->Listen(port[i],addr_type,true))
+                  {
+                     result = true;
+                 }
+                 else
+                 {
+                     DMSG(0, "Mgen::ProcessDrecEvent(LISTEN) Error: socket listen() failed\n");
+                     continue;
+                 }
               }
               else
               {
@@ -805,6 +857,7 @@ void Mgen::ProcessDrecEvent(const DrecEvent& event)
               MgenMsg theMsg;
               theMsg.LogDrecEvent(LISTEN_EVENT, &event, port[i],*this);
           }
+          return result;
       }
       break;            
       
@@ -821,7 +874,7 @@ void Mgen::ProcessDrecEvent(const DrecEvent& event)
             break;  
           default:
             DMSG(0, "Mgen::ProcessDrecEvent(LISTEN) invalid protocol\n");
-            return;
+            return false;
           } 
           const UINT16* port = event.GetPortList();
           UINT16 portCount = event.GetPortCount();
@@ -876,6 +929,7 @@ void Mgen::ProcessDrecEvent(const DrecEvent& event)
       ASSERT(0);
       break; 
     }  // end switch(event.GetType())
+    return true;
 }  // end Mgen::ProcessDrecEvent()
 
 
@@ -964,6 +1018,84 @@ void Mgen::CloseLog()
     }
 }  // end Mgen::CloseLog()
 
+
+void Mgen::RemoveAnalytic(Protocol                protocol,
+                          const ProtoAddress&     srcAddr,
+                          const ProtoAddress&     dstAddr,
+                          UINT32                  flowId)
+{
+    // TBD - should we include 'protocol' in analytic indexing
+    // (MGEN unique flowIds likely make this unnecessary)
+    MgenAnalytic* analytic = analytic_table.FindFlow(srcAddr, dstAddr, flowId);
+    if (NULL == analytic) return;
+    MgenFlow* nextFlow = flow_list.Head();
+    while (NULL != nextFlow)
+    {
+        nextFlow->RemoveAnalyticReport(*analytic);
+        nextFlow = flow_list.GetNext(nextFlow);
+    }       
+    analytic_table.Remove(*analytic);
+    delete analytic;
+}  // end Mgen::RemoveAnalytic()
+
+
+void Mgen::UpdateRecvAnalytics(const ProtoTime& theTime, MgenMsg* theMsg, Protocol theProtocol)
+{
+    // This is a work in progress.  Eventually an option to report back measured
+    // analytics in the MGEN payload will use this code. The printout to STDERR
+    // here is just a temporary "feature" 
+    if (!compute_analytics) return;
+    if (NULL == theMsg) return; // TBD - support timeout driven update
+    MgenAnalytic* analytic = analytic_table.FindFlow(theMsg->GetSrcAddr(), theMsg->GetDstAddr(), theMsg->GetFlowId());
+    if (NULL == analytic)
+    {
+        if (NULL == (analytic = new MgenAnalytic()))
+        {
+            PLOG(PL_ERROR, "Mgen::UpdateRecvAnalytics() new MgenAnalytic() error: %s\n", GetErrorString());
+            return;
+        }
+        if (!analytic->Init(theProtocol, theMsg->GetSrcAddr(), theMsg->GetDstAddr(), theMsg->GetFlowId(), analytic_window))
+        {
+            PLOG(PL_ERROR, "Mgen::UpdateRecvAnalytics() MgenAnalytic() initialization error: %s\n", GetErrorString());
+            return;
+        }
+        if (!analytic_table.Insert(*analytic))
+        {
+            PLOG(PL_ERROR, "Mgen::UpdateRecvAnalytics() unable to add new flow analytic: %s\n", GetErrorString());
+            delete analytic;
+            return;
+        }
+    }
+    
+    if (analytic->Update(theTime, theMsg->GetMsgLen(), ProtoTime(theMsg->GetTxTime()), theMsg->GetSeqNum()))
+    {
+        MgenFlow* nextFlow = flow_list.Head();
+        while (NULL != nextFlow)
+        {
+            if (nextFlow->GetReportAnalytics())
+                nextFlow->UpdateAnalyticReport(*analytic);
+            nextFlow = flow_list.GetNext(nextFlow);
+        }       
+        const MgenAnalytic::Report& report = analytic->GetReport(theTime);
+        if (NULL != controller)
+            controller->OnUpdateReport(theTime, report);
+        report.Log(log_file, theTime, theTime, local_time);
+        /*// locally print updated report info (TBD - do REPORT log event for received flows)
+        time_t tvSec = theTime.sec();
+        struct tm* timePtr = gmtime(&tvSec);
+        fprintf(stdout, "%02d:%02d:%02d.%06lu ", timePtr->tm_hour, 
+                         timePtr->tm_min, timePtr->tm_sec, theTime.usec());
+        fprintf(stdout, "%s/%hu->", theMsg->GetSrcAddr().GetHostString(), theMsg->GetSrcAddr().GetPort());
+        fprintf(stdout, "%s/%hu,%lu ", theMsg->GetDstAddr().GetHostString(), theMsg->GetDstAddr().GetPort(), (unsigned long)theMsg->GetFlowId());
+        fprintf(stdout, "rate>%lg kbps ", analytic->GetReportRateAverage()*8.0e-03);
+        fprintf(stdout, "loss>%lg ", analytic->GetReportLossFraction()*100.0);
+        fprintf(stdout, "latency>%lg,%lg,%lg\n", analytic->GetReportLatencyAverage(),
+                        analytic->GetReportLatencyMin(), analytic->GetReportLatencyMax());*/
+    }
+    
+}  // end Mgen::UpdateRecvAnalytics()
+
+
 /**
  * Query flow_list and drec_event_list for an idea
  * of the current (or greatest) estimate of 
@@ -1017,7 +1149,7 @@ bool Mgen::ParseScript(const char* path)
                 fclose(scriptFile);
                 return false;
         }
-        if (!ParseEvent(lineBuffer, lineCount))
+        if (!ParseEvent(lineBuffer, lineCount, false))
         {
             DMSG(0, "Mgen::ParseScript() Error: invalid mgen script line: %lu\n", 
                     lineCount);
@@ -1028,7 +1160,7 @@ bool Mgen::ParseScript(const char* path)
     return true;
 }  // end Mgen::ParseScript()
 
-bool Mgen::ParseEvent(const char* lineBuffer, unsigned int lineCount)
+bool Mgen::ParseEvent(const char* lineBuffer, unsigned int lineCount, bool internalCmd)
 {
     const char *ptr = lineBuffer;
     // Strip leading white space
@@ -1106,10 +1238,10 @@ bool Mgen::ParseEvent(const char* lineBuffer, unsigned int lineCount)
               }
               
               // 2) Find the flow
-              MgenFlow* theFlow = flow_list.FindFlowById(flowId);
+              MgenFlow* theFlow = flow_list.FindFlowById((UINT32)flowId);
               if (!theFlow)
               {
-                  if (!(theFlow = new MgenFlow(flowId, 
+                  if (!(theFlow = new MgenFlow((UINT32)flowId,
                                                timer_mgr, 
                                                controller,
                                                *this,
@@ -1120,6 +1252,7 @@ bool Mgen::ParseEvent(const char* lineBuffer, unsigned int lineCount)
                            GetErrorString());   
                       return false;
                   }
+                  theFlow->SetReportAnalytics(report_analytics);
                   theFlow->SetPositionCallback(get_position, get_position_data);
 #ifdef HAVE_GPS
                   theFlow->SetPayloadHandle(payload_handle);
@@ -1142,6 +1275,8 @@ bool Mgen::ParseEvent(const char* lineBuffer, unsigned int lineCount)
                   return false; 
               }
               // Update host_addr port now that we know it
+              // TBD - this is not right.  The host_addr source port 
+              // should be on a per-flow basis
               if (host_addr.IsValid() && theEvent->GetSrcPort() != 0)
               { 
                   host_addr.SetPort(theEvent->GetSrcPort());
@@ -1150,9 +1285,24 @@ bool Mgen::ParseEvent(const char* lineBuffer, unsigned int lineCount)
               // Update flow specific queue limit if specified
               if (theEvent->GetQueueLimit())
                 theFlow->SetQueueLimit(theEvent->GetQueueLimit());
+              
               bool reallyStarted = (started && !start_timer.IsActive());
               double currentTime =  reallyStarted ? GetCurrentOffset() : 0.0;
+
               if (currentTime < 0.0) currentTime = 0.0;
+
+              if (theEvent->IsInternalCmd())
+              {
+                  if (!internalCmd)
+                  {
+                      DMSG(0, "MgenFlow::ParseEvent() event init error\n");
+                      delete theEvent;
+                      return false;
+                  }
+                  // Don't consider offset for internal commands
+                  currentTime = 0.0;
+              }       
+
               if (!theFlow->InsertEvent(theEvent, reallyStarted, currentTime))
               {
                   DMSG(0, "Mgen::ParseEvent() Error: invalid mgen script line: %lu\n", lineCount);
@@ -1179,6 +1329,10 @@ bool Mgen::ParseEvent(const char* lineBuffer, unsigned int lineCount)
                   return false;   
               }
               theEvent->SetTime(eventTime);
+              bool reallyStarted = (started && !start_timer.IsActive());
+              double currentTime = reallyStarted ? GetCurrentOffset() : 0.0;
+              if (currentTime < 0.0) currentTime = 0.0;
+              theEvent->SetTime(currentTime + eventTime);
               InsertDrecEvent(theEvent);
           }   
           else
@@ -1209,6 +1363,33 @@ bool Mgen::ParseEvent(const char* lineBuffer, unsigned int lineCount)
     }
     return true;
 }  // end Mgen::ParseEvent()
+
+bool Mgen::ProcessMgenEvent(const MgenEvent& event)
+{
+    MgenFlow* theFlow = flow_list.FindFlowById(event.GetFlowId());
+    if (NULL == theFlow)
+    {
+        if (!(theFlow = new MgenFlow(event.GetFlowId(),
+                                     timer_mgr, 
+                                     controller,
+                                     *this,
+                                     default_queue_limit,
+                                     default_flow_label)))
+        {
+            DMSG(0, "Mgen::ParseEvent() Error: MgenFlow memory allocation error: %s\n",
+                 GetErrorString());   
+            return false;
+        }
+        // Set any flow global defaults
+        theFlow->SetReportAnalytics(report_analytics);
+        theFlow->SetPositionCallback(get_position, get_position_data);
+#ifdef HAVE_GPS
+        theFlow->SetPayloadHandle(payload_handle);
+#endif // HAVE_GPS
+        flow_list.Append(theFlow);
+    }
+    return theFlow->Update(&event);
+}  // end Mgen::ProcessMgenEvent()
 
 void Mgen::InsertDrecEvent(DrecEvent* theEvent)
 {
@@ -1263,7 +1444,7 @@ const StringMapper Mgen::COMMAND_LIST[] =
     {"+OUTPUT",     OUTPUT},
     {"+LOG",        LOG},
     {"+SAVE",       SAVE},
-    {"+DEBUG",      DEBUG},
+    {"+DEBUG",      DEBUG_LEVEL},
     {"+OFFSET",     OFFSET},
     {"-TXLOG",	    TXLOG},
     {"-LOCALTIME",  LOCALTIME},
@@ -1277,7 +1458,7 @@ const StringMapper Mgen::COMMAND_LIST[] =
     {"+BROADCAST",  BROADCAST},
     {"+TOS",        TOS},
     {"+TTL",        TTL},
-    {"+UNICAST_TTL", UNICAST_TTL},
+    {"+UNICAST_TTL",UNICAST_TTL},
     {"+DF",         DF},
     {"+INTERFACE",  INTERFACE},
     {"-CHECKSUM",   CHECKSUM},
@@ -1285,6 +1466,15 @@ const StringMapper Mgen::COMMAND_LIST[] =
     {"-RXCHECKSUM", RXCHECKSUM},
     {"+QUEUE",      QUEUE},
     {"+REUSE",      REUSE},
+    {"-ANALYTICS",  ANALYTICS},
+    {"-REPORT",     REPORT},
+    {"+WINDOW",     WINDOW},
+    {"+SUSPEND",    SUSPEND},
+    {"+RESUME",     RESUME},
+    {"+RESET",      RESET},
+    {"+RETRY",      RETRY},
+    {"+PAUSE",      PAUSE},
+    {"+RECONNECT",  RECONNECT},
     {"+OFF",        INVALID_COMMAND},  // to deconflict "offset" from "off" event
     {NULL,          INVALID_COMMAND}   
 };
@@ -1309,7 +1499,7 @@ Mgen::Command Mgen::GetCommandFromString(const char* string)
 {
     // Make comparison case-insensitive
     char upperString[16];
-    unsigned int len = strlen(string);
+   size_t len = strlen(string);
 
     len = len < 16 ? len : 16;
     
@@ -1331,7 +1521,7 @@ Mgen::CmdType Mgen::GetCmdType(const char* cmd)
 {
     if (!cmd) return CMD_INVALID;
     char upperCmd[32];  // all commands < 32 characters
-    unsigned int len = strlen(cmd);
+    size_t len = strlen(cmd);
     len = len < 31 ? len : 31;
     unsigned int i;
     for (i = 0; i < (len + 1); i++)
@@ -1363,6 +1553,19 @@ Mgen::CmdType Mgen::GetCmdType(const char* cmd)
     return type; 
 }  // end Mgen::GetCmdType()
 
+void Mgen::SetAnalyticWindow(double windowSize)
+{
+    // Note the window size is adjusted to nearest quantized value
+    if (windowSize <= 0.0) return;
+    UINT8 q = MgenAnalytic::Report::QuantizeTimeValue(windowSize);
+    analytic_window = MgenAnalytic::Report::UnquantizeTimeValue(q);
+    // Update existing averaging windows
+    MgenAnalyticTable::Iterator iterator(analytic_table);
+    MgenAnalytic* next;
+    while (NULL != (next = iterator.GetNextItem()))
+        next->SetWindowSize(windowSize);
+}  // end Mgen::SetAnalyticWindow()
+
 bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
 { 
 
@@ -1380,7 +1583,7 @@ bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
               // convert to upper case for case-insensitivity
               // search for "GMT" or "NOW" keywords
               char temp[32];
-              unsigned int len = strlen(arg);
+              size_t len = strlen(arg);
               len = len < 31 ? len : 31;
               unsigned int i;
               for (i = 0 ; i < len; i++)
@@ -1422,7 +1625,7 @@ bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
       }  // end case START
       
     case EVENT:
-      if (!ParseEvent(arg, 0))
+      if (!ParseEvent(arg, 0, false))
       {
           DMSG(0, "Mgen::OnCommand() - error parsing event\n");
           return false;
@@ -1467,7 +1670,7 @@ bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
           bool broadcastTemp;
           // convert to upper case for case-insensitivity
           char temp[4];
-          unsigned int len = strlen(arg);
+          size_t len = strlen(arg);
           len = len < 4 ? len : 4;
           unsigned int i;
           for (i = 0 ; i < len; i++)
@@ -1507,7 +1710,7 @@ bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
     {
         FragmentationStatus df = DF_DEFAULT;
         char temp[4];
-        unsigned int len = strlen(arg);
+        size_t len = strlen(arg);
         len = len < 4 ? len : 4;
         unsigned int i;
         for (i = 0 ; i < len; i++)
@@ -1644,7 +1847,7 @@ bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
       }
       break;
       
-    case DEBUG:
+    case DEBUG_LEVEL:
       SetDebugLevel(atoi(arg));
       break;
       
@@ -1679,7 +1882,7 @@ bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
           bool reuseTemp;
           // convert to upper case for case-insensitivity
           char temp[4];
-          unsigned int len = strlen(arg);
+          size_t len = strlen(arg);
           len = len < 4 ? len : 4;
           unsigned int i;
           for (i = 0 ; i < len; i++)
@@ -1698,6 +1901,156 @@ bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
           break;
       }
       break;
+      
+    case ANALYTICS:
+        compute_analytics = true;
+        break;
+        
+    case REPORT:
+        report_analytics = true;
+        compute_analytics = true;
+        break;
+        
+    case WINDOW:
+        if (NULL != arg)
+        {
+            double windowSize;
+            if ((1 != sscanf(arg, "%lf", &windowSize)) || (windowSize <= 0.0))
+            {
+                 PLOG(PL_ERROR, "Mgen::OnCommand() Error: invalid WINDOW interval\n");
+                 return false;
+            }
+            SetAnalyticWindow(windowSize);
+        }
+        else
+        {
+            PLOG(PL_ERROR, "Mgen::OnCommand() Error: missing argument to WINDOW\n");
+            return false;
+        }
+        break;
+
+    case PAUSE:
+    case RECONNECT:
+        if (NULL != arg)
+        {
+            unsigned long flowId;
+            if (1 != sscanf(arg, "%lu", &flowId))
+            {
+                DMSG(0, "Mgen::ParseEvent() Error: pause/reconnect missing <flowId>\n");
+            }
+            MgenFlow* flow = flow_list.Head();
+            while (NULL != flow)
+            {
+                if (flowId == flow->GetFlowId())
+                {
+                    switch (cmd)
+                    {
+                    case PAUSE:
+                        flow->Pause();
+                        break;
+                    case RECONNECT:
+                        flow->Reconnect();
+                        break;
+                    default:
+                        break;  // wont' occur
+                    }
+                    return true;
+                }
+                flow = flow_list.GetNext(flow);
+            }
+            return false;
+        }
+
+        break;
+    case SUSPEND:
+    case RESUME:
+    case RESET:
+        if (NULL != arg)
+        {   
+            // arg is comma-delimited flow list and can include dash-delimited ranges
+            // Use ProtoTokenator to parse flow id list
+            ProtoTokenator tk1(arg, ',');
+            const char* item;
+            while (NULL != (item = tk1.GetNextItem()))
+            {
+                ProtoTokenator tk2(item, '-');
+                const char* flowIdText = tk2.GetNextItem();
+                unsigned int startId = 0;
+                unsigned int endId = 0;
+                if (NULL == flowIdText)
+                {
+                    PLOG(PL_ERROR, "Mgen::OnCommand(suspend/resume/reset) error: empty  flowId list\n");
+                    return false;
+                }
+                else if (1 != sscanf(flowIdText, "%u", &startId))
+                {
+                    // Look for "all" keyword in case-insenstive manner
+                    const char* ptr1 = flowIdText;
+                    const char* ptr2 = "ALL";
+                    unsigned int score = 0;
+                    while (('\0' != *ptr1) && (toupper(*ptr1++) == *ptr2++)) score++;
+                    if (3 != score) 
+                    {
+                        PLOG(PL_ERROR, "Mgen::OnCommand(suspend/resume/reset) error: invalid flowId list\n");
+                        return false;
+                    }
+                }
+                else if (0 == startId)
+                {
+                    PLOG(PL_ERROR, "Mgen::OnCommand(suspend/resume/reset) error: invalid flowId list value\n");
+                    return false;
+                }
+                else
+                {
+                    flowIdText = tk2.GetNextItem();
+                    if (NULL == flowIdText)
+                    {
+                        endId = startId;
+                    }
+                    else if ((1 != sscanf(flowIdText, "%u", &endId)) || (endId < startId))
+                    {
+                        PLOG(PL_ERROR, "Mgen::OnCommand(suspend/resume/reset) error: invalid flowId list\n");
+                        return false;
+                    }
+                }
+                // At this point, if 0 == startId, that means apply to "all" flows
+                unsigned int count = endId - startId + 1;
+                MgenFlow* flow = flow_list.Head();
+                while ((NULL != flow) && (0 != count))
+                {
+                    UINT32 flowId = flow->GetFlowId();
+                    if ((0 == startId) || ((flowId >= startId) && (flowId <= endId)))
+                    {
+                        switch (cmd)
+                        {
+                            case SUSPEND:
+                                flow->Suspend();
+                                break;
+                            case RESUME:
+                                flow->Resume();
+                                break;
+                            case RESET:
+                                flow->Reset();
+                                break;
+                            default:
+                                break;  // wont' occur
+                        }
+                        if (0 != startId) count--;
+                    }
+                    flow = flow_list.GetNext(flow);
+                }
+                if ((0 != startId) && (0 != count))
+                {
+                    PLOG(PL_ERROR, "Mgen::OnCommand(suspend/resume/reset) warning: flowId list contained unknown flowIds\n");
+                }
+            }  // end while (NULL != tk1.GetNextItem())
+        }
+        else
+        {
+            PLOG(PL_ERROR, "Mgen::OnCommand(suspend/resume/reset) error: missing  flowId list\n");
+            return false;
+        }
+        break;
       
     case LOCALTIME:
 	  local_time = true;
@@ -1738,7 +2091,40 @@ bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
       }
       SetDefaultQueueLimit(tmpQueueLimit,override);
       break;            
- 
+
+    case RETRY:	
+    {
+        char fieldBuffer[Mgen::SCRIPT_LINE_MAX];
+        if (1 != sscanf(arg, "%s", fieldBuffer))
+        {
+            DMSG(0, "Mgen::OnCommand() invalid retry argument: retry [<count>[/<delay>]]");
+            return false;
+        }
+
+        int retryCountValue;
+        if (1 != sscanf(fieldBuffer, "%d", &retryCountValue))
+        {
+            DMSG(0, "Mgen::OnCommand() invalid retry argument: retry [<count>[/<delay>]]");
+            return false;
+        }
+        char* delayPtr = strchr(fieldBuffer, '/');
+        if (delayPtr)
+        {
+            *delayPtr++ = '\0';
+            unsigned int retryDelayValue;
+            int result = sscanf(delayPtr, "%u", &retryDelayValue);
+            if (1 != result)   
+            {
+                DMSG(0, "Mgen::OnCommand() invalid retry argument: retry [<count>[/<delay>]]");
+                return false;
+            }
+            SetDefaultRetryDelay(retryDelayValue, override);
+        }
+        
+        SetDefaultRetryCount(retryCountValue, override);
+        break;
+    }
+  
     case INVALID_COMMAND:
       DMSG(0, "Mgen::OnCommand() Error: invalid command\n");
       return false;   
@@ -1812,7 +2198,7 @@ bool DrecGroupList::JoinGroup(Mgen&                 mgen,
 
 bool DrecGroupList::LeaveGroup(Mgen&                 mgen,
                                const ProtoAddress&   groupAddress, 
-			       const ProtoAddress&   sourceAddress,
+                               const ProtoAddress&   sourceAddress,
                                const char*           interfaceName,
                                UINT16        thePort)
 {
@@ -1856,11 +2242,10 @@ bool DrecGroupList::JoinDeferredGroups(Mgen& mgen)
 }  // end DrecGroupList::JoinDeferredGroups()
 
 
-DrecGroupList::DrecMgenTransport* DrecGroupList::FindMgenTransportByGroup(
-    const ProtoAddress& groupAddr,
-    const ProtoAddress& sourceAddr,
-    const char*           interfaceName,
-    UINT16        thePort)
+DrecGroupList::DrecMgenTransport* DrecGroupList::FindMgenTransportByGroup(const ProtoAddress& groupAddr,
+                                                                          const ProtoAddress& sourceAddr,
+                                                                          const char*         interfaceName,
+                                                                          UINT16              thePort)
 {
     DrecMgenTransport* next = head;
     while (next)
@@ -1872,10 +2257,10 @@ DrecGroupList::DrecMgenTransport* DrecGroupList::FindMgenTransportByGroup(
                  !strcmp(nextInterface, interfaceName));
         bool groupIsEqual = next->group_addr.IsValid() ?
             next->group_addr.HostIsEqual(groupAddr) : true;
-
         bool sourceIsEqual = !next->source_addr.IsValid() ?
                              !sourceAddr.IsValid() :
-                             sourceAddr.IsValid() && next->source_addr.HostIsEqual(sourceAddr);        bool portIsEqual = thePort == next->GetPort();
+                             sourceAddr.IsValid() && next->source_addr.HostIsEqual(sourceAddr);        
+        bool portIsEqual = thePort == next->GetPort();
         if (interfaceIsEqual && groupIsEqual && sourceIsEqual && portIsEqual) 
             return next;
         next = next->next;
@@ -1947,10 +2332,10 @@ Mgen::FastReader::Result Mgen::FastReader::Read(FILE*           filePtr,
                                                 char*           buffer, 
                                                 unsigned int*   len)
 {
-    unsigned int want = *len;   
+    size_t want = *len;
     if (savecount)
     {
-        unsigned int ncopy = want < savecount ? want : savecount;
+        size_t ncopy = want < savecount ? want : savecount;
         memcpy(buffer, saveptr, ncopy);
         savecount -= ncopy;
         saveptr += ncopy;
@@ -1959,12 +2344,12 @@ Mgen::FastReader::Result Mgen::FastReader::Read(FILE*           filePtr,
     }
     while (want)
     {
-        unsigned int result = fread(savebuf, sizeof(char), BUFSIZE, filePtr);
+        size_t result = fread(savebuf, sizeof(char), BUFSIZE, filePtr);
         if (result)
         {
-            unsigned int ncopy= want < result ? want : result;
+            size_t ncopy= want < result ? want : result;
             memcpy(buffer, savebuf, ncopy);
-            savecount = result - ncopy;
+            savecount = (unsigned int)(result - ncopy);
             saveptr = savebuf + ncopy;
             buffer += ncopy;
             want -= ncopy;

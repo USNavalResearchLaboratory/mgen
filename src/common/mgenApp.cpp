@@ -76,10 +76,12 @@ const char* const MgenApp::CMD_LIST[] =
     "+command",    // specifies an input command file/device
     "+hostaddr",   // turn "host" field on/off in sent messages
     "-boost",      // boost process priority
+    "+seed",       // Seed for random number generation (possion & jitter patterns)
     "-help",       // print usage and exit
     "+gpskey",    // Override default gps shared memory location
     "+logdata",    // log optional data attribute? default ON
     "+loggpsdata", // log gps data? default ON
+//   "-analytics",  // enables MGEN analytics reporting on received flows
     NULL
 };
 
@@ -349,6 +351,18 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
             return false;
         }
     }
+    else if (!strncmp("seed", lowerCmd, len))
+    {
+        int seed;
+        int result = sscanf(val, "%i", &seed);
+        if (1 != result || seed < 0)
+        {
+            DMSG(0,"MgenApp::OnCommand() - invalid seed value");
+            return false;
+        }
+        srand(seed);
+        DMSG(0,"Seed %d First number: %d\n", seed, rand());
+    }
     else if (!strncmp("instance", lowerCmd, len))
     {
         if (control_pipe.IsOpen())
@@ -402,6 +416,11 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
 	  mgen.SetPositionCallback(MgenApp::GetPosition, gps_handle);
       }
 #endif //HAVE_GPS
+    else if (0 == strncmp("analytics", lowerCmd, len))
+    {
+        // Enable mgen analytics measurement
+        mgen.SetComputeAnalytics(true);
+    }
     else if (!strncmp("logdata", lowerCmd, len))
     {
       char status[4];  // valid status is "on" or "off"
@@ -409,11 +428,11 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
       status[3] = '\0';
       unsigned int len = strlen(status);
       for (unsigned int i = 0; i < len; i++)
-	status[i] = tolower(status[i]);
+	    status[i] = tolower(status[i]);
       if (!strncmp("on", status, len))
-	mgen.SetLogData(true);
+	    mgen.SetLogData(true);
       else if (!strncmp("off",status,len))
-	mgen.SetLogData(false);
+	    mgen.SetLogData(false);
       else
       {
 	DMSG(0, "MgenApp::ProcessCommand(logData) Error: wrong argument to logData:%s\n",status);
@@ -444,14 +463,14 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
     }
     else if (!strncmp("boost", lowerCmd, len))
     {
-      if (!dispatcher.BoostPriority())
-	fprintf(stderr,"Unable to boost process priority.\n");
+        if (!dispatcher.BoostPriority())
+            fprintf(stderr, "Unable to boost process priority.\n");
     }
     else if (!strncmp("help", lowerCmd, len))
     {
-      fprintf(stderr, "mgen: version %s\n", MGEN_VERSION);
-      Usage();
-      return false;
+        fprintf(stderr, "mgen: version %s\n", MGEN_VERSION);
+        Usage();
+        return false;
     }
     return true;
  }  // end MgenApp::OnCommand()
@@ -461,7 +480,7 @@ bool MgenApp::OnStartup(int argc, const char*const* argv)
     // Seed the system rand() function
     struct timeval currentTime;
     ProtoSystemTime(currentTime);
-    srand(currentTime.tv_usec);
+    srand(currentTime.tv_sec^currentTime.tv_usec);
     
     mgen.SetLogFile(stdout);  // log to stdout by default
     

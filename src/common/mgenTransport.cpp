@@ -55,7 +55,7 @@ void MgenTransportList::Prepend(MgenTransport* mgenTransport)
 void MgenTransportList::Append(MgenTransport* mgenTransport)
 {
     mgenTransport->next = NULL;
-    if ((mgenTransport->prev = tail))
+    if (NULL != (mgenTransport->prev = tail))
       tail->next = mgenTransport;
     else
       head = mgenTransport;
@@ -87,8 +87,7 @@ MgenTransport::MgenTransport(Mgen& theMgen,
     mgen(theMgen),
     pending_head(NULL),
     pending_tail(NULL),
-    pending_current(NULL),
-    messages_sent(0)
+    pending_current(NULL)
 {
 }
 
@@ -117,8 +116,7 @@ MgenTransport::MgenTransport(Mgen& theMgen,
     mgen(theMgen),
     pending_head(NULL),
     pending_tail(NULL),
-    pending_current(NULL),
-    messages_sent(0)
+    pending_current(NULL)
 {
   dstAddress = theAddress;
 }
@@ -214,55 +212,74 @@ bool MgenTransport::SendPendingMessage()
 
     while (IsOpen() && !IsTransmitting() && pending_current)
     {
+      int msgLimit = pending_current->GetMessageLimit();
+      bool sendMore = (msgLimit < 0) || (pending_current->GetMessagesSent() < msgLimit);
+      
       if ((pending_current->GetPending() > 0) || 
-	  pending_current->UnlimitedRate()) 
-	{
-	  if (!pending_current->SendMessage()) return false;
-	}
+          (pending_current->UnlimitedRate() && sendMore))
+      {
+          if (!pending_current->SendMessage()) return false;
+      }
       
       // Restart flow timer if we're below the queue limit
       if ((pending_current->QueueLimit() > 0 &&
-	   (pending_current->GetPending() < pending_current->QueueLimit()))
-	  ||
-	  (pending_current->QueueLimit() < 0 &&
-	   !(pending_current->GetPending() > 0)) // ljt don't think we need 
-	  // this anymore if we're 
-	  // just restarting the timer?
-	  ||
-	  pending_current->QueueLimit() == 0)    // Tcp finally connected?
+           (pending_current->GetPending() < pending_current->QueueLimit()))
+          ||
+          (pending_current->QueueLimit() < 0 &&
+           !(pending_current->GetPending() > 0)) // ljt don't think we need 
+          // this anymore if we're 
+          // just restarting the timer?
+          ||
+          pending_current->QueueLimit() == 0)    // Tcp finally connected?
 	
+      {
+          // Don't restart the timer if our rate is unlimited...
+          if (!pending_current->UnlimitedRate())
+              pending_current->RestartTimer();    
+      }
+
+        // Restart flow timer if we're below the queue limit
+        if (((pending_current->QueueLimit() > 0) &&
+             (pending_current->GetPending() < pending_current->QueueLimit())) ||
+            ((pending_current->QueueLimit() < 0) &&
+             !(pending_current->GetPending() > 0)) || // ljt don't think we need anymore if just timer restart
+            (pending_current->QueueLimit() == 0))     // Tcp finally connected?
+
         {
-	  // Don't restart the timer if our rate is unlimited...
-	  if (!pending_current->UnlimitedRate())
-	    
-	    pending_current->RestartTimer();    
+            // Don't restart the timer if our rate is unlimited...
+            if (!pending_current->UnlimitedRate())
+                pending_current->RestartTimer();    
         }
       
       // If we've sent all pending messages, 
       // remove flow from pending list.
       if (!pending_current->GetPending() &&
-	  !pending_current->UnlimitedRate())
-        {
-	  RemoveFromPendingList();  //ljt remove this function
-	  // or replace remove flow
-	  // why istn' this getting called??
-	  //RemoveFlow(pending_current);
-	  continue;
-        }
+         (!pending_current->UnlimitedRate() || !sendMore))
+      {
+          RemoveFromPendingList();  //ljt remove this function
+          // or replace remove flow
+          // why istn' this getting called??
+          //RemoveFlow(pending_current);
+          continue;
+      }
       pending_current = pending_current->GetPendingNext();
+
+    // cycle back to head of queue if we
+    // reached the end.
+    if (!pending_current && pending_head)
+        pending_current = pending_head; 
       
       // cycle back to head of queue if we
       // reached the end.
       if (!pending_current && pending_head)
-	pending_current = pending_head; 
+          pending_current = pending_head; 
       
     }
     // Resume normal operations
     if (!IsTransmitting() && !HasPendingFlows()) 
-      {
+    {
         StopOutputNotification();
-      }        
-    
+    }            
     return true;
     
 }  // end MgenTransport::SendPendingMessage()
@@ -292,7 +309,7 @@ void MgenTransport::RemoveFromPendingList()
         
 }  // end MgenTransport::RemoveFromPendingList()
 
-void MgenTransport::LogEvent(LogEventType eventType,MgenMsg* theMsg,const struct timeval& theTime,char* buffer )
+void MgenTransport::LogEvent(LogEventType eventType, MgenMsg* theMsg, const struct timeval& theTime, UINT32* buffer)
 {
     if (!(mgen.GetLogFile()))
       return;  
@@ -322,8 +339,8 @@ void MgenTransport::LogEvent(LogEventType eventType,MgenMsg* theMsg,const struct
           theMsg->LogRecvEvent(mgen.GetLogFile(),
                                mgen.GetLogBinary(), 
                                mgen.GetLocalTime(), 
-			       mgen.GetLogData(),
-			       mgen.GetLogGpsData(),
+			                   mgen.GetLogData(),
+			                   mgen.GetLogGpsData(),
                                buffer, 
                                mgen.GetLogFlush(),
                                theTime);
@@ -331,7 +348,7 @@ void MgenTransport::LogEvent(LogEventType eventType,MgenMsg* theMsg,const struct
           // Don't we want rapr to get the message regardless of logging??
           // Could this possibly have been broken too? strange... ljt
           if (mgen.GetController())
-            mgen.GetController()->OnMsgReceive(*theMsg);
+                mgen.GetController()->OnMsgReceive(*theMsg);
 
           break;
       }
@@ -407,10 +424,20 @@ void MgenTransport::LogEvent(LogEventType eventType,MgenMsg* theMsg,const struct
                                         eventType,
                                         IsClient(),
                                         theTime);		    
-          
-          
           break;
       }
+    case RECONNECT_EVENT:
+    {
+        theMsg->GetSrcAddr().SetPort(GetSrcPort());
+        theMsg->LogTcpConnectionEvent(mgen.GetLogFile(),
+                                     mgen.GetLogBinary(),
+                                     mgen.GetLocalTime(),
+                                     mgen.GetLogFlush(),
+                                     eventType,
+                                     IsClient(),
+                                     theTime);
+        break;
+    }
     case RERR_EVENT:
       {
 
@@ -511,17 +538,16 @@ void MgenSocketTransport::SetEventOptions(const MgenEvent* event)
     }
     if (event->OptionIsSet(MgenEvent::TTL))
     {
-
-      if (event->GetDstAddr().IsMulticast())
-	{
-	  if (!SetMulticastTTL(event->GetTTL()))
-	    DMSG(0, "MgenFlow::Update() error setting socket multicast TTL\n");    
-	}
-      else
-	{
-	  if (!SetUnicastTTL(event->GetTTL()))
-	    DMSG(0, "MgenFlow::Update() error setting socket unicast TTL\n");    
-	}
+        if (event->GetDstAddr().IsMulticast())
+        {
+            if (!SetMulticastTTL(event->GetTTL()))
+                DMSG(0, "MgenFlow::Update() error setting socket multicast TTL\n");    
+        }
+        else
+        {
+            if (!SetUnicastTTL(event->GetTTL()))
+                DMSG(0, "MgenFlow::Update() error setting socket unicast TTL\n");    
+        }
     }
     if (event->OptionIsSet(MgenEvent::INTERFACE) && GetProtocol() == UDP)
     {
@@ -628,7 +654,8 @@ bool MgenSocketTransport::Open(ProtoAddress::Type addrType, bool bindOnOpen)
     if (socket.IsOpen())
     {        
         if (socket.GetAddressType() != addrType)
-          DMSG(0, "MgenTransport::Open() Warning: socket address type mismatch\n");
+            DMSG(0, "MgenTransport::Open() Warning: socket address type mismatch\n");
+
         if (bindOnOpen && !socket.IsBound())
         {
             if (!socket.Bind(srcPort))
@@ -636,28 +663,31 @@ bool MgenSocketTransport::Open(ProtoAddress::Type addrType, bool bindOnOpen)
                 DMSG(0, "MgenTransport::Open() socket bind error\n");
                 return false;
             }
+         }
+    }
+    else
+    {
+        if (!socket.Open(srcPort, addrType, false))
+        {
+            // SetLoopback asserts that the socket is open
+            //        socket.SetLoopback(false);  //  by default
+            DMSG(0, "MgenTransport::Open() Error: socket open error %s srcPort %d\n",GetErrorString(),srcPort);
+            return false;
+        }
+        else
+        {
+            // We want to set socket resuse so multiple processes
+            // can listen to a common multicast group.  Note that
+            // kernel socket selection for reused unicast sockets 
+            // is undefined.
+            
+            if (mgen.GetReuse())
+                socket.SetReuse(true);
+            if (bindOnOpen)
+                socket.Bind(srcPort);
         }
     }
-    else if (!socket.Open(srcPort, addrType, false))
-    {
-
-        // SetLoopback asserts that the socket is open
-        //        socket.SetLoopback(false);  //  by default
-      DMSG(0, "MgenTransport::Open() Error: socket open error %s srcPort %d\n",GetErrorString(),srcPort);
-        return false;
-    } else
-      {
-	// We want to set socket resuse so multiple processes
-	// can listen to a common multicast group.  Note that
-	// kernel socket selection for reused unicast sockets 
-	// is undefined.
-
-	if (mgen.GetReuse())
-	  socket.SetReuse(true);
-	if (bindOnOpen)
-	  socket.Bind(srcPort);
-      }
-
+    
     // Reset src port in case it was os generated 
     srcPort = GetSocketPort();
     
@@ -681,7 +711,7 @@ bool MgenSocketTransport::Open(ProtoAddress::Type addrType, bool bindOnOpen)
 
     if ('\0' != interface_name[0])
       socket.SetMulticastInterface(interface_name);
-    
+
     reference_count++;
     return true;
     
@@ -891,72 +921,77 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
 {
     switch (theEvent)
     {
-    case ProtoSocket::RECV:
-      {
-          char buffer[MAX_SIZE];
-          unsigned int len = MAX_SIZE;
-          ProtoAddress srcAddr;
+        case ProtoSocket::RECV:
+        {
+            UINT32 alignedBuffer[MAX_SIZE/4];
+            char* buffer = (char*)alignedBuffer;
+            unsigned int len = MAX_SIZE;
+            ProtoAddress srcAddr;
 
-          while (theSocket.RecvFrom(buffer, len, srcAddr))
-          {
-              if (len == 0) break;
+            while (theSocket.RecvFrom((char*)buffer, len, srcAddr))
+            {
+                if (len == 0) break;
+                if (mgen.GetLogFile() || mgen.ComputeAnalytics())
+                {
+                    struct timeval currentTime;
+                    ProtoSystemTime(currentTime);
+                    MgenMsg theMsg;
+                    // the socket recvFrom gives us our srcAddr
+                    theMsg.SetSrcAddr(srcAddr);
+                    if (theMsg.Unpack(alignedBuffer, len, mgen.GetChecksumForce(), mgen.GetLogData()))
+                    {
+                        if (mgen.GetChecksumForce() || theMsg.FlagIsSet(MgenMsg::CHECKSUM))
+                        {
+                            UINT32 checksum = 0;
+                            theMsg.ComputeCRC32(checksum,(unsigned char*)buffer,len - 4);
+                            checksum = (checksum ^ theMsg.CRC32_XOROT);
+                            UINT32 checksumPosition = len - 4;
+                            UINT32 recvdChecksum;
+                            memcpy(&recvdChecksum,buffer+checksumPosition,4);
+                            recvdChecksum = ntohl(recvdChecksum);
 
-              MgenMsg theMsg;
-              // the socket recvFrom gives us our srcAddr
-              // so we need to set it in the msg here
-
-              theMsg.SetSrcAddr(srcAddr);
-              if (mgen.GetLogFile())
-              {
-                  struct timeval currentTime;
-                  ProtoSystemTime(currentTime);
-
-                  if (theMsg.Unpack(buffer, len, mgen.GetChecksumForce(), mgen.GetLogData()))
-                  {
-                      if (mgen.GetChecksumForce() || theMsg.FlagIsSet(MgenMsg::CHECKSUM))
-                      {
-                          UINT32 checksum = 0;
-                          theMsg.ComputeCRC32(checksum,(unsigned char*)buffer,len - 4);
-                          checksum = (checksum ^ theMsg.CRC32_XOROT);
-                          UINT32 checksumPosition = len - 4;
-                          UINT32 recvdChecksum;
-                          memcpy(&recvdChecksum,buffer+checksumPosition,4);
-                          recvdChecksum = ntohl(recvdChecksum);
-                          
-                          if (checksum != recvdChecksum)
-                          {
-                              DMSG(0, "MgenUdpTransport::OnEvent() error: checksum failure\n");
-                              theMsg.SetChecksumError();
-                              
-                          }
-                          
-                      }
-                      if (theMsg.GetError())
-                        LogEvent(RERR_EVENT,&theMsg,currentTime);
-                      else 
-                        LogEvent(RECV_EVENT,&theMsg,currentTime,buffer);
-                  }
-                  else {
-                      LogEvent(RERR_EVENT,&theMsg,currentTime);
-                  }
-              }
-              len = MAX_SIZE;
-          }
-          break;
-      }
-    case ProtoSocket::SEND:
-      {
-          SendPendingMessage();
-          break;
-      }
-      
-    default:
-      DMSG(0, "MgenUdpTransport::OnEvent() unexpected event type: %d\n", theEvent);
-      break;
-    }
+                            if (checksum != recvdChecksum)
+                            {
+                                DMSG(0, "MgenUdpTransport::OnEvent() error: checksum failure\n");
+                                theMsg.SetChecksumError();
+                            }
+                        }
+                        if (theMsg.GetError())
+                        {
+                            if (mgen.GetLogFile())
+                                LogEvent(RERR_EVENT, &theMsg, currentTime);
+                        }
+                        else 
+                        {
+                            ProcessRecvMessage(theMsg, ProtoTime(currentTime));
+                            if (mgen.ComputeAnalytics())
+                                mgen.UpdateRecvAnalytics(currentTime, &theMsg, UDP);
+                            if (mgen.GetLogFile())
+                                LogEvent(RECV_EVENT, &theMsg, currentTime, alignedBuffer);
+                        }
+                    }
+                    else 
+                    {
+                        if (mgen.GetLogFile())
+                            LogEvent(RERR_EVENT, &theMsg, currentTime);
+                    }
+                }  // end if (NULL != mgen.GetLogFile())
+                len = MAX_SIZE;
+            }  // end while(theSocket.RecvFrom())
+            break;
+        }  // end case ProtoSocket::RECV
+        case ProtoSocket::SEND:
+        {
+            SendPendingMessage();
+            break;
+        }
+        default:
+            DMSG(0, "MgenUdpTransport::OnEvent() unexpected event type: %d\n", theEvent);
+            break;
+    }  // end switch(theEvent)
 }  // end MgenUdpTransport::OnEvent()
 
-MessageStatus MgenUdpTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer) 
+MessageStatus MgenUdpTransport::SendMessage(MgenMsg& theMsg, const ProtoAddress& dstAddr) 
 {
     
     // Udp packets are single shot and larger than
@@ -964,18 +999,21 @@ MessageStatus MgenUdpTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& 
     UINT32 txChecksum = 0;
     theMsg.SetFlag(MgenMsg::LAST_BUFFER);
 
-    struct timeval currentTime;
-    ProtoSystemTime(currentTime);
-    theMsg.SetTxTime(currentTime);
+    //struct timeval currentTime;
+    //ProtoSystemTime(currentTime);
+    //theMsg.SetTxTime(currentTime);
+    
+    UINT32 txBuffer[MAX_SIZE/4 + 1];
+    
 
-    unsigned int len = theMsg.Pack(txBuffer,theMsg.GetMsgLen(),mgen.GetChecksumEnable(),txChecksum);
+    unsigned int len = theMsg.Pack(txBuffer, theMsg.GetMsgLen(),mgen.GetChecksumEnable(),txChecksum);
     if (len == 0) 
       return MSG_SEND_FAILED; // no room
     
     if (mgen.GetChecksumEnable() && theMsg.FlagIsSet(MgenMsg::CHECKSUM)) 
-      theMsg.WriteChecksum(txChecksum,(unsigned char*)txBuffer,(UINT32)len);
+        theMsg.WriteChecksum(txChecksum,(unsigned char*)txBuffer,(UINT32)len);
 
-    bool result = socket.SendTo(txBuffer,len,dst_addr);
+    bool result = socket.SendTo((char*)txBuffer,len,dstAddr);
 
     // If result is true but numBytes == 0 
     // we had an EWOULDBLOCK condition
@@ -994,8 +1032,7 @@ MessageStatus MgenUdpTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& 
 	  return MSG_SEND_FAILED;
       }
 
-    LogEvent(SEND_EVENT,&theMsg,theMsg.GetTxTime(),txBuffer);
-    messages_sent++;
+    LogEvent(SEND_EVENT, &theMsg,theMsg.GetTxTime(), txBuffer);
     return MSG_SEND_OK;
 
 } // end MgenUdpTransport::SendMessage
@@ -1019,8 +1056,9 @@ MgenTcpTransport::MgenTcpTransport(Mgen& theMgen,
     tx_msg_offset(0),tx_fragment_pending(0),tx_checksum(0),
     rx_msg(), rx_buffer_index(0),
     rx_fragment_pending(0),rx_msg_index(0),
-    rx_checksum(0)
-
+    rx_checksum(0),
+    retry_count(theMgen.GetDefaultRetryCount()),
+    retry_delay(theMgen.GetDefaultRetryDelay())
 {
   tx_msg_buffer[0] = '\0';
   rx_msg_buffer[0] = '\0';
@@ -1037,6 +1075,55 @@ MgenTcpTransport::~MgenTcpTransport()
 
 }
 
+void MgenTcpTransport::SetEventOptions(const MgenEvent* event)
+{
+    MgenSocketTransport::SetEventOptions(event);
+
+    if (event->OptionIsSet(MgenEvent::RETRY))
+    {
+        SetRetryCount(event->GetRetryCount());
+        if (event->GetRetryDelay() != 0)
+        {
+            SetRetryDelay(event->GetRetryDelay());
+        }
+    }
+}
+
+void MgenTcpTransport::ScheduleReconnect(ProtoSocket& theSocket)
+{
+    if (GetRetryCount() == 0)
+    {
+        return;
+    }
+    
+    if (GetRetryCount() > 0)
+    {
+        SetRetryCount(GetRetryCount() -1);
+    } 
+    // Pause and schedule resume events for all flows
+    // using this transport
+    MgenFlow * next = mgen.GetFlowList().Head();
+    char cmd [512];
+
+    while (next)
+    {
+        if (next->GetFlowTransport() && next->GetFlowTransport()->OwnsSocket(theSocket))
+        {
+            // First pause the flow
+            sprintf(cmd, "MOD %d PAUSE", next->GetFlowId());
+            mgen.ParseEvent(cmd, 0, true);
+
+            // Then resume after delay
+            sprintf(cmd, "%x MOD %x RECONNECT", (unsigned int) GetRetryDelay(), next->GetFlowId());
+            mgen.ParseEvent(cmd, 0, true);
+            
+        }
+        next = next->Next();
+    }
+
+} // MgenTcpTransport::ScheduleReconnect
+
+
 void MgenTcpTransport::OnEvent(ProtoSocket& theSocket,ProtoSocket::Event theEvent)
 {
     switch (theEvent)
@@ -1051,7 +1138,7 @@ void MgenTcpTransport::OnEvent(ProtoSocket& theSocket,ProtoSocket::Event theEven
           while (1)
           {
               unsigned int numBytes = tx_buffer_pending; 
-              if (theSocket.Send(tx_msg_buffer + tx_buffer_index, numBytes))
+              if (theSocket.Send(((char*)tx_msg_buffer) + tx_buffer_index, numBytes))
               {
                   // if we had an error, let socket notification
                   // tell us when to try again.
@@ -1087,13 +1174,12 @@ void MgenTcpTransport::OnEvent(ProtoSocket& theSocket,ProtoSocket::Event theEven
 
               unsigned int bufferIndex = ((TX_BUFFER_SIZE + rx_msg_index) % TX_BUFFER_SIZE);
               unsigned int numBytes = GetRxNumBytes(bufferIndex);
-	      char buffer[TX_BUFFER_SIZE] = "";
-
-              if (IsConnected() && numBytes && theSocket.Recv(buffer+bufferIndex,numBytes))
+	          UINT32 buffer[TX_BUFFER_SIZE/4 + 1];
+              if (IsConnected() && numBytes && theSocket.Recv(((char*)buffer)+bufferIndex, numBytes))
               {
                   if (0 != numBytes)
                   {
-                    OnRecvMsg(numBytes,bufferIndex,buffer);
+                    OnRecvMsg(numBytes, bufferIndex, buffer);
                   }
                   else
                   {
@@ -1160,18 +1246,32 @@ void MgenTcpTransport::OnEvent(ProtoSocket& theSocket,ProtoSocket::Event theEven
           }
           break;
       }
-    case ProtoSocket::ERROR_:
-      
+    case ProtoSocket::ERROR_:      
       {
-          ShutdownTransport(DISCONNECT_EVENT);
+          struct timeval currentTime;
+          ProtoSystemTime(currentTime);
 
+          if (GetRetryCount() != 0)
+          {
+              ScheduleReconnect(theSocket);
+          }
+          else
+          {
+              ShutdownTransport(DISCONNECT_EVENT);
+          }
           break;
           
       }
     case ProtoSocket::DISCONNECT:
       {
-          ShutdownTransport(OFF_EVENT);
-
+          if (GetRetryCount() != 0)
+          {
+              ScheduleReconnect(theSocket);
+          }
+          else
+          {
+              ShutdownTransport(OFF_EVENT);
+          }
           break;
       }
     default:
@@ -1192,7 +1292,7 @@ void MgenTcpTransport::OnEvent(ProtoSocket& theSocket,ProtoSocket::Event theEven
  * function.)
  */
 
-MessageStatus MgenTcpTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer) 
+MessageStatus MgenTcpTransport::SendMessage(MgenMsg& theMsg, const ProtoAddress& dst_addr) 
 {        
     // But not if the transport is transmitting anything...
     if (tx_msg_offset != 0)  
@@ -1212,18 +1312,17 @@ MessageStatus MgenTcpTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& 
     }
     
     //  Send message, checking for error (log only on success)
-
     while (1)
     {
         unsigned int numBytes = tx_buffer_pending;   
-        if (socket.Send(tx_msg_buffer+tx_buffer_index,numBytes))
+        if (socket.Send(((char*)tx_msg_buffer)+tx_buffer_index,numBytes))
         {
             // If we had an error, let socket notification tell 
             // us when to try again...
             if (tx_buffer_pending != 0 && numBytes == 0)
             {
                 StartOutputNotification();
-	        return MSG_SEND_BLOCKED;
+                return MSG_SEND_BLOCKED;
             }
             
             // Otherwise keep track of what we've sent
@@ -1256,16 +1355,15 @@ MessageStatus MgenTcpTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& 
             {
                 // else we've sent everything, clear state and move on
                 UINT32 txChecksum = 0;
-                char txBuffer[MAX_SIZE];     
+                UINT32 txBuffer[MAX_SIZE/4 + 1];     
                 // Use the time of the first message fragment sent that
-		// we squirreled away earlier.  Binary logging uses the
-		// tx_time in the message buffer, logfile logging uses
-		// the tx_time passed in.  Should be cleaned up.
-		tx_msg.SetTxTime(tx_time);
-		tx_msg.Pack(txBuffer,MAX_SIZE,mgen.GetChecksumEnable(),txChecksum);
-                LogEvent(SEND_EVENT,&tx_msg,tx_time,txBuffer);
+                // we squirreled away earlier.  Binary logging uses the
+                // tx_time in the message buffer, logfile logging uses
+                // the tx_time passed in.  Should be cleaned up.
+                tx_msg.SetTxTime(tx_time);
+                tx_msg.Pack(txBuffer, MAX_SIZE, mgen.GetChecksumEnable(), txChecksum);
+                LogEvent(SEND_EVENT ,&tx_msg,tx_time, txBuffer);
                 ResetTxMsgState();
-		messages_sent++;
                 StopOutputNotification(); // ljt 0516 - check if we need this?
                 // we may still have pending stuff!
                 return MSG_SEND_OK;
@@ -1276,14 +1374,14 @@ MessageStatus MgenTcpTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& 
         {
           DMSG(PL_ERROR, "MgenTcpTransport::SendMessage() socket.Send() error: %s\n", GetErrorString());   
 
-	  //            DMSG(0,"MgenTcpTransport:SendMessage() error writing to output! \n");
+          //            DMSG(0,"MgenTcpTransport:SendMessage() error writing to output! \n");
           ResetTxMsgState();
-	  StopOutputNotification(); // ljt 0516 delete me?
-	  return MSG_SEND_FAILED;
+          StopOutputNotification(); // ljt 0516 delete me?
+          return MSG_SEND_FAILED;
         }
     }    
     return MSG_SEND_FAILED; // shouldn't fall thru!
-}  // end MgenTcpTransport::SendMessage
+}  // end MgenTcpTransport::SendMessage()
 
 /**
  * We received either an error on the socket or a disconnect
@@ -1299,8 +1397,8 @@ void MgenTcpTransport::ShutdownTransport(LogEventType eventType)
         ProtoSystemTime(currentTime);
         tx_msg.GetSrcAddr().SetPort(GetSrcPort());
         LogEvent(eventType,&tx_msg,currentTime);
-	Shutdown(); 
-	if (IsOpen()) Close();
+        Shutdown(); 
+        if (IsOpen()) Close();
     }
     else 
     {
@@ -1438,6 +1536,38 @@ void MgenTcpTransport::CalcRxChecksum(const char* buffer,unsigned int bufferInde
     
 } // MgenTcpTransport::CalcRxChecksum
 
+bool MgenTcpTransport::Reconnect(ProtoAddress::Type addrType)
+{
+    if (socket.IsOpen())
+    {
+        if (IsClient())
+        
+        {
+            if (socket.GetAddressType() != addrType)
+                DMSG(0, "MgenTransport::Reconnect() Warning: socket address type mismatch\n");
+
+            if (!socket.Bind(srcPort))
+            {
+                DMSG(0, "MgenTransport::Reconnect() socket bind error\n");
+                return false;
+            }
+            // Reset src port in case it was os generated
+            srcPort = GetSocketPort();
+            
+            if (!socket.Connect(dstAddress))
+            {
+                DMSG(0,"MgenTcpTransport::Reconnect() Error: Failed to connect tcp socket.\n");
+                return false;
+                
+            }
+#ifdef WIN32
+			OnEvent(socket,ProtoSocket::CONNECT);
+#endif
+        }
+    }
+    return true;        
+} // MgenTcpTransport::Reconnect
+
 bool MgenTcpTransport::Open(ProtoAddress::Type addrType, bool bindOnOpen)
 {
 
@@ -1547,18 +1677,18 @@ unsigned int MgenTcpTransport::GetRxNumBytes(unsigned int bufferIndex)
 } // MgenTcpTransport::GetRxNumBytes()
 
 
-void MgenTcpTransport::OnRecvMsg(unsigned int numBytes,unsigned int bufferIndex,const char* buffer)
+void MgenTcpTransport::OnRecvMsg(unsigned int numBytes, unsigned int bufferIndex, const UINT32* buffer)
 {
     
     // This unpacks the message into rx_msg if we 
     // have recevied the mgen msg header...
-    CopyMsgBuffer(numBytes,bufferIndex,buffer);
+    CopyMsgBuffer(numBytes, bufferIndex, (char*)buffer);
     
     // Get the message size if we haven't already
-    if ((0 == rx_msg.GetMsgLen() && rx_msg_index >= MSG_LEN_SIZE))
+    if ((0 == rx_msg.GetMsgLen()) && (rx_msg_index >= MSG_LEN_SIZE))
     {
         UINT16 tmp_msg_len;
-        memcpy(&tmp_msg_len,buffer,sizeof(UINT16));
+        memcpy(&tmp_msg_len, buffer, sizeof(UINT16));
         tmp_msg_len = ntohs(tmp_msg_len);
         rx_msg.SetMsgLen(tmp_msg_len);
         rx_fragment_pending = rx_msg.GetMsgLen() - MSG_LEN_SIZE;
@@ -1570,18 +1700,28 @@ void MgenTcpTransport::OnRecvMsg(unsigned int numBytes,unsigned int bufferIndex,
     }
     
     // Sets an error if checksum is not correct
-    CalcRxChecksum(buffer,bufferIndex,numBytes);
+    CalcRxChecksum((char*)buffer, bufferIndex, numBytes);
     
-    // Last fragment in message.  (Only log when 
-    // we have whole fragment
+    // Last fragment in message.  (Only log when  we have whole fragment
     if (rx_msg_index == rx_msg.GetMsgLen() && rx_msg.GetMsgLen() != 0)
     {
         struct timeval currentTime;
         ProtoSystemTime(currentTime);
         if (!rx_msg.GetError())
-          LogEvent(RECV_EVENT,&rx_msg,currentTime,rx_msg_buffer);
+        {
+            if (!rx_msg.GetDstAddr().IsValid())
+                rx_msg.SetDstAddr(dstAddress);
+            ProcessRecvMessage(rx_msg, ProtoTime(currentTime));
+            if (mgen.ComputeAnalytics())
+                mgen.UpdateRecvAnalytics(currentTime, &rx_msg, TCP);
+            if (mgen.GetLogFile())
+                LogEvent(RECV_EVENT, &rx_msg, currentTime, rx_msg_buffer);
+        }
         else
-          LogEvent(RERR_EVENT,&rx_msg,currentTime);
+        {
+            if (mgen.GetLogFile())
+                LogEvent(RERR_EVENT, &rx_msg, currentTime);
+        } 
 
         bufferIndex = 0;
         ResetRxMsgState();
@@ -1622,17 +1762,16 @@ bool MgenTcpTransport::GetNextTxBuffer(unsigned int numBytes)
         if (!tx_fragment_pending && tx_msg_offset > 0)
         {
             // Entire message has been sent, log send event
-	    // with the time we squirreled away earlier
+	        // with the time we squirreled away earlier
             UINT32 txChecksum = 0;
-	    char txBuffer[MAX_SIZE];    
-	    // Use the time of the first message fragment sent that
-	    // we squirreled away earlier.  Binary logging uses the
-	    // tx_time in the message buffer, logfile logging uses
-	    // the tx_time passed in.  Should be cleaned up.
-	    tx_msg.SetTxTime(tx_time);
-            tx_msg.Pack(txBuffer,MAX_SIZE,mgen.GetChecksumEnable(),txChecksum);
+            UINT32 txBuffer[MAX_SIZE/4 + 1];    
+            // Use the time of the first message fragment sent that
+            // we squirreled away earlier.  Binary logging uses the
+            // tx_time in the message buffer, logfile logging uses
+            // the tx_time passed in.  Should be cleaned up.
+            tx_msg.SetTxTime(tx_time);
+            tx_msg.Pack(txBuffer, MAX_SIZE,mgen.GetChecksumEnable(),txChecksum);
             LogEvent(SEND_EVENT,&tx_msg,tx_time,txBuffer); 
-	    messages_sent++;
             ResetTxMsgState();    
             return false;
         }
@@ -1729,19 +1868,19 @@ UINT16 MgenTcpTransport::GetNextTxFragment()
      * in the mgen message payload.  
      */
 
-    struct timeval currentTime;
-    ProtoSystemTime(currentTime);
-    tx_msg.SetTxTime(currentTime);
+    //struct timeval currentTime;
+    //ProtoSystemTime(currentTime);
+    //tx_msg.SetTxTime(currentTime);
 
     /** tx_msg_offset is the index into the mgen message
      * not the fragment.  */
-    if (!tx_msg_offset)
+    if (0 == tx_msg_offset)
       tx_time = tx_msg.GetTxTime();
     
 
     /* Account for checksum handling and pack the message */
-    if (mgen.GetChecksumEnable()) {
-        
+    if (mgen.GetChecksumEnable()) 
+    {
         if (((tx_msg.msg_len - TX_BUFFER_SIZE) < 4) && (tx_msg.msg_len != MIN_FRAG_SIZE))
         {
             tx_buffer_size = TX_BUFFER_SIZE - 4;
@@ -1751,9 +1890,8 @@ UINT16 MgenTcpTransport::GetNextTxFragment()
     // save room for checksum!
     if (tx_msg.msg_len > TX_BUFFER_SIZE)
 	{
-        tx_buffer_pending = tx_msg.Pack(tx_msg_buffer,tx_buffer_size,mgen.GetChecksumEnable(),tx_checksum);
+        tx_buffer_pending = tx_msg.Pack(tx_msg_buffer, tx_buffer_size, mgen.GetChecksumEnable(), tx_checksum);
         tx_msg_offset += tx_buffer_pending;
-        
 	}
     else
 
@@ -1828,17 +1966,16 @@ void MgenTcpTransport::CopyMsgBuffer(unsigned int numBytes,unsigned int bufferIn
 {
 
     // Copy message header to persistant buffer
-    if (rx_msg_index < TX_BUFFER_SIZE) {
+    if (rx_msg_index < TX_BUFFER_SIZE) 
+    {
         
         // If we've received past the buffer size
         // just copy buffer size, else copy it all
-        
-        if (numBytes > (unsigned int)(TX_BUFFER_SIZE - rx_msg_index)) {
-            memcpy(rx_msg_buffer+bufferIndex,buffer+bufferIndex,(TX_BUFFER_SIZE - bufferIndex));
-        } 
-        else {
-            memcpy(rx_msg_buffer+bufferIndex,buffer+bufferIndex,numBytes);
-        }
+        char* rxBuffer = (char*)rx_msg_buffer;
+        if (numBytes > (unsigned int)(TX_BUFFER_SIZE - rx_msg_index))
+            memcpy(rxBuffer+bufferIndex,buffer+bufferIndex,(TX_BUFFER_SIZE - bufferIndex));
+        else
+            memcpy(rxBuffer+bufferIndex,buffer+bufferIndex,numBytes);
     }
     
     rx_msg_index += numBytes;
@@ -1854,9 +1991,9 @@ void MgenTcpTransport::CopyMsgBuffer(unsigned int numBytes,unsigned int bufferIn
         if (mgen.GetLogFile()) 
         {
             if (rx_msg_index <= TX_BUFFER_SIZE) 
-              rx_msg.Unpack(rx_msg_buffer,rx_msg_index,mgen.GetChecksumForce(),mgen.GetLogData());
+              rx_msg.Unpack(rx_msg_buffer, rx_msg_index, mgen.GetChecksumForce(), mgen.GetLogData());
             else
-              rx_msg.Unpack(rx_msg_buffer,TX_BUFFER_SIZE,mgen.GetChecksumForce(),mgen.GetLogData());
+              rx_msg.Unpack(rx_msg_buffer, TX_BUFFER_SIZE, mgen.GetChecksumForce(), mgen.GetLogData());
         }
     }
     
@@ -1916,27 +2053,24 @@ bool MgenSinkTransport::OnInputReady()
  return true;
 } // end MgenSinkTransport::OnInputReady()
 
-void MgenSinkTransport::HandleMgenMessage(const char* buffer, unsigned int len,const ProtoAddress& srcAddr)
+void MgenSinkTransport::HandleMgenMessage(UINT32* alignedBuffer, unsigned int len,const ProtoAddress& srcAddr)
 {
     MgenMsg theMsg;
     theMsg.SetSrcAddr(srcAddr);
-    
     if (NULL != mgen.GetLogFile())
     {
         struct timeval currentTime;
         ProtoSystemTime(currentTime);
-        if (theMsg.Unpack(buffer,len,mgen.GetChecksumForce(),mgen.GetLogData()))
+        if (theMsg.Unpack(alignedBuffer,len,mgen.GetChecksumForce(),mgen.GetLogData()))
         {
             if (mgen.GetChecksumForce() || theMsg.FlagIsSet(MgenMsg::CHECKSUM))
             {
                 UINT32 checksum = 0;
-                theMsg.ComputeCRC32(checksum,
-                                    (unsigned char*)buffer,
-                                    len-4);
+                theMsg.ComputeCRC32(checksum, (unsigned char*)alignedBuffer, len-4);
                 checksum = (checksum ^ theMsg.CRC32_XOROT);
                 UINT32 checksumPosition = len-4;
                 UINT32 recvdChecksum;
-                memcpy(&recvdChecksum,buffer+checksumPosition,4);
+                memcpy(&recvdChecksum, ((char*)alignedBuffer)+checksumPosition ,4);
                 recvdChecksum = ntohl(recvdChecksum);
                 
                 if (checksum != recvdChecksum)
@@ -1946,16 +2080,84 @@ void MgenSinkTransport::HandleMgenMessage(const char* buffer, unsigned int len,c
                 }
             }
         }
-        char* txBuffer = const_cast<char*>(buffer); // ljt fix me    
         if (theMsg.GetError())
-          LogEvent(RERR_EVENT,&theMsg,currentTime);
+        {
+            if (mgen.GetLogFile())
+                LogEvent(RERR_EVENT,&theMsg,currentTime);
+        }
         else 
-          LogEvent(RECV_EVENT,&theMsg,currentTime,txBuffer);        
+        {
+            ProcessRecvMessage(theMsg, ProtoTime(currentTime));
+            if (mgen.ComputeAnalytics())
+                mgen.UpdateRecvAnalytics(currentTime, &theMsg, SINK);
+            if (mgen.GetLogFile())
+                LogEvent(RECV_EVENT, &theMsg, currentTime, alignedBuffer);       
+        } 
     }
   
 } // end MgenSinkTransport::HandleMgenMessage
 
 
+void MgenTransport::ProcessRecvMessage(MgenMsg& msg, const ProtoTime& theTime)
+{
+    // Parse received message payload for any received commands
+    if (MgenMsg::MGEN_DATA != msg.GetPayloadType()) return;
+    unsigned int bufferLen = msg.GetPayloadLength();
+    UINT32* bufferPtr = msg.AccessPayloadData();
+    while (bufferLen > 0)
+    {
+        if (MgenDataItem::DATA_ITEM_FLOW_CMD == MgenDataItem::GetItemType(bufferPtr))
+        {
+            MgenFlowCommand cmd;
+            if (!cmd.InitFromBuffer(bufferPtr, bufferLen))
+            {
+                PLOG(PL_ERROR, "MgenTransport::ProcessRecvMessage() warning: received invalid MGEN_DATA payload\n");
+                break;
+            }
+            UINT32 maxFlowId = cmd.GetMaxFlowId();
+            if (maxFlowId > MgenEvent::FlowStatus::MAX_FLOW)
+            {
+                PLOG(PL_ERROR, "MgenTransport::ProcessRecvMessage() warning: received flow command out-of-range flowId\n");
+                maxFlowId = MgenEvent::FlowStatus::MAX_FLOW;
+            }
+            for (UINT32 i = 1; i <= maxFlowId; i++)
+            {
+                MgenFlowCommand::Status status = cmd.GetStatus(i);
+                if (MgenFlowCommand::FLOW_UNCHANGED != status)
+                    mgen.ProcessFlowCommand(status, i);
+            }
+            UINT16 cmdLen = cmd.GetLength();
+            bufferLen -= cmdLen;
+            bufferPtr += cmdLen / sizeof(UINT32);
+        }
+        else if ((NULL != mgen.GetController()) &&
+                 ((UINT8)MgenDataItem::GetItemType(bufferPtr) > 0x0f))
+        {
+            // Let the MgenController see the received report
+            MgenAnalytic::Report report;
+            if (report.InitFromBuffer(bufferPtr, bufferLen))
+            {
+                mgen.GetController()->OnRecvReport(theTime, report, msg.GetSrcAddr(), ProtoTime(msg.GetTxTime()));
+                UINT8 reportLen = report.GetLength();
+                bufferLen -= reportLen;
+                bufferPtr += (reportLen/sizeof(UINT32));
+            }
+            else
+            {
+                PLOG(PL_ERROR, "MgenMsg::LogRecvEvent() warning: received invalid REPORT payload\n");
+                break;
+            }
+        }
+        else
+        {
+            // Skip over other items for now 
+            MgenDataItem item(bufferPtr, bufferLen);
+            UINT16 itemLen = item.GetLength();
+            bufferLen -= itemLen;
+            bufferPtr += itemLen / sizeof(UINT32);
+        }
+    }
+}  // end MgenTransport::ProcessRecvMessage()
 
 
 

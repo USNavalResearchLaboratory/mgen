@@ -126,7 +126,7 @@ void MgenSequencer::FileInput(FILE *inStream) {
         //check whether this is the latest and greatest
         if (Compare(time1,last_seq_time)) {
             if (seq_space != NULL) {
-                delete seq_space;
+                delete[] seq_space;
             }
             //copy the data
             seq_space = new int[tmpSize];
@@ -157,7 +157,7 @@ void MgenSequencer::resize(int inFlow) {
         int *tmp = new int[inFlow+1];
         memcpy(tmp,seq_space,size*sizeof(int));
         *(tmp+inFlow)=0;
-        delete seq_space;
+        delete[] seq_space;
         seq_space = tmp;
         size=inFlow+1;
     }

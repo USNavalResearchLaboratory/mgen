@@ -32,6 +32,7 @@
 
 #ifndef _MGEN_GLOBALS
 #define _MGEN_GLOBALS
+
 enum LogEventType
   {
     INVALID_EVENT = 0,
@@ -49,7 +50,8 @@ enum LogEventType
     DISCONNECT_EVENT,
     CONNECT_EVENT,
     OFF_EVENT,
-    SHUTDOWN_EVENT
+    SHUTDOWN_EVENT,
+    RECONNECT_EVENT
 
   };
 

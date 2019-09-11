@@ -4,13 +4,13 @@
 #################################################
 # These are some "Transmission Event" script lines
 
-TXBUFFER 1000
+TXBUFFER 10000
 # Here is a plain old constant bit rate flow to the loopback interface
 0.0 ON  1 UDP SRC 5001 DST 127.0.0.1/5000 PERIODIC [1 4096]
 
 # Here is a series of Poisson distributed packet transmissions 
 # to a multicast group
-0.0 ON  2 UDP SRC 5000 TXBUFFER 2000 DST 224.225.1.2/5001 POISSON [1 4096]
+0.0 ON  2 UDP SRC 5000 TXBUFFER 20000 DST 224.225.1.2/5001 POISSON [1 4096]
 
 # Here is a "burst" transmission flow to the loopback interface
 # The bursts are at regular 10 sec. intervals with fixed 5 sec. duration

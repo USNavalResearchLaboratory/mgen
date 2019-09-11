@@ -95,13 +95,19 @@ class MgenMsg
 	  LAST_BUFFER = 0x08,   // last buffer in fragment
 	  CHECKSUM_ERROR = 0x10 // checksum error on message
     };
+      
+    enum PayloadType
+    {
+        USER_DATA = 0,   // payload contains user-defined data
+        MGEN_DATA = 1    // payload contains MGEN-defined items (analytic reports, commands, etc)
+    };
     
     MgenMsg();
 	~MgenMsg();
-	MgenMsg& operator=(const MgenMsg&);
-    UINT16 Pack(char* buffer, UINT16 bufferLen, bool includeChecksum, UINT32& tx_checksum);  
+	//MgenMsg& operator=(const MgenMsg&);
+    UINT16 Pack(UINT32* buffer, UINT16 bufferLen, bool includeChecksum, UINT32& tx_checksum);  
     
-    bool Unpack(const char* buffer, UINT16 bufferLen,bool forceChecksum,bool log_data);
+    bool Unpack(UINT32* buffer, UINT16 bufferLen, bool forceChecksum,bool log_data);
 	static bool WriteChecksum(UINT32&   tx_checksum,
                               UINT8*    buffer,
                               UINT32    buflen);
@@ -137,13 +143,20 @@ class MgenMsg
     void SetGPSLongitude(double value) {longitude = value;}
     void SetGPSAltitude(INT32 value) {altitude = value;}
     void SetGPSStatus(GPSStatus status) {gps_status = status;}
-    void SetMpPayload(const char* buffer, unsigned short len)
-    {mp_payload = buffer; mp_payload_len = len;}
-	void SetPayload(char *buffer);
-	const char *GetPayload() const;
-	const char *GetPayloadRaw();
-	void SetPayloadRaw(char *inBuffer,UINT16 inLen);
-	UINT16 GetPayloadLen() const;
+    void SetPayload(PayloadType type, UINT32* buffer, UINT16 len)
+    {
+        payload_type = type;
+        payload_data = buffer;
+        payload_len = len;
+    }
+	PayloadType GetPayloadType() const
+        {return payload_type;}
+    const UINT32* GetPayloadData() const
+        {return payload_data;}
+    UINT32* AccessPayloadData() const
+        {return payload_data;}
+	UINT16 GetPayloadLength() const
+        {return payload_len;}
     void SetError(MgenMsg::Error error) {msg_error = error;};
     void SetChecksumError() {msg_error = ERROR_CHECKSUM;};
 	bool ComputeCRC() {return compute_crc;}
@@ -151,19 +164,19 @@ class MgenMsg
     // For these, "msgBuffer" is a packed message buffer
     bool LogRecvEvent(FILE*                 logFile, 
                       bool                  logBinary,
-                      bool                  local_time,
-		      bool                  log_data,
-		      bool                  log_gps_data,
-                      char*                 msgBuffer,
+                      bool                  localTime,
+		              bool                  logData,
+		              bool                  logGpsFata,
+                      UINT32*               alignedMsgBuffer,
                       bool                  flush,
                       const struct timeval& theTime);
 	bool LogSendEvent(FILE*                 logFile, 
                       bool                  logBinary, 
                       bool                  local_time,
-                      char*                 msgBuffer,
+                      UINT32*               alignedMsgBuffer,
                       bool                  flush,
                       const struct timeval& theTime);
-    bool LogTcpConnectionEvent(FILE*        logFile, 
+    bool LogTcpConnectionEvent(FILE*                logFile, 
                                bool                  logBinary,
                                bool                  local_time,
                                bool                  flush,
@@ -190,7 +203,7 @@ class MgenMsg
     static const UINT32 CRC32_XOROT;
 
   protected:
-    UINT16  msg_len;
+    UINT16          msg_len;
 	unsigned int    mgen_msg_len;
     
   private:
@@ -214,10 +227,9 @@ class MgenMsg
     double          longitude;
     INT32           altitude;
     GPSStatus       gps_status;
-    UINT16  reserved;
-	MgenPayload	    *payload;
-    const char*     mp_payload;
-    unsigned short  mp_payload_len;
+    PayloadType     payload_type;
+    UINT16          payload_len;  // in bytes
+	UINT32*         payload_data;
     Protocol        protocol;
     Error           msg_error;
 	bool            compute_crc;

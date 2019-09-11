@@ -111,14 +111,3 @@ with mobile nodes.
 
 2)  Add a "nolog" command to MGEN to disable logging. (Meanwhile 
     "output /dev/null" can be used.
-
-Brian Adamson
-<adamson@itd.nrl.navy.mil>
-
-8 May 2003
-
-
-
-                     
-  
-

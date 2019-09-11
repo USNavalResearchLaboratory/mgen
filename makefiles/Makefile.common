@@ -14,9 +14,9 @@ UNIX = ../makefiles
 
 INCLUDES = $(SYSTEM_INCLUDES) -I$(UNIX) -I$(INCLUDE) -I$(PROTOLIB)/include
 
-CFLAGS = -g -DPROTO_DEBUG -DHAVE_GPS -DUNIX -Wall -Wcast-align -pedantic -fPIC $(SYSTEM_HAVES) $(INCLUDES)
+CFLAGS = -g -DPROTO_DEBUG -DHAVE_GPS -DUNIX -Wall -Wcast-align -fPIC $(SYSTEM_HAVES) $(INCLUDES)
 
-#CFLAGS = -g -fno-inline -D_HAVE_PCAP -DPROTO_DEBUG -DHAVE_GPS -DUNIX -Wall -Wcast-align -pedantic  -fPIC $(SYSTEM_HAVES) $(INCLUDES) 
+#CFLAGS = -g -fno-inline -DHAVE_PCAP -DPROTO_DEBUG -DHAVE_GPS -DUNIX -Wall -Wcast-align -pedantic  -fPIC $(SYSTEM_HAVES) $(INCLUDES) 
 
 LDFLAGS = $(SYSTEM_LDFLAGS)
 
@@ -39,7 +39,7 @@ $(PROTOLIB)/lib/libprotokit.a:
 MGEN_SRC = $(COMMON)/mgen.cpp $(COMMON)/mgenEvent.cpp \
            $(COMMON)/mgenFlow.cpp $(COMMON)/mgenMsg.cpp \
            $(COMMON)/mgenTransport.cpp $(COMMON)/mgenPattern.cpp \
-     	   $(COMMON)/mgenPayload.cpp \
+     	   $(COMMON)/mgenPayload.cpp $(COMMON)/mgenAnalytic.cpp \
            $(COMMON)/mgenSequencer.cpp \
            $(COMMON)/gpsPub.cpp $(COMMON)/mgenAppSinkTransport.cpp
           

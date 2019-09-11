@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<JUCERPROJECT name="mgender" projectType="guiapp" jucerVersion="5.3.2" bundleIdentifier="mil.navy.nrl.mgender"
+              userNotes="Currently just an example Projucer project to illustrate build configurations for Protolib modules in conjunction with JUCE modules.  Eventually, a &quot;juceProtoExample&quot; application will be created.  This &quot;jucer&quot; file can serve as a template or starter for other JUCE/Protolib projects."
+              defines="PROTO_DEBUG&#10;" headerPath=" ../../../include&#10;../../../protolib/include&#10;"
+              id="mgUm95">
+  <MAINGROUP id="aqalQC" name="mgender">
+    <GROUP id="{322793E0-17AE-20B6-D257-3346EC71CEE3}" name="Mgen">
+      <FILE id="nEFpnU" name="mgen.cpp" compile="1" resource="0" file="../src/common/mgen.cpp"/>
+      <FILE id="ndqGii" name="mgenAnalytic.cpp" compile="1" resource="0"
+            file="../src/common/mgenAnalytic.cpp"/>
+      <FILE id="oUQt8J" name="mgenAppSinkTransport.cpp" compile="1" resource="0"
+            file="../src/common/mgenAppSinkTransport.cpp"/>
+      <FILE id="MVwyan" name="mgenEvent.cpp" compile="1" resource="0" file="../src/common/mgenEvent.cpp"/>
+      <FILE id="D9LZ5X" name="mgenFlow.cpp" compile="1" resource="0" file="../src/common/mgenFlow.cpp"/>
+      <FILE id="UiKFvi" name="mgenMsg.cpp" compile="1" resource="0" file="../src/common/mgenMsg.cpp"/>
+      <FILE id="OXnf8b" name="mgenPattern.cpp" compile="1" resource="0" file="../src/common/mgenPattern.cpp"/>
+      <FILE id="JR1Mbh" name="mgenPayload.cpp" compile="1" resource="0" file="../src/common/mgenPayload.cpp"/>
+      <FILE id="ydV9Be" name="mgenTransport.cpp" compile="1" resource="0"
+            file="../src/common/mgenTransport.cpp"/>
+    </GROUP>
+    <GROUP id="{63340C09-BA5F-807D-D0CF-AAA7FAF6E941}" name="Source">
+      <FILE id="qG7NxI" name="ControlComponent.cpp" compile="1" resource="0"
+            file="Source/ControlComponent.cpp"/>
+      <FILE id="CIwGTQ" name="ControlComponent.h" compile="0" resource="0"
+            file="Source/ControlComponent.h"/>
+      <FILE id="GKEhjJ" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
+      <FILE id="pQQOpg" name="mgenLogo.png" compile="0" resource="1" file="Resources/mgenLogo.png"/>
+    </GROUP>
+    <GROUP id="{AD32C483-2260-7784-0282-70EB0A97DD46}" name="Protolib">
+      <FILE id="xa4M3D" name="bsdNet.cpp" compile="0" resource="0" file="../protolib/src/bsd/bsdNet.cpp"/>
+      <FILE id="H47q0m" name="juceNet.cpp" compile="1" resource="0" file="../protolib/src/juce/juceNet.cpp"/>
+      <FILE id="OVjfyf" name="protoAddress.cpp" compile="1" resource="0"
+            file="../protolib/src/common/protoAddress.cpp"/>
+      <FILE id="Gbl2GU" name="protoApp.cpp" compile="1" resource="0" file="../protolib/src/common/protoApp.cpp"/>
+      <FILE id="e9JnNk" name="protoBase64.cpp" compile="1" resource="0" file="../protolib/src/common/protoBase64.cpp"/>
+      <FILE id="LF8ntv" name="protoBitmask.cpp" compile="1" resource="0"
+            file="../protolib/src/common/protoBitmask.cpp"/>
+      <FILE id="CeAm8t" name="protoCap.cpp" compile="1" resource="0" file="../protolib/src/common/protoCap.cpp"/>
+      <FILE id="ufXGWF" name="protoChannel.cpp" compile="1" resource="0"
+            file="../protolib/src/common/protoChannel.cpp"/>
+      <FILE id="Orrtbs" name="protoDebug.cpp" compile="1" resource="0" file="../protolib/src/common/protoDebug.cpp"/>
+      <FILE id="MqkApi" name="protoDispatcher.cpp" compile="1" resource="0"
+            file="../protolib/src/common/protoDispatcher.cpp"/>
+      <FILE id="MqkApi" name="protoEvent.cpp" compile="1" resource="0" file="../protolib/src/common/protoEvent.cpp"/>
+      <FILE id="vvPH6o" name="protoGraph.cpp" compile="1" resource="0" file="../protolib/src/common/protoGraph.cpp"/>
+      <FILE id="fdrqMJ" name="protoJson.cpp" compile="1" resource="0" file="../protolib/src/common/protoJson.cpp"/>
+      <FILE id="KZ1D5Z" name="protoLFSR.cpp" compile="1" resource="0" file="../protolib/src/common/protoLFSR.cpp"/>
+      <FILE id="XKJbSf" name="protoList.cpp" compile="1" resource="0" file="../protolib/src/common/protoList.cpp"/>
+      <FILE id="UrZFCx" name="protoNet.cpp" compile="1" resource="0" file="../protolib/src/common/protoNet.cpp"/>
+      <FILE id="asSfKA" name="protoPipe.cpp" compile="1" resource="0" file="../protolib/src/common/protoPipe.cpp"/>
+      <FILE id="xSCXqa" name="protoPkt.cpp" compile="1" resource="0" file="../protolib/src/common/protoPkt.cpp"/>
+      <FILE id="CNX0pc" name="protoPktARP.cpp" compile="1" resource="0" file="../protolib/src/common/protoPktARP.cpp"/>
+      <FILE id="JQVCW7" name="protoPktETH.cpp" compile="1" resource="0" file="../protolib/src/common/protoPktETH.cpp"/>
+      <FILE id="PhQqEe" name="protoPktIGMP.cpp" compile="1" resource="0"
+            file="../protolib/src/common/protoPktIGMP.cpp"/>
+      <FILE id="ERT9qP" name="protoPktIP.cpp" compile="1" resource="0" file="../protolib/src/common/protoPktIP.cpp"/>
+      <FILE id="iA0lAa" name="protoPktRIP.cpp" compile="1" resource="0" file="../protolib/src/common/protoPktRIP.cpp"/>
+      <FILE id="zvPba2" name="protoPktRTP.cpp" compile="1" resource="0" file="../protolib/src/common/protoPktRTP.cpp"/>
+      <FILE id="kyAN6Z" name="protoPktTCP.cpp" compile="1" resource="0" file="../protolib/src/common/protoPktTCP.cpp"/>
+      <FILE id="PiTm5D" name="protoQueue.cpp" compile="1" resource="0" file="../protolib/src/common/protoQueue.cpp"/>
+      <FILE id="afxm7n" name="protoSocket.cpp" compile="1" resource="0" file="../protolib/src/common/protoSocket.cpp"/>
+      <FILE id="QaCZaZ" name="protoSpace.cpp" compile="1" resource="0" file="../protolib/src/common/protoSpace.cpp"/>
+      <FILE id="iH9yDM" name="protoString.cpp" compile="1" resource="0" file="../protolib/src/common/protoString.cpp"/>
+      <FILE id="AVrnCk" name="protoTime.cpp" compile="1" resource="0" file="../protolib/src/common/protoTime.cpp"/>
+      <FILE id="dpWFQ2" name="protoTimer.cpp" compile="1" resource="0" file="../protolib/src/common/protoTimer.cpp"/>
+      <FILE id="Dje2Dm" name="protoTree.cpp" compile="1" resource="0" file="../protolib/src/common/protoTree.cpp"/>
+      <FILE id="YztBgL" name="protoXml.cpp" compile="0" resource="0" file="../protolib/src/common/protoXml.cpp"/>
+      <FILE id="yXfY04" name="unixNet.cpp" compile="0" resource="0" file="../protolib/src/unix/unixNet.cpp"/>
+      <FILE id="PM9IkM" name="win32Net.cpp" compile="0" resource="0" file="../protolib/src/win32/win32Net.cpp"/>
+    </GROUP>
+  </MAINGROUP>
+  <EXPORTFORMATS>
+    <XCODE_MAC targetFolder="Builds/MacOSX" extraDefs="MACOSX UNIX HAVE_IPV6 HAVE_ASSERT HAVE_GETLOGIN HAVE_FLOCK HAVE_DIRFD HAVE_PSELECT USE_SELECT _FILE_OFFSET_BITS=64"
+               externalLibraries="xml2" bigIcon="pQQOpg" smallIcon="pQQOpg">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug" headerPath="/usr/include/libxml2"/>
+        <CONFIGURATION isDebug="0" name="Release" headerPath="/usr/include/libxml2"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_core" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_events" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_graphics" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_cryptography" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_video" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_opengl" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_basics" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../../../../juce/modules"/>
+      </MODULEPATHS>
+    </XCODE_MAC>
+    <XCODE_IPHONE targetFolder="Builds/iOS">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug"/>
+        <CONFIGURATION isDebug="0" name="Release"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_core" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_events" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_graphics" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_cryptography" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_video" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_opengl" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_basics" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../../../../juce/modules"/>
+      </MODULEPATHS>
+    </XCODE_IPHONE>
+    <VS2017 targetFolder="Builds/VisualStudio2017" bigIcon="pQQOpg" extraDefs=" WIN32 HAVE_IPV6 HAVE_ASSERT _CRT_SECURE_NO_WARNINGS  "
+            externalLibraries="iphlpapi.lib&#10;ws2_32.lib" smallIcon="pQQOpg">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug"/>
+        <CONFIGURATION isDebug="0" name="Release"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_core" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_events" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_graphics" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_cryptography" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_video" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_opengl" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_basics" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../../../../juce/modules"/>
+      </MODULEPATHS>
+    </VS2017>
+    <LINUX_MAKE targetFolder="Builds/LinuxMakefile" extraDefs="LINUX UNIX HAVE_IPV6 HAVE_GETLOGIN _FILE_OFFSET_BITS=64 HAVE_LOCKF HAVE_OLD_SIGNALHANDLER HAVE_DIRFD HAVE_ASSERT NO_SCM_RIGHTS HAVE_SCHED USE_SELECT USE_TIMERFD HAVE_PSELECT USE_EVENTFD "
+                externalLibraries="xml2" bigIcon="pQQOpg" smallIcon="pQQOpg">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug"/>
+        <CONFIGURATION isDebug="0" name="Release"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_core" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_events" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_graphics" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_cryptography" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_video" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_opengl" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_basics" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../../../../juce/modules"/>
+      </MODULEPATHS>
+    </LINUX_MAKE>
+    <ANDROIDSTUDIO targetFolder="Builds/Android" androidSDKPath="" androidNDKPath=""
+                   extraDefs="ANDROID LINUX UNIX HAVE_IPV6 HAVE_DIRFD PROTO_DEBUG HAVE_ASSERT HAVE_GETLOGIN USE_SELECT _FILE_OFFSET_BITS=64 HAVE_OLD_SIGNALHANDLER HAVE_SCHED NO_SCM_RIGHTS"
+                   bigIcon="pQQOpg" smallIcon="pQQOpg" androidMinimumSDK="23">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug" androidArchitectures="armeabi-v7a x86"/>
+        <CONFIGURATION isDebug="0" name="Release"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_core" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_events" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_graphics" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_cryptography" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_video" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_opengl" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_basics" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../../../../juce/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../../../../juce/modules"/>
+      </MODULEPATHS>
+    </ANDROIDSTUDIO>
+  </EXPORTFORMATS>
+  <MODULES>
+    <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_processors" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_cryptography" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_extra" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_opengl" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_video" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+  </MODULES>
+  <JUCEOPTIONS/>
+  <LIVE_SETTINGS>
+    <OSX buildEnabled="0" headerPath="../include &#10;../protolib/include"
+         defines="MACOSX UNIX HAVE_IPV6 HAVE_ASSERT HAVE_GETLOGIN HAVE_FLOCK HAVE_DIRFD HAVE_PSELECT USE_SELECT _FILE_OFFSET_BITS=64 PROTO_DEBUG"
+         continuousRebuildEnabled="1"/>
+    <LINUX/>
+    <WINDOWS/>
+  </LIVE_SETTINGS>
+</JUCERPROJECT>

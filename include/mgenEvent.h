@@ -1,7 +1,10 @@
 #ifndef _MGEN_EVENT
 #define _MGEN_EVENT
 
+#include "mgenGlobals.h"
 #include "mgenPattern.h"
+#include "mgenPayload.h"  // for MgenFlowCommand stuff
+#include "protoBitmask.h"
 #include "protokit.h"
 /**
  * @class MgenBaseEvent
@@ -136,7 +139,15 @@ class MgenEvent : public MgenBaseEvent
       COUNT =          0x00002000,  // count
       CONNECT =        0x00004000,  // connect src port for udp
       BROADCAST =      0x00008000,  // send/receive broadcasts
-      DF =             0x00010000   // fragmentation status
+      DF =             0x00010000,  // fragmentation status
+      REPORT =         0x00020000,  // enable analytic reporting 
+      FEEDBACK =       0x00040000,  // feedback flow reporting to specific remote addr/port
+      SUSPEND =        0x00080000,  // send SUSPEND command for given flow list
+      RESUME =         0x00100000,  // send RESUME command for given flow list
+      RESET =          0x00200000,  // send RESET command for given flow list
+      RETRY =          0x00400000,  // tcp retry enabled
+      PAUSE =          0x00800000,  // pause flow during tcp retry
+      RECONNECT =      0x01000000   // attempt reconnect during tcp retyr
     };
     
     MgenEvent();
@@ -159,17 +170,54 @@ class MgenEvent : public MgenBaseEvent
     int GetTOS() const {return tos;}
     UINT32 GetFlowLabel() const {return flow_label;}
     unsigned char GetTTL() const {return ttl;}
+    int GetRetryCount() const {return retry_count;}
+    unsigned int GetRetryDelay() const {return retry_delay;}
     unsigned int GetTxBuffer() const {return tx_buffer_size;}
     FragmentationStatus GetDF() const {return df;}
 	int GetQueueLimit() const {return queue;}
     UINT32 GetSequence() const {return sequence;}
-    char *GetPayload() const {return payload;}
+    char* GetPayload() const {return payload;}
     const char* GetInterface()  const
     {return (('\0' != interface_name[0]) ? interface_name : NULL);}
     bool GetConnect() const {return connect;}
+    bool GetReportAnalytics() const {return report_analytics;}
+    bool GetReportFeedback() const {return report_feedback;}
+    bool IsInternalCmd();
     
     bool OptionIsSet(Option option) const
-    {return (0 != (option & option_mask));}
+        {return (0 != (option & option_mask));}
+        
+    class FlowStatus
+    {
+        public:
+            enum {MAX_FLOW = 40};  // 2*MAX_FLOW/8 MUST satisfy (N*4 + 2) for N = 0,1,2, ...
+            FlowStatus();
+            ~FlowStatus();
+            bool Init();
+            
+            void SetRange(UINT32 start, UINT32 end, MgenFlowCommand::Status status);
+            void Clear()
+            {
+                status_lo.Clear();
+                status_hi.Clear();
+            }
+            bool IsSet() const
+                {return (status_hi.IsSet() || status_lo.IsSet());}
+            
+            MgenFlowCommand::Status GetStatus(UINT32 flowId) const
+            {
+                UINT8 status = status_lo.Test(flowId - 1) ? 0x01 : 0x00;
+                status |= status_hi.Test(flowId -1) ? 0x02 : 0x00;
+                return (MgenFlowCommand::Status)status;
+            }
+                    
+        private:
+            ProtoBitmask       status_hi;
+            ProtoBitmask       status_lo;
+    };  // end class MgenEvent::FlowStatus
+    
+    const FlowStatus& GetFlowStatus() const
+        {return flow_status;}
     
   private:
     static const StringMapper TYPE_LIST[];     // for mapping event types
@@ -183,21 +231,26 @@ class MgenEvent : public MgenBaseEvent
     Type             event_type;
     UINT16           src_port;
     ProtoAddress     dst_addr;
-	char		     *payload;        
+    char	     *payload;        
     MgenPattern      pattern; 
-	int              count;
+    int              count;
     Protocol         protocol;            
     bool             broadcast;
     int              tos;
     UINT32           flow_label;
     unsigned int     tx_buffer_size;
-    unsigned char    ttl;   
+    unsigned char    ttl;
+    int              retry_count;
+    unsigned int     retry_delay;
     FragmentationStatus df;
     UINT32           sequence;
     char             interface_name[16];
-	unsigned int     option_mask;
-	int              queue;
+    unsigned int     option_mask;
+    int              queue;
     bool             connect;
+    bool             report_analytics;
+    bool             report_feedback;
+    FlowStatus       flow_status;
     
 };  // end class MgenEvent
 

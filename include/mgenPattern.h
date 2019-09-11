@@ -3,10 +3,10 @@
 
 #include <stdlib.h>    // for rand(), RAND_MAX
 #include <math.h>      // for log()
-#ifdef _HAVE_PCAP
+#ifdef HAVE_PCAP
 #include <pcap.h>      // for CLONE tcpdump files
 #include <limits.h>    // for CLONE file size
-#endif //_HAVE_PCAP
+#endif //HAVE_PCAP
 #include "protoDefs.h" // to get proper struct timeval def
 #include "mgenGlobals.h" // can't forward declare enum's
 /**
@@ -28,7 +28,7 @@ class MgenPattern
     public:
         MgenPattern();
         ~MgenPattern();
-#ifdef _HAVE_PCAP	
+#ifdef HAVE_PCAP	
         enum Type {INVALID_TYPE, PERIODIC, POISSON, BURST, JITTER, CLONE};
 	enum FileType {INVALID_FILETYPE, TCPDUMP};
 	static const StringMapper CLONE_FILE_LIST[];
@@ -46,7 +46,7 @@ class MgenPattern
         void InvalidatePattern() {type = INVALID_TYPE;};
 	MgenPattern::Type GetType() { return type;};
 	bool UnlimitedRate() {return unlimitedRate;}
-#ifdef _HAVE_PCAP
+#ifdef HAVE_PCAP
 	bool ReadingPcapFile() {return pcap_device;}
 #endif
   private:
@@ -74,7 +74,7 @@ class MgenPattern
 //           return (-(log(1.0 - ( ((double)rand())/((double)RAND_MAX)) )) * mean);
              return(-log(((double)rand())/((double)RAND_MAX))*mean);
         }
-#ifdef _HAVE_PCAP	
+#ifdef HAVE_PCAP	
         double RestartPcapRead(double &prevTime);
         bool OpenPcapDevice();
 #endif
@@ -93,12 +93,12 @@ class MgenPattern
         struct timeval  last_time;
 	    bool            unlimitedRate;
 
-#ifdef _HAVE_PCAP
+#ifdef HAVE_PCAP
         pcap_t*         pcap_device;
         FileType        file_type; // clone file type
         char            clone_fname[PATH_MAX+NAME_MAX];
         int             repeat_count;
-#endif //_HAVE_PCAP
+#endif //HAVE_PCAP
 };  // end class MgenPattern
 
 

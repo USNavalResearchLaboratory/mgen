@@ -3,6 +3,7 @@
 
 #include "mgenEvent.h"
 #include "mgenTransport.h"
+#include "mgenAnalytic.h" 
 #include "gpsPub.h"
 #include "protokit.h"
 #include <stdio.h>  // for FILE
@@ -65,12 +66,25 @@ class MgenFlow
     bool DoGenericEvent(const MgenEvent* event);
     bool IsActive() const;
     double GetCurrentOffset() const;
+    
+    // New methods to support remote control of flows
+    void Suspend();
+    void Resume();
+    void Reset();
+
+    // Supports TCP Retry
+    void Pause();
+    void Reconnect();
+    
 #ifdef HAVE_IPV6
     void SetLabel(UINT32 label) {flow_label = label;}
 #endif //HAVE_IPV6
     void Notify() {OnTxTimeout(tx_timer);}
 	void StopFlow();
 	int GetPending() {return pending_messages;}
+    int GetMessageLimit() const
+        {return message_limit;}
+	int GetMessagesSent() {return messages_sent;}
 	MgenFlow* Next() {return next;}
 	bool OnTxTimeout(ProtoTimer& theTimer);
 	UINT32 GetFlowId() {return flow_id;} 
@@ -78,9 +92,18 @@ class MgenFlow
 	void RestartTimer();
 	ProtoTimer& GetTxTimer() {return tx_timer;}
 	int QueueLimit() {return queue_limit;}
+    void SetReportAnalytics(bool state)
+        {report_analytics = state;}
+    bool GetReportAnalytics() const
+        {return report_analytics;}
+    bool UpdateAnalyticReport(MgenAnalytic& analytic);
+    void RemoveAnalyticReport(MgenAnalytic& analytic)
+        {analytic_reporter.Remove(analytic);}
 	bool SendMessage();
 	MgenTransport* GetFlowTransport() {return flow_transport;}
     void SetFlowTransport(MgenTransport* theTransport) {flow_transport = theTransport;}
+    UINT16 GetSrcPort() const
+        {return (NULL != flow_transport) ? flow_transport->GetSocketPort() : 0;}
 	bool OffPending() {return off_pending;}
 	void OffPending(bool offPending) {off_pending = offPending;}
 
@@ -104,16 +127,27 @@ class MgenFlow
     ProtoAddress            dst_addr;                      
     UINT16                  src_port;    
     
-	char*		            payload;
-    MgenPattern             pattern;                     
-    UINT32                  flow_label;                  
+	MgenPattern             pattern;                     
+    UINT32                  flow_label;    
     
+    MgenFlowCommand         flow_command;  // state for MgenFlowCommand being sent (if any)
+    UINT32                  command_buffer[12/4]; // for 40 flows, command is 12-bytes
+    bool                    report_analytics;
+    bool                    report_feedback;
+    MgenAnalyticReporter    analytic_reporter;  
+    
+    MgenPayload             user_payload; // user-defined per-flow payload content
+    MgenPayload             mgen_payload; // MGEN payload content (flow reports, etc)
+    bool                    flow_suspended;
+
+    bool                    flow_paused; // Used by TCP retry
+
     ProtoTimer              tx_timer;  
 
-    
     MgenTransport*          flow_transport;               
     UINT32                  seq_num;                     
 	int                     pending_messages;
+    int                     messages_sent;
     double                  last_interval;               
     
     MgenEventList           event_list;                  
@@ -150,6 +184,7 @@ class MgenFlowList
     
     void Destroy();
     void Append(MgenFlow* theFlow);
+    void Remove(MgenFlow& theFlow);
     
     MgenFlow* FindFlowById(unsigned int flowId);
     bool IsEmpty() {return (NULL == head);}
@@ -160,6 +195,8 @@ class MgenFlowList
     bool SaveFlowSequences(FILE* file) const;
     void SetDefaultLabel(UINT32 label);
 	MgenFlow* Head() {return head;}
+    MgenFlow* GetNext(MgenFlow* prev)
+        {return (NULL != prev) ? prev->next : NULL;}
   private:
     MgenFlow* head; 
     MgenFlow* tail;  

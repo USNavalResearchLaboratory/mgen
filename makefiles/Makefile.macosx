@@ -3,7 +3,7 @@
 #
 
 
-# Note this Makefile sets the -D_HAVE_PCAP macro which requires
+# Note this Makefile sets the -DHAVE_PCAP macro which requires
 # that libpcap support
 
 # 1) System specific additional libraries, include paths, etc
@@ -45,7 +45,7 @@ SYSTEM_LIBS = -lresolv -lpthread -lpcap
 # (We export these for other Makefiles as needed)
 #
 
-export SYSTEM_HAVES = -D_HAVE_PCAP -DHAVE_IPV6 -DMACOSX -DHAVE_ASSERT -DHAVE_GETLOGIN \
+export SYSTEM_HAVES = -DHAVE_PCAP -DHAVE_IPV6 -DMACOSX -DHAVE_ASSERT -DHAVE_GETLOGIN \
 -DHAVE_FLOCK -DHAVE_DIRFD $(DNETSEC) -DUSE_SELECT -DSOCKLEN_T=int
 
 SYSTEM = macosx
