@@ -1135,7 +1135,7 @@ void MgenFlow::Reconnect()
         MgenMsg theMsg;
         theMsg.SetFlowId(flow_id);
         theMsg.SetDstAddr(dst_addr);
-        flow_transport->LogEvent(LogEventType::RECONNECT_EVENT, &theMsg, currentTime);
+        flow_transport->LogEvent(RECONNECT_EVENT, &theMsg, currentTime);
     }
     
     if (!flow_suspended && flow_paused && !tx_timer.IsActive())
