@@ -8,6 +8,16 @@ features have been added.
 Requires Protolib:
     https://www.nrl.navy.mil/itd/ncs/products/protolib
     https://github.com/USNavalResearchLaboratory/protolib
+    
+    The MGEN build expects the "protolib" source tree (or a symbolic link to it) to
+    be located in the top level of the "mgen" source tree.  For example, to 
+    download and build on Linux:
+    
+    git clone https://github.com/USNavalResearchLaboratory/mgen.git
+    cd mgen
+    git clone https://github.com/USNavalResearchLaboratory/protolib.git
+    cd makefiles
+    make -f Makefile.linux
 
 Primary new features included in 5.02c
 
