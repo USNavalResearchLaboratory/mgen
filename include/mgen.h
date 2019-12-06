@@ -139,6 +139,7 @@ class Mgen
       LOG,       // open log file for appending
       NOLOG,     // no output
       TXLOG,     // turn transmit logging on
+      RXLOG,     // turn recv event loggging on/off (on by default)
       LOCALTIME, // print log messages in localtime rather than gmtime (the default)
       DLOG,      // set debug log file
       SAVE,      // save pending flow state/offset info on exit.
@@ -198,6 +199,7 @@ class Mgen
     bool GetLocalTime() {return local_time;}
     bool GetLogFlush() {return log_flush;}
     bool GetLogTx() {return log_tx;}
+    bool GetLogRx() {return log_rx;}
     bool GetReuse() {return reuse;}
     typedef int (*LogFunction)(FILE*, const char*, ...);
     void SetLogFunction(LogFunction logFunction) 
@@ -553,6 +555,7 @@ class Mgen
     bool               log_flush;
     bool               log_file_lock;
     bool               log_tx;
+    bool               log_rx;
     bool               log_open;
     bool               log_empty;
     bool               reuse;

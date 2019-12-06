@@ -95,7 +95,7 @@ Mgen::Mgen(ProtoTimerMgr&         timerMgr,
   compute_analytics(false), report_analytics(false),
   get_position(NULL), get_position_data(NULL),
   log_file(NULL), log_binary(false), local_time(false), log_flush(false), 
-  log_file_lock(false), log_tx(false), log_open(false), log_empty(true),
+  log_file_lock(false), log_tx(false), log_rx(true), log_open(false), log_empty(true),
   reuse(true)
 
 {
@@ -1447,6 +1447,7 @@ const StringMapper Mgen::COMMAND_LIST[] =
     {"+DEBUG",      DEBUG_LEVEL},
     {"+OFFSET",     OFFSET},
     {"-TXLOG",	    TXLOG},
+    {"+RXLOG",      RXLOG},
     {"-LOCALTIME",  LOCALTIME},
     {"-NOLOG",      NOLOG},
     {"+DLOG",       DLOG},
@@ -1871,36 +1872,64 @@ bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
     case TXLOG:
       log_tx = true;
       break;
+      
+    case RXLOG:
+    {
+      if (!arg)
+      {
+          DMSG(0, "Mgen::OnCommand() Error: missing argument to RXLOG\n");
+          return false;
+      }
+      bool rxLogTmp;
+      // convert to upper case for case-insensitivity
+      char temp[4];
+      size_t len = strlen(arg);
+      len = len < 4 ? len : 4;
+      unsigned int i;
+      for (i = 0 ; i < len; i++)
+        temp[i] = toupper(arg[i]);
+      temp[i] = '\0';
+      if(!strncmp("ON", temp, len))
+          rxLogTmp = true;
+      else if(!strncmp("OFF", temp, len))
+          rxLogTmp = false;
+      else
+      {
+          DMSG(0, "Mgen::OnCommand() Error: wrong argument to RXLOG: %s\n", arg);
+          return false;   
+      }
+      log_rx = rxLogTmp;
+      break;
+    }
 
     case REUSE:
+    {
       if (!arg)
       {
           DMSG(0, "Mgen::OnCommand() Error: missing argument to REUSE\n");
           return false;   
       }
+      bool reuseTemp;
+      // convert to upper case for case-insensitivity
+      char temp[4];
+      size_t len = strlen(arg);
+      len = len < 4 ? len : 4;
+      unsigned int i;
+      for (i = 0 ; i < len; i++)
+        temp[i] = toupper(arg[i]);
+      temp[i] = '\0';
+      if(!strncmp("ON", temp, len))
+          reuseTemp = true;
+      else if(!strncmp("OFF", temp, len))
+          reuseTemp = false;
+      else
       {
-          bool reuseTemp;
-          // convert to upper case for case-insensitivity
-          char temp[4];
-          size_t len = strlen(arg);
-          len = len < 4 ? len : 4;
-          unsigned int i;
-          for (i = 0 ; i < len; i++)
-            temp[i] = toupper(arg[i]);
-          temp[i] = '\0';
-          if(!strncmp("ON", temp, len))
-              reuseTemp = true;
-          else if(!strncmp("OFF", temp, len))
-              reuseTemp = false;
-          else
-          {
-              DMSG(0, "Mgen::OnCommand() Error: wrong argument to REUSE: %s\n", arg);
-              return false;   
-          }
-          SetDefaultReuse(reuseTemp);
-          break;
+          DMSG(0, "Mgen::OnCommand() Error: wrong argument to REUSE: %s\n", arg);
+          return false;   
       }
+      SetDefaultReuse(reuseTemp);
       break;
+    }
       
     case ANALYTICS:
         compute_analytics = true;

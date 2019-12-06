@@ -946,6 +946,7 @@ bool MgenMsg::LogTcpConnectionEvent(FILE*                     logFile,
 bool MgenMsg::LogRecvEvent(FILE*                    logFile,
                            bool                     logBinary, 
                            bool                     localTime,
+                           bool                     logRx,
 			               bool                     logData,
 			               bool                     logGpsData,
                            UINT32*                  alignedMsgBuffer,
@@ -1031,68 +1032,71 @@ bool MgenMsg::LogRecvEvent(FILE*                    logFile,
     }
     else
     {
-        Mgen::LogTimestamp(logFile, theTime, localTime);
-        Mgen::Log(logFile,"RECV proto>%s flow>%lu seq>%lu src>%s/%hu ",
-                  MgenEvent::GetStringFromProtocol(protocol),
-                  flow_id, seq_num, src_addr.GetHostString(), 
-                  src_addr.GetPort());
-        Mgen::Log(logFile, "dst>%s/%hu sent>",  dst_addr.GetHostString(), dst_addr.GetPort());
-        Mgen::LogTimestamp(logFile, tx_time, localTime);
-        Mgen::Log(logFile,"size>%u ", msg_len);
-        // Here we are looking at the message's host_addr
-        if (host_addr.IsValid())
+        if (logRx)
         {
-            Mgen::Log(logFile, "host>%s/%hu ", host_addr.GetHostString(),
-                      host_addr.GetPort());      
-        }
-        
-        // (TBD) only output GPS info if INVALID_GPS != gps_status
-        const char* statusString  = NULL;
-        switch (gps_status)
-        {
-            case INVALID_GPS:
-              statusString = "INVALID";
-              break;
-            case STALE:
-              statusString = "STALE";
-              break;
-            case CURRENT:
-              statusString = "CURRENT";
-              break; 
-            default:
-              DMSG(0, "MgenMsg::LogRecvEvent() invalid GPS status\n");
-              Mgen::Log(logFile, "\n");
-              return false;
-        } // end switch (gps_status)
-	    if (logGpsData)
-	        Mgen::Log(logFile, "gps>%s,%f,%f,%ld ", statusString,
-		                        latitude, longitude, altitude);
-        
-        if (payload_len && logData)
-        {
-            if (USER_DATA == payload_type)
+            Mgen::LogTimestamp(logFile, theTime, localTime);
+            Mgen::Log(logFile,"RECV proto>%s flow>%lu seq>%lu src>%s/%hu ",
+                      MgenEvent::GetStringFromProtocol(protocol),
+                      flow_id, seq_num, src_addr.GetHostString(), 
+                      src_addr.GetPort());
+            Mgen::Log(logFile, "dst>%s/%hu sent>",  dst_addr.GetHostString(), dst_addr.GetPort());
+            Mgen::LogTimestamp(logFile, tx_time, localTime);
+            Mgen::Log(logFile,"size>%u ", msg_len);
+            // Here we are looking at the message's host_addr
+            if (host_addr.IsValid())
             {
-                Mgen::Log(logFile, "data>%hu:", payload_len);
-                char* payloadString = MgenPayload::GetPayloadString((const char*)payload_data, payload_len);    
-                Mgen::Log(logFile, "%s ", payloadString);    
-                delete[] payloadString;
+                Mgen::Log(logFile, "host>%s/%hu ", host_addr.GetHostString(),
+                          host_addr.GetPort());      
             }
-        } 
-        
-        if (FlagIsSet(MgenMsg::CONTINUES)) 
-        {
-            Mgen::Log(logFile,"flags>0x%02x ",(flags & MgenMsg::CONTINUES));
-        }
-        if (FlagIsSet(MgenMsg::END_OF_MSG))
-        {
-            Mgen::Log(logFile,"flags>0x%02x ",(flags & MgenMsg::END_OF_MSG));
-        }		  
-        if (FlagIsSet(MgenMsg::CHECKSUM_ERROR)) // We had a checksum error
-        {
-            SetFlag(MgenMsg::CHECKSUM_ERROR);
-            Mgen::Log(logFile,"flags>0x%02x ",(flags & MgenMsg::CHECKSUM_ERROR));
-        }
-        Mgen::Log(logFile, "\n");
+
+            // (TBD) only output GPS info if INVALID_GPS != gps_status
+            const char* statusString  = NULL;
+            switch (gps_status)
+            {
+                case INVALID_GPS:
+                  statusString = "INVALID";
+                  break;
+                case STALE:
+                  statusString = "STALE";
+                  break;
+                case CURRENT:
+                  statusString = "CURRENT";
+                  break; 
+                default:
+                  DMSG(0, "MgenMsg::LogRecvEvent() invalid GPS status\n");
+                  Mgen::Log(logFile, "\n");
+                  return false;
+            } // end switch (gps_status)
+	        if (logGpsData)
+	            Mgen::Log(logFile, "gps>%s,%f,%f,%ld ", statusString,
+		                            latitude, longitude, altitude);
+
+            if (payload_len && logData)
+            {
+                if (USER_DATA == payload_type)
+                {
+                    Mgen::Log(logFile, "data>%hu:", payload_len);
+                    char* payloadString = MgenPayload::GetPayloadString((const char*)payload_data, payload_len);    
+                    Mgen::Log(logFile, "%s ", payloadString);    
+                    delete[] payloadString;
+                }
+            } 
+
+            if (FlagIsSet(MgenMsg::CONTINUES)) 
+            {
+                Mgen::Log(logFile,"flags>0x%02x ",(flags & MgenMsg::CONTINUES));
+            }
+            if (FlagIsSet(MgenMsg::END_OF_MSG))
+            {
+                Mgen::Log(logFile,"flags>0x%02x ",(flags & MgenMsg::END_OF_MSG));
+            }		  
+            if (FlagIsSet(MgenMsg::CHECKSUM_ERROR)) // We had a checksum error
+            {
+                SetFlag(MgenMsg::CHECKSUM_ERROR);
+                Mgen::Log(logFile,"flags>0x%02x ",(flags & MgenMsg::CHECKSUM_ERROR));
+            }
+            Mgen::Log(logFile, "\n");
+        }  // end if log_rx
         
         if ((MGEN_DATA == payload_type) && (payload_len > 0))
         {
@@ -1126,7 +1130,7 @@ bool MgenMsg::LogRecvEvent(FILE*                    logFile,
                 }
             }
         }
-    }
+    }  // end if/else logBinary
 
     if (flush) {fflush(logFile);}
     
@@ -1410,6 +1414,7 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
     FILE* logFile = mgen.GetLogFile();
     bool localTime = mgen.GetLocalTime();
     bool log_flush = mgen.GetLogFlush();
+    bool log_rx = mgen.GetLogRx();
     bool log_data = mgen.GetLogData();
     bool log_gps_data = mgen.GetLogGpsData();
 
@@ -1585,7 +1590,7 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
                   msg.SetTxTime(eventTime);
                   ASSERT(0 == index%4)
                   msg.Unpack(alignedBuffer+index/4, recordLength - index, false, log_data);
-                  msg.LogRecvEvent(logFile, false, localTime, log_data, log_gps_data, NULL, log_flush,eventTime);
+                  msg.LogRecvEvent(logFile, false, localTime, log_rx, log_data, log_gps_data, NULL, log_flush,eventTime);
                   break;
               }
             case SEND_EVENT:

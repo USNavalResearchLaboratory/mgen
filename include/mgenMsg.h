@@ -165,6 +165,7 @@ class MgenMsg
     bool LogRecvEvent(FILE*                 logFile, 
                       bool                  logBinary,
                       bool                  localTime,
+                      bool                  logRecv,    // if "false", logs REPORT events only
 		              bool                  logData,
 		              bool                  logGpsFata,
                       UINT32*               alignedMsgBuffer,

@@ -339,6 +339,7 @@ void MgenTransport::LogEvent(LogEventType eventType, MgenMsg* theMsg, const stru
           theMsg->LogRecvEvent(mgen.GetLogFile(),
                                mgen.GetLogBinary(), 
                                mgen.GetLocalTime(), 
+                               mgen.GetLogRx(),
 			                   mgen.GetLogData(),
 			                   mgen.GetLogGpsData(),
                                buffer, 

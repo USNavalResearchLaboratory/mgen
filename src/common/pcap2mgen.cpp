@@ -170,8 +170,9 @@ int main(int argc, char* argv[])
             ethPkt.GetDstAddr(ethAddr);
             fprintf(outfile, "edst>%s ", ethAddr.GetHostString());
         }
-        
-        msg.LogRecvEvent(outfile, false, false, false, true, (char*)udpPkt.AccessPayload(), false, hdr.ts);        
+        // TBD - Add option to log REPORT events only?  Embed MGEN analytic, too?
+        // Should we make "flush" true by default?
+        msg.LogRecvEvent(outfile, false, false, true, false, true, (char*)udpPkt.AccessPayload(), false, hdr.ts);        
     }  // end while (pcap_next())
     
     if (stdin != infile) fclose(infile);
