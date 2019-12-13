@@ -1180,7 +1180,19 @@ void MgenFlow::Reset()
 
 bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
 {
-
+    // This code (and MgenTransport) needs to be redone because
+    // the code is way too complicated for the simple jobs it
+    // should be doing,  The MgenFlow tx_timer should only be used
+    // to queue messages to the underlying transport and the flow
+    // sequence number should only be incremented when a message
+    // is successfully enqueued.  We could pause the timer upon
+    // enqueue failure and the underlying MgenTransport would reactivate
+    // the timer when there is space in the transport queue available.
+    // It looks like transport handoff of some sort has been implemented that
+    // is perhaps when a flow attribute change gets the flow assigned to 
+    // a different socket?  E.g., a different source port, TOS, etc?
+    
+    
     if (!flow_transport || ((message_limit >= 0) && (messages_sent >= message_limit)))
     {
         if (tx_timer.IsActive()) tx_timer.Deactivate();
@@ -1274,9 +1286,9 @@ bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
           }
           else
           {
-              // Don't turn on timer if we have an unlimited rate
-	    if (!pattern.UnlimitedRate())
-	      return GetNextInterval();
+            // Don't turn on timer if we have an unlimited rate
+	        if (!pattern.UnlimitedRate())
+	            return GetNextInterval();
           }            	
       }
     
@@ -1285,34 +1297,36 @@ bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
       // readiness.  Otherwise service any pending flows
       // the transport might have first using socket output
       // notification to send as fast as possible
-      if ((flow_transport && flow_transport->HasPendingFlows())
-	  && (!pattern.UnlimitedRate() && !socket_error))
+    if ((flow_transport && flow_transport->HasPendingFlows())
+	     && (!pattern.UnlimitedRate() && !socket_error))
 
-	{
-	  // If we have an unlimited transmission rate and have had
-	  // a socket error don't start output notification in this
-	  // case we will use a tx_timer to prevent thrashing until 
-	  // the condition is resolved
-	  flow_transport->StartOutputNotification();
+    {
+        // If we have an unlimited transmission rate and have had
+        // a socket error don't start output notification in this
+        // case we will use a tx_timer to prevent thrashing until 
+        // the condition is resolved
+        flow_transport->StartOutputNotification();
 
-	  if (queue_limit > 0)
-	    {
-	      pending_messages++;
-	      flow_transport->AppendFlow(this);                
-	    }
-	  // If we've exceeded our queue limit, turn off the timer
-	  // we'll restart it when the queue gets below the limit, 
-	  // unless we have an unlimited queue size (queue_limit -1)
-	  // or we're sending packets as fast as possible
-	  if ((queue_limit > 0 && pending_messages >= queue_limit)
-	      && (!pattern.UnlimitedRate())) // ljt should we allow queue limits for unlimited rates?
-	    {	  
-	      if (tx_timer.IsActive()) tx_timer.Deactivate(); 
-	      return false; // don't want to fail twice!
-	    }
-	  else
-	    return GetNextInterval();
-	}
+        if (queue_limit > 0)
+        {
+            pending_messages++;
+            flow_transport->AppendFlow(this);                
+        }
+        // If we've exceeded our queue limit, turn off the timer
+        // we'll restart it when the queue gets below the limit, 
+        // unless we have an unlimited queue size (queue_limit -1)
+        // or we're sending packets as fast as possible
+        if ((queue_limit > 0 && pending_messages >= queue_limit)
+             && (!pattern.UnlimitedRate())) // ljt should we allow queue limits for unlimited rates?
+        {	  
+            if (tx_timer.IsActive()) tx_timer.Deactivate(); 
+            return false; // don't want to fail twice!
+        }
+        else
+        {
+            return GetNextInterval();
+        }
+    }
 
     if (!flow_transport) 
     {
@@ -1331,19 +1345,20 @@ bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
         if (tx_timer.IsActive()) tx_timer.Deactivate();
         return false;
     }
-    else
-      // else if we have an unlimited rate and a socket_error
-      // schedule a transmission timer at 100 milliseconds
-      // to prevent thrashing
-      if (pattern.UnlimitedRate() && socket_error)
-	{
-	  tx_timer.SetInterval(0.001);
-	  if (!tx_timer.IsActive())
-	    timer_mgr.ActivateTimer(tx_timer);
-	  return true;
+    else if (pattern.UnlimitedRate() && socket_error)
+    {
+        // we have an unlimited rate and a socket_error
+        // schedule a transmission timer at 100 milliseconds
+        // to prevent thrashing
+        tx_timer.SetInterval(0.001);
+        if (!tx_timer.IsActive())
+            timer_mgr.ActivateTimer(tx_timer);
+        return true;
 	}
-      else
-	return GetNextInterval();
+    else
+    {
+	    return GetNextInterval();
+    }
 
 }   // end MgenFlow::OnTxTimeout()
 

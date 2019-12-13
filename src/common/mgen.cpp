@@ -1080,17 +1080,6 @@ void Mgen::UpdateRecvAnalytics(const ProtoTime& theTime, MgenMsg* theMsg, Protoc
         if (NULL != controller)
             controller->OnUpdateReport(theTime, report);
         report.Log(log_file, theTime, theTime, local_time);
-        /*// locally print updated report info (TBD - do REPORT log event for received flows)
-        time_t tvSec = theTime.sec();
-        struct tm* timePtr = gmtime(&tvSec);
-        fprintf(stdout, "%02d:%02d:%02d.%06lu ", timePtr->tm_hour, 
-                         timePtr->tm_min, timePtr->tm_sec, theTime.usec());
-        fprintf(stdout, "%s/%hu->", theMsg->GetSrcAddr().GetHostString(), theMsg->GetSrcAddr().GetPort());
-        fprintf(stdout, "%s/%hu,%lu ", theMsg->GetDstAddr().GetHostString(), theMsg->GetDstAddr().GetPort(), (unsigned long)theMsg->GetFlowId());
-        fprintf(stdout, "rate>%lg kbps ", analytic->GetReportRateAverage()*8.0e-03);
-        fprintf(stdout, "loss>%lg ", analytic->GetReportLossFraction()*100.0);
-        fprintf(stdout, "latency>%lg,%lg,%lg\n", analytic->GetReportLatencyAverage(),
-                        analytic->GetReportLatencyMin(), analytic->GetReportLatencyMax());*/
     }
     
 }  // end Mgen::UpdateRecvAnalytics()

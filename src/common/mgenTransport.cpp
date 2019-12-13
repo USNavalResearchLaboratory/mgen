@@ -209,7 +209,6 @@ bool MgenTransport::SendPendingMessage()
 {
     // Send pending messages until we hit congestion
     // or clear the queue...
-
     while (IsOpen() && !IsTransmitting() && pending_current)
     {
       int msgLimit = pending_current->GetMessageLimit();
@@ -218,7 +217,8 @@ bool MgenTransport::SendPendingMessage()
       if ((pending_current->GetPending() > 0) || 
           (pending_current->UnlimitedRate() && sendMore))
       {
-          if (!pending_current->SendMessage()) return false;
+          if (!pending_current->SendMessage()) 
+              return false;
       }
       
       // Restart flow timer if we're below the queue limit
@@ -253,8 +253,9 @@ bool MgenTransport::SendPendingMessage()
       
       // If we've sent all pending messages, 
       // remove flow from pending list.
+      
       if (!pending_current->GetPending() &&
-         (!pending_current->UnlimitedRate() || !sendMore))
+          (!pending_current->UnlimitedRate() || !sendMore))
       {
           RemoveFromPendingList();  //ljt remove this function
           // or replace remove flow
@@ -1015,11 +1016,19 @@ MessageStatus MgenUdpTransport::SendMessage(MgenMsg& theMsg, const ProtoAddress&
         theMsg.WriteChecksum(txChecksum,(unsigned char*)txBuffer,(UINT32)len);
 
     bool result = socket.SendTo((char*)txBuffer,len,dstAddr);
+    
+    // Note on BSD systems (incl. Mac OSX) UDP sockets don't really block.
+    // On some BSD systems, an ENOBUFS will occur but OSX always acts like the 
+    // packet was sent ... so somewhere in the MGEN code we need to handle
+    // OSX differently ... Probably the best strategy would be to always go
+    // back to select() call ... (i.e. ProtoDispatcher::Wait())
 
     // If result is true but numBytes == 0 
     // we had an EWOULDBLOCK condition
     if (result && len == 0)
+    {
       return MSG_SEND_BLOCKED;
+    }
 
     // We had some other socket failure
     if (!result)
@@ -1030,7 +1039,7 @@ MessageStatus MgenUdpTransport::SendMessage(MgenMsg& theMsg, const ProtoAddress&
 	  else
 #endif // !_WIN32_WCE
 	    DMSG(PL_WARN,"MgenUdpTransport::SendMessage() socket.SendTo() error: %s\n", GetErrorString());
-	  return MSG_SEND_FAILED;
+      return MSG_SEND_FAILED;
       }
 
     LogEvent(SEND_EVENT, &theMsg,theMsg.GetTxTime(), txBuffer);

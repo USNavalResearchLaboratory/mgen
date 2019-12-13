@@ -152,7 +152,7 @@ int main(int argc, char* argv[])
         if (!udpPkt.InitFromPacket(ipPkt)) continue;  // not a UDP packet
         
         MgenMsg msg;
-        if (!msg.Unpack((char*)udpPkt.GetPayload(), udpPkt.GetPayloadLength(), false, false))
+        if (!msg.Unpack(udpPkt.AccessPayload(), udpPkt.GetPayloadLength(), false, false))
         {
             fprintf(stderr, "pcap2mgen warning: UDP packet not an MGEN packet?\n");
             continue;
@@ -163,7 +163,7 @@ int main(int argc, char* argv[])
         
         if (trace)
         {
-            fprintf(outfile, "%lu.%lu ", hdr.ts.tv_sec, hdr.ts.tv_usec);
+            fprintf(outfile, "%lu.%lu ", (unsigned long)hdr.ts.tv_sec, (unsigned long)hdr.ts.tv_usec);
             ProtoAddress ethAddr;
             ethPkt.GetSrcAddr(ethAddr);
             fprintf(outfile, "esrc>%s ", ethAddr.GetHostString());
@@ -172,7 +172,7 @@ int main(int argc, char* argv[])
         }
         // TBD - Add option to log REPORT events only?  Embed MGEN analytic, too?
         // Should we make "flush" true by default?
-        msg.LogRecvEvent(outfile, false, false, true, false, true, (char*)udpPkt.AccessPayload(), false, hdr.ts);        
+        msg.LogRecvEvent(outfile, false, false, true, false, true, udpPkt.AccessPayload(), false, hdr.ts);        
     }  // end while (pcap_next())
     
     if (stdin != infile) fclose(infile);
