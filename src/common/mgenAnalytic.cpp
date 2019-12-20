@@ -654,7 +654,11 @@ const MgenAnalytic::Report* MgenAnalyticReporter::PeekNextReport(const ProtoTime
     return &nextReport;
 }  // end MgenAnalyticReporter::PeekNextReport()
 
-void MgenAnalytic::Report::Log(FILE* filePtr, const ProtoTime& sentTime, const ProtoTime& theTime, bool localTime) const
+void MgenAnalytic::Report::Log(FILE*            filePtr, 
+                               const ProtoTime& sentTime, 
+                               const ProtoTime& theTime, 
+                               bool             localTime,
+                               ProtoAddress*    reporterAddr) const
 {
     if (NULL == filePtr) return;  // not logging
     // MGEN logging timestamp format (TBD - create an Mgen::LogTimeStamp() method
@@ -683,13 +687,14 @@ void MgenAnalytic::Report::Log(FILE* filePtr, const ProtoTime& sentTime, const P
     ProtoAddress dstAddr;
     GetDstAddr(dstAddr);
     Mgen::Log(filePtr, "dst>%s/%hu ", dstAddr.GetHostString(), dstAddr.GetPort());
-    if (sentTime != theTime)
+    if (NULL != reporterAddr)
     {
-        Mgen::Log(filePtr, "sent>");
+        Mgen::Log(filePtr, "reporter>%s/%hu sent>", reporterAddr->GetHostString(), reporterAddr->GetPort());
         Mgen::LogTimestamp(filePtr, theTime.GetTimeVal(), localTime);
+        Mgen::Log(filePtr, "offset>%lf ", GetWindowOffset());
     }
     // else locally-generated report
-    Mgen::Log(filePtr,"offset>%lf window>%lf rate>%lf kbps loss>%lf latency ave>%lf min>%lf max>%lf\n",
-                    GetWindowOffset(), GetWindowSize(), GetRateAve()*8.0e-03, GetLossFraction(), 
+    Mgen::Log(filePtr,"window>%lf rate>%lf kbps loss>%lf latency ave>%lf min>%lf max>%lf\n",
+                    GetWindowSize(), GetRateAve()*8.0e-03, GetLossFraction(), 
                     GetLatencyAve(), GetLatencyMin(), GetLatencyMax());
 }  // end MgenAnalytic::Report::Log()

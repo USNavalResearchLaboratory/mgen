@@ -153,7 +153,11 @@ class MgenAnalytic : public ProtoQueue::Item
                                     unsigned int    numBytes = 0, 
                                     bool            freeOnDestruct = false);
                 
-                void Log(FILE* filePtr, const ProtoTime& sentTime, const ProtoTime& theTime, bool localTime) const;
+                void Log(FILE*              filePtr, 
+                         const ProtoTime&   sentTime, 
+                         const ProtoTime&   theTime, 
+                         bool               localTime,
+                         ProtoAddress*      reporterAddr = NULL) const;
                 
                 ReportType GetReportType() const
                 {

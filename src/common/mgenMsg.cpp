@@ -1045,8 +1045,7 @@ bool MgenMsg::LogRecvEvent(FILE*                    logFile,
             // Here we are looking at the message's host_addr
             if (host_addr.IsValid())
             {
-                Mgen::Log(logFile, "host>%s/%hu ", host_addr.GetHostString(),
-                          host_addr.GetPort());      
+                Mgen::Log(logFile, "host>%s/%hu ", host_addr.GetHostString(), host_addr.GetPort());      
             }
 
             // (TBD) only output GPS info if INVALID_GPS != gps_status
@@ -1110,7 +1109,7 @@ bool MgenMsg::LogRecvEvent(FILE*                    logFile,
                     MgenAnalytic::Report report;
                     if (report.InitFromBuffer(bufferPtr, bufferLen))
                     {
-                        report.Log(logFile, tx_time, theTime, localTime); 
+                        report.Log(logFile, tx_time, theTime, localTime, &src_addr); 
                         UINT8 reportLen = report.GetLength();
                         bufferLen -= reportLen;
                         bufferPtr += (reportLen/sizeof(UINT32));
