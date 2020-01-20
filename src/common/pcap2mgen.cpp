@@ -328,7 +328,7 @@ int main(int argc, char* argv[])
         unsigned int numBytes = maxBytes;
         if (hdr.caplen < numBytes) numBytes = hdr.caplen;
         memcpy(ethBuffer, pktData, numBytes);
-        ProtoPktETH ethPkt((UINT32*)ethBuffer, maxBytes);
+        ProtoPktETH ethPkt(ethBuffer, maxBytes);
         if (!ethPkt.InitFromBuffer(hdr.len))
         {
             fprintf(stderr, "pcap2mgen error: invalid Ether frame in pcap file\n");
@@ -341,7 +341,7 @@ int main(int argc, char* argv[])
             (ProtoPktETH::IPv6 == ethType))
         {
             unsigned int payloadLength = ethPkt.GetPayloadLength();
-            if (!ipPkt.InitFromBuffer(payloadLength, (UINT32*)ethPkt.AccessPayload(), payloadLength))
+            if (!ipPkt.InitFromBuffer(payloadLength, ethPkt.AccessPayload(), payloadLength))
             {
                 fprintf(stderr, "pcap2mgen error: bad IP packet\n");
                 continue;
@@ -377,7 +377,7 @@ int main(int argc, char* argv[])
         if (!udpPkt.InitFromPacket(ipPkt)) continue;  // not a UDP packet
         
         MgenMsg msg;
-        if (!msg.Unpack(udpPkt.AccessPayload(), udpPkt.GetPayloadLength(), false, false))
+        if (!msg.Unpack((UINT32*)udpPkt.AccessPayload(), udpPkt.GetPayloadLength(), false, false))
         {
             fprintf(stderr, "pcap2mgen warning: UDP packet not an MGEN packet?\n");
             continue;
@@ -429,7 +429,7 @@ int main(int argc, char* argv[])
         }
 
         // Should we make "flush" true by default?
-        msg.LogRecvEvent(outfile, false, false, log_rx, false, true, udpPkt.AccessPayload(), false, hdr.ts);        
+        msg.LogRecvEvent(outfile, false, false, log_rx, false, true, (UINT32*)udpPkt.AccessPayload(), false, hdr.ts);        
     }  // end while (pcap_next())
     
     if (stdin != infile) fclose(infile);

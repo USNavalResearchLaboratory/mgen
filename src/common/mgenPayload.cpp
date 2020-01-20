@@ -302,7 +302,7 @@ bool MgenFlowCommand:: SetStatus(UINT32 flowId, Status status)
     SetType(DATA_ITEM_FLOW_CMD);
     flowId -= 1;  // to use as an index
     // First, set or clear 'lo' part
-    char* mask = AccessBuffer(OFFSET_BITS);
+    char* mask = (char*)AccessBuffer(OFFSET_BITS);
     if (0 != (status & 0x01))
         mask[flowId >> 3] |=  (0x80 >> (flowId & 0x07));
     else
@@ -336,7 +336,7 @@ MgenFlowCommand::Status MgenFlowCommand:: GetStatus(UINT32 flowId) const
     int status = 0;
     flowId -= 1;
     // First, test the 'lo' part
-    const char* mask = GetBuffer(OFFSET_BITS);
+    const char* mask = (char*)GetBuffer(OFFSET_BITS);
     if (0 != (mask[(flowId >> 3)] & (0x80 >> (flowId & 0x07))))
         status = 0x01;
     // Then, test the 'hi' part
