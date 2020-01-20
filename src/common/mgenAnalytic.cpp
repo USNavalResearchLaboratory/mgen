@@ -318,7 +318,7 @@ bool MgenAnalytic::Report::GetDstAddr(ProtoAddress& addr) const
             PLOG(PL_ERROR, "ElasticAck::GetDstAddr() error: invalid address type!\n");
             return false;
     }
-    addr.SetRawHostAddress(addrType, (char*)(buffer_ptr+OFFSET_DST), addrLen);
+    addr.SetRawHostAddress(addrType, (char*)GetBuffer32(OFFSET_DST), addrLen);
     addr.SetPort(GetUINT16(OffsetDstPort()));
     return true;
 }  // end MgenAnalytic::Report::GetDstAddr()
@@ -345,7 +345,7 @@ bool MgenAnalytic::Report::GetSrcAddr(ProtoAddress& addr) const
             PLOG(PL_ERROR, "MgenAnalytic::Report::GetSrcAddr() error: invalid address type!\n");
             return false;
     }
-    addr.SetRawHostAddress(addrType, (char*)(buffer_ptr+OffsetSrc()), addrLen);
+    addr.SetRawHostAddress(addrType, (char*)GetBuffer32(OffsetSrc()), addrLen);
     addr.SetPort(GetUINT16(OffsetSrcPort()));
     return true;
 }  // end MgenAnalytic::Report::GetSrcAddr()
@@ -378,7 +378,7 @@ bool MgenAnalytic::Report::InitIntoBuffer(ReportType    reportType,
     {
         return false;
     }
-    memset(buffer_ptr, 0, minLength);
+    memset(AccessBuffer(), 0, minLength);
     SetReportType(reportType);
     SetReportLength(minLength);  // will be updated as other fields are set
     SetLength(minLength);
@@ -414,8 +414,7 @@ bool MgenAnalytic::Report::SetDstAddr(const ProtoAddress& addr)
     // Update report length field
     SetReportLength(reportLength);
     // set dstAddr field
-    char* ptr = (char*)(buffer_ptr + OFFSET_DST);
-    memcpy(ptr, addr.GetRawHostAddress(), addrLen);
+    memcpy((char*)AccessBuffer32(OFFSET_DST), addr.GetRawHostAddress(), addrLen);
     // Set dstPort field
     SetUINT16(OffsetDstPort(), addr.GetPort());
     SetLength(reportLength);  // update ProtoPkt length
@@ -452,8 +451,7 @@ bool MgenAnalytic::Report::SetSrcAddr(const ProtoAddress& addr)
     // Update report length field
     SetReportLength(reportLength);
     // set srcAddr field
-    char* ptr = (char*)(buffer_ptr + OffsetSrc());
-    memcpy(ptr, addr.GetRawHostAddress(), addrLen);
+    memcpy((char*)AccessBuffer32(OffsetSrc()), addr.GetRawHostAddress(), addrLen);
     // Set srcPort field
     SetUINT16(OffsetSrcPort(), addr.GetPort());
     SetLength(reportLength);  // update ProtoPkt length

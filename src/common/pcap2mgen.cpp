@@ -21,49 +21,6 @@
 #include "protoTime.h"
 #include "mgen.h"
 
-// enum Command
-// {
-//       INVALID_COMMAND,
-//       // EVENT,
-//       // START,     // specify absolute start time
-//       INPUT,     // input and parse an MGEN script
-//       OUTPUT,    // open output (log) file 
-//       // LOG,       // open log file for appending
-//       // NOLOG,     // no output
-//       // TXLOG,     // turn transmit logging on
-//       RXLOG,     // turn recv event loggging on/off (on by default)
-//       // LOCALTIME, // print log messages in localtime rather than gmtime (the default)
-//       // DLOG,      // set debug log file
-//       // SAVE,      // save pending flow state/offset info on exit.
-//       // DEBUG_LEVEL,     // specify debug level
-//       // OFFSET,    // time offset into script
-//       // TXBUFFER,  // Tx socket buffer size
-//       // RXBUFFER,  // Rx socket buffer size
-//       // LABEL,     // IPv6 flow label
-//       // BROADCAST, // send/receive broadcasts from socket
-//       // TOS,       // IPV4 Type-Of-Service 
-//       // TTL,       // Multicast Time-To-Live
-//       // UNICAST_TTL, // Unicast Time-To-Live
-//       // DF,        // DF/Fragmentation status
-//       // INTERFACE, //Multicast Interface
-//       // BINARY,    // turn binary logfile mode on
-//       // FLUSH,     // flush log after _each_ event
-//       // CHECKSUM,  // turn on _both_ tx and rx checksum options
-//       // TXCHECKSUM,// include checksums in transmitted MGEN messages
-//       // RXCHECKSUM,// force checksum validation at receiver _always_
-//       // QUEUE,     // Turn off tx_timer when pending queue exceeds this limit
-//       // REUSE,     // Toggle socket reuse on and off
-//       ANALYTICS, // Turns on compute of analytics (and logging if enabled)
-//       REPORT,    // Include analytic reports in message payloads for all flows
-//       WINDOW,    // specifies analytic averaging window size (seconds)
-//       TRACE
-//       // SUSPEND,
-//       // RESUME,
-//       // RETRY,     // Enables TCP retry connection attempts
-//       // PAUSE,     // Pauses flow while tcp attempts to reconnect
-//       // RECONNECT, // Enables TCP reconnect
-//       // RESET
-// };
 
 enum CmdType {CMD_INVALID, CMD_ARG, CMD_NOARG};
 // default arg values. Global for now--TODO; make this more C++ code (i.e., pcap2mgen class) and less C code
@@ -465,29 +422,10 @@ int main(int argc, char* argv[])
             ProtoTime rxTime(hdr.ts);
             if (analytic->Update(rxTime, msg.GetMsgLen(), ProtoTime(msg.GetTxTime()), msg.GetSeqNum()))
             {
-                // MgenFlow* nextFlow = flow_list.Head();
-                // while (NULL != nextFlow)
-                // {
-                //     if (nextFlow->GetReportAnalytics())
-                //         nextFlow->UpdateAnalyticReport(*analytic);
-                //     nextFlow = flow_list.GetNext(nextFlow);
-                // }       
                 const MgenAnalytic::Report& report = analytic->GetReport(rxTime);
-                // if (NULL != controller)
-                //     controller->OnUpdateReport((unsigned long)hdr.ts.tv_sec, report);
                 report.Log(outfile, rxTime, rxTime, false);
-                /*// locally print updated report info (TBD - do REPORT log event for received flows)
-                time_t tvSec = theTime.sec();
-                struct tm* timePtr = gmtime(&tvSec);
-                fprintf(stdout, "%02d:%02d:%02d.%06lu ", timePtr->tm_hour, 
-                                 timePtr->tm_min, timePtr->tm_sec, theTime.usec());
-                fprintf(stdout, "%s/%hu->", theMsg->GetSrcAddr().GetHostString(), theMsg->GetSrcAddr().GetPort());
-                fprintf(stdout, "%s/%hu,%lu ", theMsg->GetDstAddr().GetHostString(), theMsg->GetDstAddr().GetPort(), (unsigned long)theMsg->GetFlowId());
-                fprintf(stdout, "rate>%lg kbps ", analytic->GetReportRateAverage()*8.0e-03);
-                fprintf(stdout, "loss>%lg ", analytic->GetReportLossFraction()*100.0);
-                fprintf(stdout, "latency>%lg,%lg,%lg\n", analytic->GetReportLatencyAverage(),
-                                analytic->GetReportLatencyMin(), analytic->GetReportLatencyMax());*/
             }
+            // we could dalso keep the analytic in a list and prune stale ones
         }
 
         // Should we make "flush" true by default?

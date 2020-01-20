@@ -266,7 +266,7 @@ bool MgenDataItem::InitIntoBuffer(Type          itemType,
     {
         return false;
     }
-    memset(buffer_ptr, 0, minLength);
+    memset((char*)AccessBuffer(), 0, minLength);
     SetType(itemType);
     SetItemLength(minLength);  // will be updated as other fields are set
     SetLength(minLength);        // will be updated as other fields are set
@@ -287,7 +287,7 @@ bool MgenFlowCommand:: SetStatus(UINT32 flowId, Status status)
     }
     else if (lengthNeeded > GetLength())
     {
-        char* ptr = (char*)buffer_ptr;
+        char* ptr = (char*)AccessBuffer();
         UINT32 oldLength = GetLength() - OFFSET_BITS;
         UINT32 oldOffsetHi = OFFSET_BITS + oldLength/2;
         UINT32 newLength = lengthNeeded - OFFSET_BITS;
@@ -302,7 +302,7 @@ bool MgenFlowCommand:: SetStatus(UINT32 flowId, Status status)
     SetType(DATA_ITEM_FLOW_CMD);
     flowId -= 1;  // to use as an index
     // First, set or clear 'lo' part
-    char* mask = ((char*)buffer_ptr) + OFFSET_BITS;
+    char* mask = AccessBuffer(OFFSET_BITS);
     if (0 != (status & 0x01))
         mask[flowId >> 3] |=  (0x80 >> (flowId & 0x07));
     else
@@ -336,7 +336,7 @@ MgenFlowCommand::Status MgenFlowCommand:: GetStatus(UINT32 flowId) const
     int status = 0;
     flowId -= 1;
     // First, test the 'lo' part
-    char* mask = ((char*)buffer_ptr) + OFFSET_BITS;
+    const char* mask = GetBuffer(OFFSET_BITS);
     if (0 != (mask[(flowId >> 3)] & (0x80 >> (flowId & 0x07))))
         status = 0x01;
     // Then, test the 'hi' part

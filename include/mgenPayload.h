@@ -125,7 +125,7 @@ class MgenFlowCommand : public MgenDataItem
         Status GetStatus(UINT32 flowId) const;
 
         char* AccessBitmask(unsigned int offset)
-            {return (((char*)buffer_ptr) + OFFSET_BITS + offset);}
+            {return AccessBuffer(OFFSET_BITS + offset);}
         UINT8 GetMaskLen() const
             {return (GetItemLength() - OFFSET_BITS);}
        

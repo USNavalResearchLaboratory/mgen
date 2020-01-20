@@ -290,7 +290,7 @@ class MgenAnalytic : public ProtoQueue::Item
                 // ProtoPkt offsets for set/get are byte offsets!
                 enum
                 {
-                    OFFSET_PROTOCOL = OFFSET_TYPE,  // lower 4 bits            
+                    OFFSET_PROTOCOL = OFFSET_TYPE,     // lower 4 bits            
                     OFFSET_FLAGS = OFFSET_LEN + 1,    
                     OFFSET_WINDOW = OFFSET_LEN + 1, 
                     OFFSET_DST = (OFFSET_WINDOW + 2)/4 // UINT32 offset 
