@@ -273,6 +273,12 @@ bool MgenFlow::DoOnEvent(const MgenEvent* event)
         return false; 
     }
 
+    // Call DoGenericEvent so TOS is set prior to TCP connect in
+    // flow_transport open so that TCP Syn is set to requested
+    // value.  (We also call it again in the event of a MOD due
+    // to the fall through code).
+    DoGenericEvent(event);
+    
     // This increments socket reference_count for any new flows
     // using the transport and opens socket as needed.  Note that
     // socket must be opened as IPv4 or IPv6 type
@@ -736,8 +742,9 @@ bool MgenFlow::GetNextInterval()
 //  an OFF_EVENT 
 void MgenFlow::StopFlow()
 {
-  pending_messages = message_limit = messages_sent = 0;
-  off_pending = false;
+    message_limit = -1;
+    pending_messages = messages_sent = 0;
+    off_pending = false;
 
   // Inform rapr so it can reuse the flowid
   if (controller)
