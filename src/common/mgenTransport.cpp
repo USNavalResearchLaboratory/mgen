@@ -204,13 +204,20 @@ void MgenTransport::PrintList()
     if (pending_current)
       DMSG(0,"Current: %d\n",pending_current->GetFlowId());
 
-}
+}    
+
+
 bool MgenTransport::SendPendingMessage()
 {
+    // break out of while loop after N iterations to resume asynch i/o
+    unsigned int breakOut = 0;
+    unsigned int pending_message_limit = 1000;
+    
     // Send pending messages until we hit congestion
     // or clear the queue...
     while (IsOpen() && !IsTransmitting() && pending_current)
     {
+      breakOut++;
       int msgLimit = pending_current->GetMessageLimit();
       bool sendMore = (msgLimit < 0) || (pending_current->GetMessagesSent() < msgLimit);
       
@@ -273,7 +280,15 @@ bool MgenTransport::SendPendingMessage()
       // cycle back to head of queue if we
       // reached the end.
       if (!pending_current && pending_head)
-          pending_current = pending_head; 
+          pending_current = pending_head;
+
+      if (breakOut > pending_message_limit)
+      {
+          // If we've met our pending_message_limit break out
+          // of our tight loop sending messages as fast as possible
+          // to service any off events.
+          return true;
+      }
       
     }
     // Resume normal operations
