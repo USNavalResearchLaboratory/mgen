@@ -10,7 +10,8 @@
 #include <ctype.h>   // for toupper()
 
 MgenPattern::MgenPattern()
-  : interval_remainder(0.0),burst_pattern(NULL),unlimitedRate(false)
+    : interval_remainder(0.0),burst_pattern(NULL),unlimitedRate(false),
+    flowPaused(false)
 #ifdef HAVE_PCAP
   ,pcap_device(NULL),
   file_type(INVALID_FILETYPE),repeat_count(-1)
@@ -199,6 +200,7 @@ MgenPattern::FileType MgenPattern::GetFileTypeFromString(const char* string)
 
 bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string, Protocol protocol)
 {
+    flowPaused = false;
     type = theType;
     switch (type)
     {
@@ -257,6 +259,7 @@ bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string, 
             else
             {
 	            interval_ave = -1.0;
+                flowPaused = true;
             }
 	        if (UDP != protocol)
 		    {
@@ -336,6 +339,7 @@ bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string, 
             else
             {
                 interval_ave = -1.0;
+                flowPaused = true;
             }
             if (interval_ave > 0.0)
             {

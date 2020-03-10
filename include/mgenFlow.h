@@ -66,6 +66,7 @@ class MgenFlow
     bool DoGenericEvent(const MgenEvent* event);
     bool IsActive() const;
     double GetCurrentOffset() const;
+    bool IsTransportChanging(const MgenEvent* event, UINT16 tmpSrcPort, ProtoAddress tmpDstAddr);
     
     // New methods to support remote control of flows
     void Suspend();
@@ -124,7 +125,11 @@ class MgenFlow
     
     UINT32                  flow_id;                       
     Protocol                protocol;                      
-    ProtoAddress            dst_addr;                      
+    ProtoAddress            dst_addr;
+    // Used to log off events when we change transports as
+    // transports don't store dst addrs for some reason?
+    // Something to do with leave events maybe?
+    ProtoAddress            orig_dst_addr;
     UINT16                  src_port;    
     
 	MgenPattern             pattern;                     

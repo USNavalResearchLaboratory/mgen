@@ -36,16 +36,17 @@ class MgenPattern
 #else
         enum Type {INVALID_TYPE, PERIODIC, POISSON, BURST, JITTER};    
 #endif
-        static Type GetTypeFromString(const char* string);
+    static Type GetTypeFromString(const char* string);
 
-        bool InitFromString(MgenPattern::Type theType, const char* string,Protocol protocol);
+    bool InitFromString(MgenPattern::Type theType, const char* string,Protocol protocol);
                 
-        double GetPktInterval();        
-        double GetIntervalAve() {return interval_ave;}
-        unsigned int GetPktSize();
-        void InvalidatePattern() {type = INVALID_TYPE;};
+    double GetPktInterval();        
+    double GetIntervalAve() {return interval_ave;}
+    unsigned int GetPktSize();
+    void InvalidatePattern() {type = INVALID_TYPE;};
 	MgenPattern::Type GetType() { return type;};
 	bool UnlimitedRate() {return unlimitedRate;}
+    bool FlowPaused() {return flowPaused;}
 #ifdef HAVE_PCAP
 	bool ReadingPcapFile() {return pcap_device;}
 #endif
@@ -92,6 +93,7 @@ class MgenPattern
         double          burst_duration;
         struct timeval  last_time;
 	    bool            unlimitedRate;
+        bool            flowPaused;
 
 #ifdef HAVE_PCAP
         pcap_t*         pcap_device;

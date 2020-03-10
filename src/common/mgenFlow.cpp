@@ -195,7 +195,7 @@ bool MgenFlow::Start(double offsetTime)
 bool MgenFlow::DoOnEvent(const MgenEvent* event)
 {
     // Save some state in case we are changing transports
-    ProtoAddress orig_dst_addr = dst_addr;
+    orig_dst_addr = dst_addr;
     old_transport = flow_transport;
     protocol = event->GetProtocol();
 
@@ -350,11 +350,44 @@ bool MgenFlow::DoOnEvent(const MgenEvent* event)
         }
     }
     theMsg.SetDstAddr(dst_addr);
-    theMsg.GetSrcAddr().SetPort(src_port);
+    theMsg.GetSrcAddr().SetPort(flow_transport->GetSrcPort());
     flow_transport->LogEvent(ON_EVENT,&theMsg,currentTime);
     return true;
 
 } // MgenFlow::DoOnEvent
+
+bool MgenFlow::IsTransportChanging(const MgenEvent* event, UINT16 tmpSrcPort, ProtoAddress tmpDstAddr)
+{
+    // If we're not changing socket src/dst addr 
+    // connection status, or transport, we are not
+    // changing the socket so return.
+    if ((tmpSrcPort == 0) || (tmpSrcPort == src_port))
+    {
+        if (dst_addr.IsEqual(tmpDstAddr))
+        {
+            if (((event->OptionIsSet(MgenEvent::INTERFACE)) &&
+                ((strcmp(event->GetInterface(), flow_transport->GetInterface())) == 0))
+                ||
+                (!event->OptionIsSet(MgenEvent::INTERFACE)))
+                {
+                    if ((event->OptionIsSet(MgenEvent::CONNECT) 
+                         && flow_transport->IsConnected())
+                        ||
+                        (!event->OptionIsSet(MgenEvent::CONNECT)))
+                    {
+                        // The transport always reports IsConnected() == true
+                        // if the socket has not been previously connected.
+                        // So for now, MOD's with no connect option continue to
+                        // use the existing transport for the flow (that
+                        // may or may not have been previously connected.)
+                        return false;
+                    }
+                }
+        }
+    }
+
+    return true;
+}
 
 bool MgenFlow::DoModEvent(const MgenEvent* event)
 { 
@@ -366,6 +399,7 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
     // example per [0 100]
     if (flow_transport != NULL)
       src_port = flow_transport->GetSrcPort();
+    
     ProtoAddress tmpDstAddr = dst_addr;
      
     if (event->OptionIsSet(MgenEvent::SRC)) {tmpSrcPort = event->GetSrcPort();}
@@ -375,42 +409,64 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
     if (event->OptionIsSet(MgenEvent::PAUSE)) {Pause();}
     if (event->OptionIsSet(MgenEvent::RECONNECT)) {Reconnect();}
 
-    // If we're not changing socket src/dst addr 
-    //  connection status, or transport, return.
-    if (((tmpSrcPort == src_port) && (dst_addr.IsEqual(tmpDstAddr)))
-        && 
-        ((event->OptionIsSet(MgenEvent::INTERFACE) 
-          && !strcmp(event->GetInterface(), flow_transport->GetInterface())))        
-        && 
-        ((event->OptionIsSet(MgenEvent::CONNECT) 
-          && flow_transport->IsConnected())
-         ||
-         (!event->OptionIsSet(MgenEvent::CONNECT) 
-          && !flow_transport->IsConnected())))
-      return true;
-
-
-    if ((!event->OptionIsSet(MgenEvent::SRC)) 
-        &&
-        (!event->OptionIsSet(MgenEvent::DST))
-
-        && flow_transport != NULL) // in case we've "paused" the flow via [0 N] pattern
-         return true;
-    
     if (event->OptionIsSet(MgenEvent::COUNT))
     {
         message_limit = event->GetCount();
         messages_sent = 0;
     }
 
+    struct timeval currentTime;
+
+    // If the previous event paused the flow [0 n], log an
+    // ON event if our transport is not changing.  If it is
+    // we will log the on event after we successfully get
+    // a new transport.
+    if (pattern.FlowPaused()
+        &&
+        !IsTransportChanging(event, tmpSrcPort, tmpDstAddr))
+    {
+        MgenMsg theMsg;
+        theMsg.SetFlowId(flow_id); 
+        theMsg.SetDstAddr(tmpDstAddr);
+        ProtoSystemTime(currentTime);
+        flow_transport->LogEvent(ON_EVENT,&theMsg,currentTime); 
+    }
+
+    // If the current event is pausing the flow, log
+    // an OFF event.
+    if (event->OptionIsSet(MgenEvent::PATTERN))
+    {
+        // Don't override the flow's pattern - we use that
+        // below to decide whether to log an OFF event
+        // or not.
+        MgenPattern eventPattern = event->GetPattern();
+        // The flow was set to 0 packets a second [0 n]
+        if (eventPattern.FlowPaused())
+        {
+            MgenMsg theMsg;
+            theMsg.SetFlowId(flow_id); 
+            theMsg.SetDstAddr(dst_addr); // Previous flow is being turned off
+            ProtoSystemTime(currentTime);
+            flow_transport->LogEvent(OFF_EVENT,&theMsg,currentTime); 
+            return true;
+        }
+    }
 
     // If we're changing the destination of a connected udp socket
-    // however - we can't share the same src port so reset it..
+    // we can't share the same src port so reset it..
     if (event->OptionIsSet(MgenEvent::CONNECT) 
         &&
         event->OptionIsSet(MgenEvent::DST))
       src_port = 0;
       
+    if (!IsTransportChanging(event, tmpSrcPort, tmpDstAddr))
+    {
+        return true;
+    }
+    
+    // Else we have options set that will result in our changing the
+    // socket.
+    
 
     /** 
      * Can't bind to a tcp src port if another tcp socket is 
@@ -438,10 +494,6 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
      *
      */ 
 
-    // Close the transport if no other users.  
-    /*    if (flow_transport->GetReferenceCount() <= 1)
-      flow_transport->Close();
-    */
     old_transport = flow_transport;
 
     // Don't want to flood the new transport just because the old
@@ -453,21 +505,24 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
     MgenMsg theMsg;
     theMsg.SetFlowId(flow_id); 
     theMsg.SetDstAddr(dst_addr);
-    struct timeval currentTime;
-    ProtoSystemTime(currentTime);
     
-    // Shutdown the transport. The dispatcher will notice when
+    // Shutdown the transport if we are not still transmitting
+    // (TCP only, UDP Messages are single shot)  If we are still
+    // sending a TCP message, the dispatcher will notice when
     // we get the final fin (e.g. error condition on socket
     // or numBytes read == 0) and we'll log the off/disconnect
-    // event then
+    // event then.  The else condition will be followed for any
+    // UDP sockets.  (This should be cleaned up!)
     if (old_transport && !old_transport->TransmittingFlow(flow_id))
       {
         if (old_transport->Shutdown())
         {
-         // Log shutdown event if we've shutdown the socket
+            // Log shutdown event if we've shutdown the socket
+            ProtoSystemTime(currentTime);
             old_transport->LogEvent(SHUTDOWN_EVENT,&theMsg,currentTime);
 
             old_transport->Close();
+            ProtoSystemTime(currentTime);
             old_transport->LogEvent(OFF_EVENT,&theMsg,currentTime); 
             old_transport = NULL;
 
@@ -477,9 +532,20 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
             // else we have other references to the socket, or are 
             // UDP. Log off event and set transport to NULL so
             // we don't log another off event for this flow
-            old_transport->LogEvent(OFF_EVENT,&theMsg,currentTime);
+            if (!pattern.FlowPaused())
+            {
+                // But not if the flow was paused, we already
+                // logged the off event.
+                ProtoSystemTime(currentTime);
+                old_transport->LogEvent(OFF_EVENT,&theMsg,currentTime);
+            }
             if (protocol == UDP)
-              if (old_transport->IsOpen()) old_transport->Close();
+            {
+              if (old_transport->IsOpen())
+              {
+                  old_transport->Close();
+              }
+            }
             old_transport = NULL;
         }
       }
@@ -490,7 +556,7 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
     if (tmpSrcPort != 0) {src_port = tmpSrcPort;}
     if (tmpDstAddr.IsValid()) {dst_addr = tmpDstAddr;}
     
-    // Get a transport that matches the new src/dst
+    // Get a transport that matches the new src/dst/interface/connection status
     flow_transport = mgen.GetMgenTransport(protocol,
                                            src_port,
                                            dst_addr,
@@ -510,6 +576,13 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
         return false;
     }
 
+    // We are sending the flow over a different socket/transport so
+    // log on event
+    theMsg.SetDstAddr(dst_addr);
+    ProtoSystemTime(currentTime);
+
+    flow_transport->LogEvent(ON_EVENT,&theMsg,currentTime);
+
     return true;
 
 } // end MgenFlow::DoModEvent()
@@ -517,7 +590,6 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
 bool MgenFlow::DoGenericEvent(const MgenEvent* event)
 {
     // ON/MOD flow options	
-
     if (event->OptionIsSet(MgenEvent::PATTERN))
       pattern = event->GetPattern();
 
@@ -742,8 +814,9 @@ bool MgenFlow::GetNextInterval()
 //  an OFF_EVENT 
 void MgenFlow::StopFlow()
 {
-  pending_messages = message_limit = messages_sent = 0;
-  off_pending = false;
+    message_limit = -1;
+    pending_messages = messages_sent = 0;
+    off_pending = false;
 
   // Inform rapr so it can reuse the flowid
   if (controller)
@@ -782,7 +855,10 @@ void MgenFlow::StopFlow()
         else
         {
             // else we have other references to the socket, or are 
-            // UDP. Log off event and set transport to NULL so
+            // UDP.  (flow_transport.Shutdown() always returns false
+            // for UDP sockets.)
+            //
+            // Log off event and set transport to NULL so
             // we don't log another off event for this flow
             // later on in the shutdown process
             flow_transport->LogEvent(OFF_EVENT,&theMsg,currentTime);
@@ -1198,7 +1274,6 @@ bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
     // is perhaps when a flow attribute change gets the flow assigned to 
     // a different socket?  E.g., a different source port, TOS, etc?
     
-    
     if (!flow_transport || ((message_limit >= 0) && (messages_sent >= message_limit)))
     {
         if (tx_timer.IsActive()) tx_timer.Deactivate();
@@ -1216,7 +1291,7 @@ bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
           {
               MgenMsg theMsg;
               theMsg.SetFlowId(flow_id); 
-              theMsg.SetDstAddr(dst_addr);
+              theMsg.SetDstAddr(orig_dst_addr);
               struct timeval currentTime;
               ProtoSystemTime(currentTime);
               
@@ -1224,16 +1299,10 @@ bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
               if (old_transport->Shutdown())
               {
                   old_transport->LogEvent(SHUTDOWN_EVENT,&theMsg,currentTime);
-                  if (old_transport->IsOpen()) old_transport->Close();
-                  old_transport->LogEvent(OFF_EVENT,&theMsg,currentTime);
-                  
               }
-              else
-              {
-                  // else we have other references?
-                  old_transport->LogEvent(OFF_EVENT,&theMsg,currentTime);
-              }
-
+              
+              old_transport->LogEvent(OFF_EVENT,&theMsg,currentTime);
+              if (old_transport->IsOpen()) old_transport->Close();
               old_transport = NULL;
 
               // Reactivate timer for new transport
