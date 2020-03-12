@@ -211,7 +211,7 @@ bool MgenTransport::SendPendingMessage()
 {
     // break out of while loop after N iterations to resume asynch i/o
     unsigned int breakOut = 0;
-    unsigned int pending_message_limit = 1000;
+    unsigned int pending_message_limit = 10000;
     
     // Send pending messages until we hit congestion
     // or clear the queue...
