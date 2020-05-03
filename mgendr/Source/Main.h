@@ -289,7 +289,8 @@ private:
     
     void AppendReportContent(Report& report, const ProtoTime& theTime);
     
-    ScopedPointer<MainWindow>   main_window;
+    //ScopedPointer<MainWindow>   main_window;
+    std::unique_ptr<MainWindow> main_window;
     ControlComponent*           ctrl_window;    
     ApplicationCommandManager   cmd_manager;
     

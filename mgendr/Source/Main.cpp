@@ -28,7 +28,7 @@ MgenderApp::MgenderApp()
   active_chooser(nullptr), event_index(0)
 {
     probe_addr.ConvertFromString("127.0.0.1");
-    probe_addr.SetPort(8001);
+    probe_addr.SetPort(0);
     iface_name[0] = iface_name[255] = '\0';
     app_ptr = this;
 #ifdef JUCE_MAC
@@ -309,7 +309,7 @@ void MgenderApp::initialise(const String& commandLine)
     // This method is where you should put your application's initialisation code ...
     dispatcher.StartThread();
     ctrl_window = new ControlComponent(*this);
-    main_window = new MainWindow(getApplicationName(), ctrl_window);
+    main_window.reset(new MainWindow(getApplicationName(), ctrl_window));
     main_window->addKeyListener(cmd_manager.getKeyMappings());
     report_flow_count = 0;
     dispatcher.SuspendThread();

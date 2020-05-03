@@ -831,9 +831,9 @@ bool Mgen::ProcessDrecEvent(const DrecEvent& event)
               if (theMgenTransport)
                 
               {
-                  // Listen increments reference count
-                  if (theMgenTransport->Listen(port[i],addr_type,true))
-                  {
+                 // Listen increments reference count
+                 if (theMgenTransport->Listen(port[i],addr_type,true))
+                 {
                      result = true;
                  }
                  else

@@ -737,7 +737,7 @@ bool MgenSocketTransport::Listen(UINT16 port,ProtoAddress::Type addrType, bool b
         }
     }
     // Open increments reference_count initially
-    else if (!Open(addrType,bindOnOpen))
+    else if (!Open(addrType, bindOnOpen))
     {
         DMSG(0,"MgenTransprotList::MgenSocketTransport::Listen() Error: socket open error on port %hu\n",srcPort);
         return false;
@@ -929,7 +929,6 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
             char* buffer = (char*)alignedBuffer;
             unsigned int len = MAX_SIZE;
             ProtoAddress srcAddr;
-
             while (theSocket.RecvFrom((char*)buffer, len, srcAddr))
             {
                 if (len == 0) break;
@@ -1582,7 +1581,6 @@ bool MgenTcpTransport::Reconnect(ProtoAddress::Type addrType)
 
 bool MgenTcpTransport::Open(ProtoAddress::Type addrType, bool bindOnOpen)
 {
-
     if (socket.IsConnecting() || socket.IsConnected()) 
     {
         reference_count++;

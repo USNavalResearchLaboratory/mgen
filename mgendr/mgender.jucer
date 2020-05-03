@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT name="mgender" projectType="guiapp" jucerVersion="5.3.2" bundleIdentifier="mil.navy.nrl.mgender"
+<JUCERPROJECT name="mgender" projectType="guiapp" jucerVersion="5.4.7" bundleIdentifier="mil.navy.nrl.mgender"
               userNotes="Currently just an example Projucer project to illustrate build configurations for Protolib modules in conjunction with JUCE modules.  Eventually, a &quot;juceProtoExample&quot; application will be created.  This &quot;jucer&quot; file can serve as a template or starter for other JUCE/Protolib projects."
               defines="PROTO_DEBUG&#10;" headerPath=" ../../../include&#10;../../../protolib/include&#10;"
               id="mgUm95">
@@ -72,7 +72,7 @@
   </MAINGROUP>
   <EXPORTFORMATS>
     <XCODE_MAC targetFolder="Builds/MacOSX" extraDefs="MACOSX UNIX HAVE_IPV6 HAVE_ASSERT HAVE_GETLOGIN HAVE_FLOCK HAVE_DIRFD HAVE_PSELECT USE_SELECT _FILE_OFFSET_BITS=64"
-               externalLibraries="xml2" bigIcon="pQQOpg" smallIcon="pQQOpg">
+               externalLibraries="xml2" smallIcon="pQQOpg" bigIcon="pQQOpg">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="1" name="Debug" headerPath="/usr/include/libxml2"/>
         <CONFIGURATION isDebug="0" name="Release" headerPath="/usr/include/libxml2"/>

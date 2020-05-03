@@ -272,7 +272,7 @@ bool MgenFlow::DoOnEvent(const MgenEvent* event)
         DMSG(0, "MgenFlow::DoOnEvent() Error: unable to get %s flow transport.\n",MgenEvent::GetStringFromProtocol(protocol));
         return false; 
     }
-
+    
     // This increments socket reference_count for any new flows
     // using the transport and opens socket as needed.  Note that
     // socket must be opened as IPv4 or IPv6 type
@@ -281,6 +281,8 @@ bool MgenFlow::DoOnEvent(const MgenEvent* event)
         DMSG(0, "MgenFlow::DoOnEvent() Error: socket open error flow>%d\n",flow_id);
         return false;
     }
+    
+    
     
     // Set up msg for logging
     MgenMsg theMsg;
