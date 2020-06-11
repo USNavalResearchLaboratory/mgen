@@ -42,6 +42,9 @@ int Mgen::LogToDebug(FILE* /*filePtr*/, const char* format, ...)
 
 void Mgen::LogTimestamp(FILE* filePtr, const struct timeval& theTime, bool localTime)
 {
+#ifdef EPOCH_TIMESTAMP
+    Mgen::Log(filePtr, "%lu.%06lu ", theTime.tv_sec, theTime.tv_usec);
+#else
 #ifdef _WIN32_WCE
     struct tm timeStruct;
     timeStruct.tm_hour = theTime.tv_sec / 3600;
@@ -60,6 +63,7 @@ void Mgen::LogTimestamp(FILE* filePtr, const struct timeval& theTime, bool local
     Mgen::Log(filePtr, "%02d:%02d:%02d.%06lu ",
                   timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
                   (UINT32)theTime.tv_usec);
+#endif // if/else EPOCH_TIMESTAMP
 }  // end Mgen::LogTimeStamp()
 
 
@@ -181,6 +185,10 @@ bool Mgen::Start()
             else
             {
 
+#ifdef EPOCH_TIMESTAMP
+                Mgen::Log(log_file, "%lu.%06lu START Mgen Version %s\n",
+                          currentTime.tv_sec,currentTime.tv_usec,MGEN_VERSION);
+#else
 #ifdef _WIN32_WCE
                 struct tm timeStruct;
                 timeStruct.tm_hour = currentTime.tv_sec / 3600;
@@ -201,6 +209,7 @@ bool Mgen::Start()
                 Mgen::Log(log_file, "%02d:%02d:%02d.%06lu START Mgen Version %s\n",
                      timePtr->tm_hour, timePtr->tm_min, 
                           timePtr->tm_sec, (UINT32)currentTime.tv_usec,MGEN_VERSION);
+#endif // if/else EPOCH_TIMESTAMP
             }
             if (log_empty) log_empty = false;
             fflush(log_file);
@@ -599,6 +608,9 @@ void Mgen::Stop()
             }
             else
             {
+#ifdef EPOCH_TIMESTAMP
+                Mgen::Log(log_file, "%lu.%06lu STOP\n", currentTime.tv_sec, currentTime.tv_usec);
+#else
 #ifdef _WIN32_WCE
                 struct tm timeStruct;
                 timeStruct.tm_hour = currentTime.tv_sec / 3600;
@@ -615,9 +627,10 @@ void Mgen::Stop()
 		  timePtr = gmtime((time_t*)&currentTime.tv_sec);
 
 #endif // if/else _WIN32_WCE
-                Mgen::Log(log_file, "%02d:%02d:%02d.%06lu STOP\n",
+               Mgen::Log(log_file, "%02d:%02d:%02d.%06lu STOP\n",
                                    timePtr->tm_hour, timePtr->tm_min, 
                                    timePtr->tm_sec, (UINT32)currentTime.tv_usec);
+#endif // if/else EPOCH_TIMESTAMP
             }  // end if/else(log_binary)
             
         }  //end if(log_file)
