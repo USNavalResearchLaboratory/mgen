@@ -627,7 +627,7 @@ void Mgen::Stop()
 		  timePtr = gmtime((time_t*)&currentTime.tv_sec);
 
 #endif // if/else _WIN32_WCE
-               Mgen::Log(log_file, "%02d:%02d:%02d.%06lu STOP\n",
+                Mgen::Log(log_file, "%02d:%02d:%02d.%06lu STOP\n",
                                    timePtr->tm_hour, timePtr->tm_min, 
                                    timePtr->tm_sec, (UINT32)currentTime.tv_usec);
 #endif // if/else EPOCH_TIMESTAMP
