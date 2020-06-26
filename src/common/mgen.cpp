@@ -432,7 +432,7 @@ MgenTransport* Mgen::FindTransportByInterface(const char*           interfaceNam
                     {
                         if (0 == next->GroupCount())
                         {
-                            next->SetMulticastInterface('\0');
+                            next->SetMulticastInterface(NULL);
                             return nextTransport;
                         }
                         else
