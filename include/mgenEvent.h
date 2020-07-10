@@ -164,6 +164,7 @@ class MgenEvent : public MgenBaseEvent
     const ProtoAddress& GetDstAddr() const {return dst_addr;}
     const MgenPattern& GetPattern() const {return pattern;}
 	int GetCount() const {return count;}
+    bool GetKeepAlive() const {return keep_alive;}
     Protocol GetProtocol() const {return protocol;}
 	void SetProtocol(Protocol theProtocol) {protocol = theProtocol;}
     bool GetBroadcast() const {return broadcast;}
@@ -234,6 +235,7 @@ class MgenEvent : public MgenBaseEvent
     char	     *payload;        
     MgenPattern      pattern; 
     int              count;
+    bool             keep_alive;
     Protocol         protocol;            
     bool             broadcast;
     int              tos;

@@ -16,10 +16,11 @@ MgenBaseEvent::MgenBaseEvent(Category theCategory)
 
 MgenEvent::MgenEvent()
  : MgenBaseEvent(MGEN), flow_id(0), event_type(INVALID_TYPE), src_port(0),
-   payload(0), count(-1),protocol(INVALID_PROTOCOL), tos(0), ttl(255),
+   payload(0), count(-1), keep_alive(true),
+   protocol(INVALID_PROTOCOL), tos(0), ttl(255),
    retry_count(0), retry_delay(0),
    df(DF_DEFAULT), option_mask(0), queue(0), connect(false), 
-   report_analytics(false), report_feedback(false)
+   report_analytics(false), report_feedback(false), flow_status()
 {
     interface_name[0] = '\0';
     flow_label = 0;
@@ -281,7 +282,7 @@ bool MgenEvent::InitFromString(const char* string)
     // Point to next field, skipping any white space
     ptr += strlen(fieldBuffer);
     while ((' ' == *ptr) || ('\t' == *ptr)) ptr++;
-    
+
     if (!flow_status.Init())
     {
         PLOG(PL_ERROR,"MgenEvent::InitFromString() error: unable to init flow_status!\n");
@@ -407,6 +408,26 @@ bool MgenEvent::InitFromString(const char* string)
                   return false;
               }
               count = countValue;
+
+              // Check for keep alive attribute
+
+              char* keepAlivePtr = strchr(fieldBuffer, ',');
+              if (keepAlivePtr)
+              {
+                 char keepAliveValue[Mgen::SCRIPT_LINE_MAX];
+                 if (1 != sscanf(keepAlivePtr, "%s", keepAliveValue))
+                 {
+                     DMSG(0, "MgenEvent::InitFromString() Error: invalid keep alive value\n");
+                     return false;
+                 }
+                 
+                 if ((strcmp(keepAliveValue,",off"))
+                     ||
+                     (strcmp(keepAliveValue,",OFF")))
+                 {
+                     keep_alive = false;
+                 }
+              }
               // Set ptr to next field, skipping any white space
               ptr += strlen(fieldBuffer);
               while ((' ' == *ptr) || ('\t' == *ptr)) ptr++;
