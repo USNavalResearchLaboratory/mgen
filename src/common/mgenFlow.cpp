@@ -19,6 +19,7 @@ MgenFlow::MgenFlow(unsigned int         flowId,
     flow_id(flowId), flow_label(defaultV6Label),
     report_analytics(false), report_feedback(false),
     flow_suspended(false), flow_paused(false),
+    keep_alive(true),
     flow_transport(NULL), seq_num(0), 
     pending_messages(0), messages_sent(0), next_event(NULL), 
     started(false), socket_error(false),timer_mgr(timerMgr),
@@ -32,7 +33,7 @@ MgenFlow::MgenFlow(unsigned int         flowId,
     event_timer.SetListener(this, &MgenFlow::OnEventTimeout);
     event_timer.SetInterval(1.0);
     event_timer.SetRepeat(-1);
-    
+
     flow_command.InitIntoBuffer(MgenFlowCommand::DATA_ITEM_FLOW_CMD, command_buffer, 12);
 }
 
@@ -207,6 +208,8 @@ bool MgenFlow::DoOnEvent(const MgenEvent* event)
     {
         message_limit = event->GetCount();
         messages_sent = 0;
+
+        keep_alive = event->GetKeepAlive();
     }
 #ifdef WIN32
     if (protocol == TCP)
@@ -232,6 +235,7 @@ bool MgenFlow::DoOnEvent(const MgenEvent* event)
     
     // Update flow_command as needed
     const MgenEvent::FlowStatus& flowStatus = event->GetFlowStatus();
+
     if (flowStatus.IsSet()) 
     {
         for (UINT32 id = 1; id <= MgenEvent::FlowStatus::MAX_FLOW; id++)
@@ -247,7 +251,7 @@ bool MgenFlow::DoOnEvent(const MgenEvent* event)
             }
         }   
     }
-    
+
     // When we have a message_limit the transport keeps track of
     // how many messages we have successfully sent so (for now
     // we should provide a better fix for this - have flow keep track?)
@@ -415,6 +419,7 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
     {
         message_limit = event->GetCount();
         messages_sent = 0;
+        keep_alive = event->GetKeepAlive();
     }
 
     struct timeval currentTime;
@@ -795,7 +800,13 @@ bool MgenFlow::GetNextInterval()
 #endif
         if(tx_timer.IsActive()) tx_timer.Deactivate();
         last_interval = 0.0;
-        // ljt StopFlow();
+
+        // If we aren't keeping flows alive that have
+        // exceeded count, stop the flow
+        if (!keep_alive)
+        {
+            StopFlow();
+        }
         return false;
     }
     else  // (nextInterval == 0.0) // Flow pattern rate is unlimited
@@ -813,7 +824,7 @@ bool MgenFlow::GetNextInterval()
 } // end MgenFlow::GetNextInterval()
 
 //  Stop Flow is called when a flow has been stopped due to
-//  an OFF_EVENT 
+//  an OFF_EVENT or a COUNT has been exceeded (no keep alive option)
 void MgenFlow::StopFlow()
 {
     message_limit = -1;
@@ -1281,6 +1292,10 @@ bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
         if (tx_timer.IsActive()) tx_timer.Deactivate();
         // reset messages sent so subsequent flow mods will take affect
         //message_limit = messages_sent = 0;
+        if (!keep_alive)
+        {
+            StopFlow();
+        }
         return false;
     }
     // If we moved to a new transport, finish sending

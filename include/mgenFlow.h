@@ -122,7 +122,6 @@ class MgenFlow
     MgenTransport*          old_transport;
 	int                     queue_limit;
 	int                     message_limit;
-    
     UINT32                  flow_id;                       
     Protocol                protocol;                      
     ProtoAddress            dst_addr;
@@ -146,6 +145,7 @@ class MgenFlow
     bool                    flow_suspended;
 
     bool                    flow_paused; // Used by TCP retry
+    bool                    keep_alive; // Keep flow alive after count exceeded
 
     ProtoTimer              tx_timer;  
 
