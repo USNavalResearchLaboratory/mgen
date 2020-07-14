@@ -114,6 +114,7 @@ class MgenFlow
     MgenFlow* GetPendingPrev() {return pending_prev;}
     void AppendPendingPrev(MgenFlow* theFlow) {pending_prev = theFlow;}
     double GetPktInterval() {return pattern.GetPktInterval();}
+    void UpdateMessagesSent() { messages_sent++; }
 
   private:
 	bool GetNextInterval();
