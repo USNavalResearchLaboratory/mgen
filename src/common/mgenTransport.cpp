@@ -1790,6 +1790,11 @@ bool MgenTcpTransport::GetNextTxBuffer(unsigned int numBytes)
 	        // with the time we squirreled away earlier
             UINT32 txChecksum = 0;
             UINT32 txBuffer[MAX_SIZE/4 + 1];    
+
+            // Tell the flow we sent a message
+            MgenFlow* theFlow = mgen.FindFlowById(tx_msg.GetFlowId());
+            theFlow->UpdateMessagesSent();
+
             // Use the time of the first message fragment sent that
             // we squirreled away earlier.  Binary logging uses the
             // tx_time in the message buffer, logfile logging uses
