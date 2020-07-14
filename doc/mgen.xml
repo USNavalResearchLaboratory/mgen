@@ -669,7 +669,7 @@
             which will result in no queuing behavior, e.g. the transmission
             timer will continue to fire at its regularly scheduled interval
             regardless of transport congestion. No pending message count will
-            be accumulated and message transmission will suceed or fail
+            be accumulated and message transmission will succeed or fail
             depending on transport availability. See <link
             linkend="_QUEUE">QUEUE</link> for more details about the queueing
             mechanism.</entry>
@@ -800,7 +800,7 @@
             The transport will attempt to reconnect over the life of the flow
             if the retry count is set to -1. If multiple flows are sharing the
             transport a common retry pattern should be used by all the flows
-            or the last attribute set "wins". </entry>
+            or the last attribute set "wins".</entry>
           </row>
         </tbody>
       </tgroup>
@@ -1174,7 +1174,7 @@
 
         <para>Option syntax:<literal/></para>
 
-        <para><literal>... COUNT &lt;msgCount&gt; ...</literal></para>
+        <para><literal>... COUNT &lt;msgCount&gt;[,off] ...</literal></para>
 
         <para>The optional COUNT attribute specifies the number of messages
         that are to be sent for the flow, e.g. a COUNT value of 1 means that
@@ -1182,7 +1182,10 @@
         "-1", meaning mgen will send an unlimited number of messages until an
         <link linkend="_OFF_Event">OFF</link> event occurs. If a message count
         is specified, the mgen flow will be paused after the requested number
-        of messages has been sent.</para>
+        of messages has been sent. If the optional ",off" attribute is set the
+        flow will be turned off after COUNT packets have been sent. The
+        default behavior will keep the flow "alive" after COUNT packets have
+        been sent and will be available for subsequent control.</para>
 
         <para>Note that an <link linkend="_OFF_Event">OFF</link> event will
         override any message COUNT specified (e.g. the flow will be terminated
@@ -1215,6 +1218,13 @@
 20.0 mod 1 periodic [1 1024] count 5
 60.0 off 1</programlisting>Message counts are kept on a per flow basis
         regardless of how many flows are sharing a transport.</para>
+
+        <para>Given an input script with two gated flows, the mgen instance
+        will exist after 8 packets have been sent:</para>
+
+        <programlisting>0.0 on 1 UDP dst 127.0.0.1/5000 periodic [1 1024] count 5,off
+
+0.0 on 2 UDP dst 127.0.0.1/5000 periodic [1 1024] count 3,off</programlisting>
       </sect3>
 
       <sect3 id="Pattern__PER">
@@ -2208,7 +2218,7 @@
         transport will attempt to reconnect over the life of the flow if the
         retry count is set to -1. If multiple flows are sharing the transport
         a common retry pattern should be used by all the flows or the last
-        attribute set "wins". </para>
+        attribute set "wins".</para>
 
         <para>For example:</para>
 
@@ -2216,12 +2226,12 @@
 
         <para><programlisting>ON 1 TCP DST 127.0.0.1/5000 PERIODIC [1 1024] RETRY -1/5 </programlisting></para>
 
-        <para>Attempt to connect twice after initial failure every 3 seconds
-        </para>
+        <para>Attempt to connect twice after initial failure every 3
+        seconds</para>
 
         <para><programlisting>ON 1 TCP DST 127.0.0.1/5000 PERIODIC [1 1024] RETRY 2/3 </programlisting></para>
 
-        <para>RECONNECT events are logged at each reconnect attempt: </para>
+        <para>RECONNECT events are logged at each reconnect attempt:</para>
 
         <programlisting>17:36:12.762619 RECONNECT flow&gt;1 srcPort&gt;35859 dst&gt;127.0.0.1/5000 
 17:36:17.763483 RECONNECT flow&gt;1 srcPort&gt;46864 dst&gt;127.0.0.1/5000 
@@ -2690,7 +2700,7 @@
             seconds. The transport will attempt to reconnect over the life of
             the flow if the retry count is set to -1. If multiple flows are
             sharing the transport a common retry pattern should be used by all
-            the flows or the last attribute set "wins". </entry>
+            the flows or the last attribute set "wins".</entry>
           </row>
         </tbody>
       </tgroup>
