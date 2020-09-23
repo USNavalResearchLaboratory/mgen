@@ -1,6 +1,3 @@
-# protolib
-protolib/
-
 # build executables
 makefiles/mgen
 makefiles/mpmgr

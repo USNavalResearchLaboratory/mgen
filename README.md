@@ -15,7 +15,7 @@ Requires Protolib:
     
     git clone https://github.com/USNavalResearchLaboratory/mgen.git
     cd mgen
-    git clone https://github.com/USNavalResearchLaboratory/protolib.git
+    git submodule update --init
     cd makefiles
     make -f Makefile.linux
 
