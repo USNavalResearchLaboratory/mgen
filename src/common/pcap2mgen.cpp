@@ -35,6 +35,8 @@ FILE* outfile = stdout;
 bool trace = false;
 bool log_rx = true;
 
+bool flush = false;
+
 
 const char* const CMD_LIST[] = 
 {
@@ -43,6 +45,7 @@ const char* const CMD_LIST[] =
     "+outfile",   // Name of output file
     "-trace",     // Prepends MGEN log lines with epoch time and MAC src/addr info
     "+rxlog",     // Turns on/off recv log info. For report messages only
+    "-flush",     // flush writes to outfile
     "+window"     // Sets analytic window
 };
 
@@ -148,6 +151,10 @@ bool OnCommand(const char* cmd, const char* val)
     else if (!strncmp("trace", lowerCmd, len))
     {
         trace = true;
+    }
+    else if (!strncmp("flush", lowerCmd, len))
+    {
+        flush = true;
     }
     else if (!strncmp("rxlog", lowerCmd, len))
     {
@@ -336,6 +343,7 @@ int main(int argc, char* argv[])
         }    
         ProtoPktIP ipPkt;
         ProtoAddress srcAddr, dstAddr;
+        int ttl = -1;
         ProtoPktETH::Type ethType = ethPkt.GetType();
         if ((ProtoPktETH::IP == ethType) ||
             (ProtoPktETH::IPv6 == ethType))
@@ -353,6 +361,7 @@ int main(int argc, char* argv[])
                     ProtoPktIPv4 ip4Pkt(ipPkt);
                     ip4Pkt.GetDstAddr(dstAddr);
                     ip4Pkt.GetSrcAddr(srcAddr);
+                    ttl = ip4Pkt.GetTTL();
                     break;
                 } 
                 case 6:
@@ -360,6 +369,7 @@ int main(int argc, char* argv[])
                     ProtoPktIPv6 ip6Pkt(ipPkt);
                     ip6Pkt.GetDstAddr(dstAddr);
                     ip6Pkt.GetSrcAddr(srcAddr);
+                    ttl = ip6Pkt.GetHopLimit();
                     break;
                 }
                 default:
@@ -372,6 +382,8 @@ int main(int argc, char* argv[])
             //PLOG(PL_ALWAYS," src>%s length>%d\n", srcAddr.GetHostString(), ipPkt.GetLength());
         }
         if (!srcAddr.IsValid()) continue;  // wasn't an IP packet
+        
+       
         
         ProtoPktUDP udpPkt;
         if (!udpPkt.InitFromPacket(ipPkt)) continue;  // not a UDP packet
@@ -429,7 +441,7 @@ int main(int argc, char* argv[])
         }
 
         // Should we make "flush" true by default?
-        msg.LogRecvEvent(outfile, false, false, log_rx, false, true, (UINT32*)udpPkt.AccessPayload(), false, hdr.ts);        
+        msg.LogRecvEvent(outfile, false, false, log_rx, false, true, (UINT32*)udpPkt.AccessPayload(), flush, ttl, hdr.ts);        
     }  // end while (pcap_next())
     
     if (stdin != infile) fclose(infile);

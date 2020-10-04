@@ -951,6 +951,7 @@ bool MgenMsg::LogRecvEvent(FILE*                    logFile,
 			               bool                     logGpsData,
                            UINT32*                  alignedMsgBuffer,
                            bool                     flush,
+                           int                      ttl,  // will be >= 0 when known
                            const struct timeval&    theTime)
 {	      
 
@@ -1047,6 +1048,9 @@ bool MgenMsg::LogRecvEvent(FILE*                    logFile,
             {
                 Mgen::Log(logFile, "host>%s/%hu ", host_addr.GetHostString(), host_addr.GetPort());      
             }
+            
+            if (ttl >= 0)
+                Mgen::Log(logFile, "ttl>%d ", ttl);
 
             // (TBD) only output GPS info if INVALID_GPS != gps_status
             const char* statusString  = NULL;
@@ -1589,7 +1593,7 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
                   msg.SetTxTime(eventTime);
                   ASSERT(0 == index%4)
                   msg.Unpack(alignedBuffer+index/4, recordLength - index, false, log_data);
-                  msg.LogRecvEvent(logFile, false, localTime, log_rx, log_data, log_gps_data, NULL, log_flush,eventTime);
+                  msg.LogRecvEvent(logFile, false, localTime, log_rx, log_data, log_gps_data, NULL, -1, log_flush,eventTime);
                   break;
               }
             case SEND_EVENT:

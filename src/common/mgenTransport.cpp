@@ -360,6 +360,7 @@ void MgenTransport::LogEvent(LogEventType eventType, MgenMsg* theMsg, const stru
 			                   mgen.GetLogGpsData(),
                                buffer, 
                                mgen.GetLogFlush(),
+                               -1, 
                                theTime);
 
           // Don't we want rapr to get the message regardless of logging??

@@ -170,6 +170,7 @@ class MgenMsg
 		              bool                  logGpsFata,
                       UINT32*               alignedMsgBuffer,
                       bool                  flush,
+                      int                   ttl,    // will be >= 0 when known
                       const struct timeval& theTime);
 	bool LogSendEvent(FILE*                 logFile, 
                       bool                  logBinary, 
