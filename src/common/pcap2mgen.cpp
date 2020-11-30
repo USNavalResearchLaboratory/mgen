@@ -41,6 +41,7 @@ bool flush = false;
 const char* const CMD_LIST[] = 
 {
     "-report",    // Grab MGEN REPORT messages from pcap file
+    "-analytic",  // Grab MGEN REPORT messages from pcap file
     "+infile",    // Name of pcap input file
     "+outfile",   // Name of output file
     "-trace",     // Prepends MGEN log lines with epoch time and MAC src/addr info
@@ -128,6 +129,11 @@ bool OnCommand(const char* cmd, const char* val)
         fprintf(stderr, "pcap2mgen ProcessCommands(%s) missing argument\n", cmd);
         return false;
     }
+    else if (!strncmp("analytic", lowerCmd, len))
+    {
+        compute_analytics = true;
+    }
+    
     else if (!strncmp("report", lowerCmd, len))
     {
         compute_analytics = true;
@@ -323,8 +329,13 @@ int main(int argc, char* argv[])
         return -1;
     }
     
+    int linkType = pcap_datalink(pcapDevice);
+    
+    
+    
     
     UINT32 alignedBuffer[4096/4];   // 128 buffer for packet parsing
+    memset(alignedBuffer, 0, 4096);
     UINT16* ethBuffer = ((UINT16*)alignedBuffer) + 1; 
     unsigned int maxBytes = 4096 - 2;  // due to offset, can only use 4094 bytes of buffer
     
@@ -334,22 +345,47 @@ int main(int argc, char* argv[])
     {
         unsigned int numBytes = maxBytes;
         if (hdr.caplen < numBytes) numBytes = hdr.caplen;
-        memcpy(ethBuffer, pktData, numBytes);
-        ProtoPktETH ethPkt(ethBuffer, maxBytes);
-        if (!ethPkt.InitFromBuffer(hdr.len))
+        
+        ProtoPktETH::Type ethType;
+        ProtoAddress srcMac, dstMac;
+        unsigned int ipLength;  // will be IP packet payload size (incl. IP header)
+        void* ipBuffer;
+        unsigned ipBufferBytes;
+        if (DLT_LINUX_SLL == linkType)
         {
-            fprintf(stderr, "pcap2mgen error: invalid Ether frame in pcap file\n");
-            continue;
-        }    
+            // For now, assume the header is 16 bytes (6-byte link addr)
+            // TBD - do proper DLT_LINUX_SLL parsing
+            memcpy(alignedBuffer, pktData, numBytes);
+            ethType = (ProtoPktETH::Type)ntohs(((UINT16*)alignedBuffer)[7]);
+            ipBuffer = alignedBuffer + 4;  // assumes 16 byte header
+            ipBufferBytes = maxBytes + 2 - 16;
+            ipLength = numBytes - 16;
+
+        }
+        else
+        {
+            // Should we verify this is DLT_EN10MB?
+            memcpy(ethBuffer, pktData, numBytes);
+            ProtoPktETH ethPkt(ethBuffer, maxBytes);
+            if (!ethPkt.InitFromBuffer(hdr.len))
+            {
+                fprintf(stderr, "pcap2mgen error: invalid Ether frame in pcap file\n");
+                continue;
+            }    
+            ethType = ethPkt.GetType();
+            ipBuffer = ethPkt.AccessPayload();
+            ipBufferBytes = ethPkt.GetBufferLength() - ethPkt.GetHeaderLength();
+            ipLength = ethPkt.GetPayloadLength();
+            ethPkt.GetSrcAddr(srcMac);
+            ethPkt.GetSrcAddr(dstMac);
+        }
         ProtoPktIP ipPkt;
         ProtoAddress srcAddr, dstAddr;
         int ttl = -1;
-        ProtoPktETH::Type ethType = ethPkt.GetType();
         if ((ProtoPktETH::IP == ethType) ||
             (ProtoPktETH::IPv6 == ethType))
         {
-            unsigned int payloadLength = ethPkt.GetPayloadLength();
-            if (!ipPkt.InitFromBuffer(payloadLength, ethPkt.AccessPayload(), payloadLength))
+            if (!ipPkt.InitFromBuffer(ipLength, ipBuffer, ipBufferBytes))
             {
                 fprintf(stderr, "pcap2mgen error: bad IP packet\n");
                 continue;
@@ -378,12 +414,12 @@ int main(int argc, char* argv[])
                     break;
                 }
             }
-            //PLOG(PL_ALWAYS, "pcap2mgen IP packet dst>%s ", dstAddr.GetHostString());
-            //PLOG(PL_ALWAYS," src>%s length>%d\n", srcAddr.GetHostString(), ipPkt.GetLength());
+            //TRACE("pcap2mgen IP packet dst>%s ", dstAddr.GetHostString());
+            //TRACE(" src>%s length>%d\n", srcAddr.GetHostString(), ipPkt.GetLength());
         }
-        if (!srcAddr.IsValid()) continue;  // wasn't an IP packet
         
-       
+            
+        if (!srcAddr.IsValid()) continue;  // wasn't an IP packet
         
         ProtoPktUDP udpPkt;
         if (!udpPkt.InitFromPacket(ipPkt)) continue;  // not a UDP packet
@@ -398,14 +434,11 @@ int main(int argc, char* argv[])
         srcAddr.SetPort(udpPkt.GetSrcPort());
         msg.SetSrcAddr(srcAddr);
         
-        if (trace)
+        if (trace && (DLT_LINUX_SLL != linkType))
         {
             fprintf(outfile, "%lu.%lu ", (unsigned long)hdr.ts.tv_sec, (unsigned long)hdr.ts.tv_usec);
-            ProtoAddress ethAddr;
-            ethPkt.GetSrcAddr(ethAddr);
-            fprintf(outfile, "esrc>%s ", ethAddr.GetHostString());
-            ethPkt.GetDstAddr(ethAddr);
-            fprintf(outfile, "edst>%s ", ethAddr.GetHostString());
+            fprintf(outfile, "esrc>%s ", srcMac.GetHostString());
+            fprintf(outfile, "edst>%s ", dstMac.GetHostString());
         }
         // TBD - Add option to log REPORT events only?  Embed MGEN analytic, too?
         if(compute_analytics)

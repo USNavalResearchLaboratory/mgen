@@ -1115,6 +1115,7 @@ bool MgenMsg::LogRecvEvent(FILE*                    logFile,
                     {
                         report.Log(logFile, tx_time, theTime, localTime, &src_addr); 
                         UINT8 reportLen = report.GetLength();
+                        if (0 == reportLen) break; // truncated report
                         bufferLen -= reportLen;
                         bufferPtr += (reportLen/sizeof(UINT32));
                     }
@@ -1128,6 +1129,7 @@ bool MgenMsg::LogRecvEvent(FILE*                    logFile,
                 {
                     MgenDataItem item(bufferPtr, bufferLen);
                     UINT16 itemLen = item.GetLength();
+                    if (0 == itemLen) break; // truncated item
                     bufferLen -= itemLen;
                     bufferPtr += itemLen / sizeof(UINT32);
                 }
