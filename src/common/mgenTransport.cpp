@@ -938,7 +938,7 @@ bool MgenUdpTransport::LeaveGroup(const ProtoAddress& groupAddress,
 void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEvent)
 {
     struct timespec tstart={0,0}, tend={0,0};
-    FILE* fp = fopen("/root/var.log/times", "w");
+    FILE* fp = fopen("times", "w");
     switch (theEvent)
     {
         case ProtoSocket::RECV:
