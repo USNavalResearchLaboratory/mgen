@@ -1000,6 +1000,7 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                         "Doing the analitics took about %.5f seconds\n",
                         ((double)tend.tv_sec + 1.0e-9*tend.tv_nsec) - 
                         ((double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec));
+                    fflush(fp);
                     bzero(&tstart, sizeof(tstart));
                     bzero(&tend, sizeof(tend));
                 }  // end if (NULL != mgen.GetLogFile())
