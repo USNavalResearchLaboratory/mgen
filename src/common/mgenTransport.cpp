@@ -327,7 +327,7 @@ void MgenTransport::RemoveFromPendingList()
 
 void MgenTransport::LogEvent(LogEventType eventType, MgenMsg* theMsg, const struct timeval& theTime, UINT32* buffer)
 {
-    FILE* fp = fopen("times", "w");
+    FILE* fp = fopen("timesLogEvent", "a");
     struct timespec tstart={0,0}, tend={0,0};
     clock_gettime(CLOCK_MONOTONIC, &tstart);
     if (!(mgen.GetLogFile()))
@@ -950,7 +950,7 @@ bool MgenUdpTransport::LeaveGroup(const ProtoAddress& groupAddress,
 void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEvent)
 {
     struct timespec tstart={0,0}, tend={0,0};
-    // FILE* fp = fopen("times", "w");
+    // FILE* fp = fopen("times", "a");
     switch (theEvent)
     {
         case ProtoSocket::RECV:
@@ -2148,7 +2148,7 @@ void MgenSinkTransport::HandleMgenMessage(UINT32* alignedBuffer, unsigned int le
 
 void MgenTransport::ProcessRecvMessage(MgenMsg& msg, const ProtoTime& theTime)
 {
-    FILE* fp = fopen("times", "w");
+    FILE* fp = fopen("timesProcessRecvMessage", "a");
     struct timespec tstart={0,0}, tend={0,0};
     clock_gettime(CLOCK_MONOTONIC, &tstart);
     // Parse received message payload for any received commands
