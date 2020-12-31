@@ -948,51 +948,51 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
             while (theSocket.RecvFrom((char*)buffer, len, srcAddr))
             {
                 if (len == 0) break;
-                // if (mgen.GetLogFile() || mgen.ComputeAnalytics())
-                // {
-                //     struct timeval currentTime;
-                //     ProtoSystemTime(currentTime);
-                //     MgenMsg theMsg;
-                //     // the socket recvFrom gives us our srcAddr
-                //     theMsg.SetSrcAddr(srcAddr);
-                //     if (theMsg.Unpack(alignedBuffer, len, mgen.GetChecksumForce(), mgen.GetLogData()))
-                //     {
-                //         if (mgen.GetChecksumForce() || theMsg.FlagIsSet(MgenMsg::CHECKSUM))
-                //         {
-                //             UINT32 checksum = 0;
-                //             theMsg.ComputeCRC32(checksum,(unsigned char*)buffer,len - 4);
-                //             checksum = (checksum ^ theMsg.CRC32_XOROT);
-                //             UINT32 checksumPosition = len - 4;
-                //             UINT32 recvdChecksum;
-                //             memcpy(&recvdChecksum,buffer+checksumPosition,4);
-                //             recvdChecksum = ntohl(recvdChecksum);
+                if (mgen.GetLogFile() || mgen.ComputeAnalytics())
+                {
+                    struct timeval currentTime;
+                    ProtoSystemTime(currentTime);
+                    MgenMsg theMsg;
+                    // the socket recvFrom gives us our srcAddr
+                    theMsg.SetSrcAddr(srcAddr);
+                    if (theMsg.Unpack(alignedBuffer, len, mgen.GetChecksumForce(), mgen.GetLogData()))
+                    {
+                        if (mgen.GetChecksumForce() || theMsg.FlagIsSet(MgenMsg::CHECKSUM))
+                        {
+                            UINT32 checksum = 0;
+                            theMsg.ComputeCRC32(checksum,(unsigned char*)buffer,len - 4);
+                            checksum = (checksum ^ theMsg.CRC32_XOROT);
+                            UINT32 checksumPosition = len - 4;
+                            UINT32 recvdChecksum;
+                            memcpy(&recvdChecksum,buffer+checksumPosition,4);
+                            recvdChecksum = ntohl(recvdChecksum);
 
-                //             if (checksum != recvdChecksum)
-                //             {
-                //                 DMSG(0, "MgenUdpTransport::OnEvent() error: checksum failure\n");
-                //                 theMsg.SetChecksumError();
-                //             }
-                //         }
-                //         if (theMsg.GetError())
-                //         {
-                //             if (mgen.GetLogFile())
-                //                 LogEvent(RERR_EVENT, &theMsg, currentTime);
-                //         }
-                //         else 
-                //         {
-                //             ProcessRecvMessage(theMsg, ProtoTime(currentTime));
-                //             if (mgen.ComputeAnalytics())
-                //                 mgen.UpdateRecvAnalytics(currentTime, &theMsg, UDP);
-                //             if (mgen.GetLogFile())
-                //                 LogEvent(RECV_EVENT, &theMsg, currentTime, alignedBuffer);
-                //         }
-                //     }
-                //     else 
-                //     {
-                //         if (mgen.GetLogFile())
-                //             LogEvent(RERR_EVENT, &theMsg, currentTime);
-                //     }
-                // }  // end if (NULL != mgen.GetLogFile())
+                            if (checksum != recvdChecksum)
+                            {
+                                DMSG(0, "MgenUdpTransport::OnEvent() error: checksum failure\n");
+                                theMsg.SetChecksumError();
+                            }
+                        }
+                        if (theMsg.GetError())
+                        {
+                            if (mgen.GetLogFile())
+                                LogEvent(RERR_EVENT, &theMsg, currentTime);
+                        }
+                        else 
+                        {
+                            ProcessRecvMessage(theMsg, ProtoTime(currentTime));
+                            if (mgen.ComputeAnalytics())
+                                mgen.UpdateRecvAnalytics(currentTime, &theMsg, UDP);
+                            if (mgen.GetLogFile())
+                                LogEvent(RECV_EVENT, &theMsg, currentTime, alignedBuffer);
+                        }
+                    }
+                    else 
+                    {
+                        if (mgen.GetLogFile())
+                            LogEvent(RERR_EVENT, &theMsg, currentTime);
+                    }
+                }  // end if (NULL != mgen.GetLogFile())
                 len = MAX_SIZE;
             }  // end while(theSocket.RecvFrom())
             break;
