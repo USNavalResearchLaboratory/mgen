@@ -327,6 +327,8 @@ void MgenTransport::RemoveFromPendingList()
 
 void MgenTransport::LogEvent(LogEventType eventType, MgenMsg* theMsg, const struct timeval& theTime, UINT32* buffer)
 {
+    struct timespec tstart={0,0}, tend={0,0};
+    clock_gettime(CLOCK_MONOTONIC, &tstart);
     if (!(mgen.GetLogFile()))
       return;  
 
@@ -478,6 +480,14 @@ void MgenTransport::LogEvent(LogEventType eventType, MgenMsg* theMsg, const stru
       DMSG(0,"MgenTransport::LogEvent() Error: Invalid LogEvent type.\n");
       break;
     }
+    clock_gettime(CLOCK_MONOTONIC, &tend);
+    fprintf(fp,
+        "Doing the UpdateRecvAnalytics took about %.5f seconds\n",
+        ((double)tend.tv_sec + 1.0e-9*tend.tv_nsec) - 
+        ((double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec));
+    fflush(fp);
+    bzero(&tstart, sizeof(tstart));
+    bzero(&tend, sizeof(tend));
 
 } // End MgenTransport::LogEvent()
 
@@ -982,18 +992,11 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                         }
                         else 
                         {
-                            clock_gettime(CLOCK_MONOTONIC, &tstart);
                             ProcessRecvMessage(theMsg, ProtoTime(currentTime));
                             if (mgen.ComputeAnalytics())
                                 mgen.UpdateRecvAnalytics(currentTime, &theMsg, UDP);
                             if (mgen.GetLogFile())
                                 LogEvent(RECV_EVENT, &theMsg, currentTime, alignedBuffer);
-                            clock_gettime(CLOCK_MONOTONIC, &tend);
-                            fprintf(fp,
-                                "Doing the analitics took about %.5f seconds\n",
-                                ((double)tend.tv_sec + 1.0e-9*tend.tv_nsec) - 
-                                ((double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec));
-                            fflush(fp);
                         }
                     }
                     else 
@@ -2143,6 +2146,8 @@ void MgenSinkTransport::HandleMgenMessage(UINT32* alignedBuffer, unsigned int le
 
 void MgenTransport::ProcessRecvMessage(MgenMsg& msg, const ProtoTime& theTime)
 {
+    struct timespec tstart={0,0}, tend={0,0};
+    clock_gettime(CLOCK_MONOTONIC, &tstart);
     // Parse received message payload for any received commands
     if (MgenMsg::MGEN_DATA != msg.GetPayloadType()) return;
     unsigned int bufferLen = msg.GetPayloadLength();
@@ -2200,6 +2205,14 @@ void MgenTransport::ProcessRecvMessage(MgenMsg& msg, const ProtoTime& theTime)
             bufferPtr += itemLen / sizeof(UINT32);
         }
     }
+    clock_gettime(CLOCK_MONOTONIC, &tend);
+    fprintf(fp,
+        "Doing the ProcessRecvMessage took about %.5f seconds\n",
+        ((double)tend.tv_sec + 1.0e-9*tend.tv_nsec) - 
+        ((double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec));
+    fflush(fp);
+    bzero(&tstart, sizeof(tstart));
+    bzero(&tend, sizeof(tend));
 }  // end MgenTransport::ProcessRecvMessage()
 
 

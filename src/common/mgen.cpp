@@ -1041,6 +1041,8 @@ void Mgen::RemoveAnalytic(Protocol                protocol,
 
 void Mgen::UpdateRecvAnalytics(const ProtoTime& theTime, MgenMsg* theMsg, Protocol theProtocol)
 {
+    struct timespec tstart={0,0}, tend={0,0};
+    clock_gettime(CLOCK_MONOTONIC, &tstart);
     // This is a work in progress.  Eventually an option to report back measured
     // analytics in the MGEN payload will use this code. The printout to STDERR
     // here is just a temporary "feature" 
@@ -1081,7 +1083,14 @@ void Mgen::UpdateRecvAnalytics(const ProtoTime& theTime, MgenMsg* theMsg, Protoc
             controller->OnUpdateReport(theTime, report);
         report.Log(log_file, theTime, theTime, local_time);
     }
-    
+    clock_gettime(CLOCK_MONOTONIC, &tend);
+    fprintf(fp,
+        "Doing the UpdateRecvAnalytics took about %.5f seconds\n",
+        ((double)tend.tv_sec + 1.0e-9*tend.tv_nsec) - 
+        ((double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec));
+    fflush(fp);
+    bzero(&tstart, sizeof(tstart));
+    bzero(&tend, sizeof(tend));
 }  // end Mgen::UpdateRecvAnalytics()
 
 
