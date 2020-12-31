@@ -950,7 +950,7 @@ bool MgenUdpTransport::LeaveGroup(const ProtoAddress& groupAddress,
 void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEvent)
 {
     struct timespec tstart={0,0}, tend={0,0};
-    FILE* fp = fopen("times", "a");
+    FILE* fp = fopen("times", "w");
     switch (theEvent)
     {
         case ProtoSocket::RECV:
@@ -997,14 +997,13 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                             clock_gettime(CLOCK_MONOTONIC, &tstart);
                             ProcessRecvMessage(theMsg, ProtoTime(currentTime));
                             clock_gettime(CLOCK_MONOTONIC, &tend);
-    fprintf(fp,
-        "Doing the ProcessRecvMessage took about %.5f seconds\n",
-        ((double)tend.tv_sec + 1.0e-9*tend.tv_nsec) - 
-        ((double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec));
-    fflush(fp);
-    bzero(&tstart, sizeof(tstart));
-    bzero(&tend, sizeof(tend));
-    fclose(fp);
+                            fprintf(fp,
+                                "Doing the ProcessRecvMessage took about %.5f seconds\n",
+                                ((double)tend.tv_sec + 1.0e-9*tend.tv_nsec) - 
+                                ((double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec));
+                            fflush(fp);
+                            bzero(&tstart, sizeof(tstart));
+                            bzero(&tend, sizeof(tend));
                             if (mgen.ComputeAnalytics())
                                 mgen.UpdateRecvAnalytics(currentTime, &theMsg, UDP);
                             if (mgen.GetLogFile())
@@ -1032,7 +1031,7 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
             DMSG(0, "MgenUdpTransport::OnEvent() unexpected event type: %d\n", theEvent);
             break;
     }  // end switch(theEvent)
-    // fclose(fp);
+    fclose(fp);
 }  // end MgenUdpTransport::OnEvent()
 
 MessageStatus MgenUdpTransport::SendMessage(MgenMsg& theMsg, const ProtoAddress& dstAddr) 
