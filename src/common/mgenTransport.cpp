@@ -952,7 +952,6 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                 if (len == 0) break;
                 if (mgen.GetLogFile() || mgen.ComputeAnalytics())
                 {
-                    clock_gettime(CLOCK_MONOTONIC, &tstart);
                     struct timeval currentTime;
                     ProtoSystemTime(currentTime);
                     MgenMsg theMsg;
@@ -976,6 +975,7 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                                 theMsg.SetChecksumError();
                             }
                         }
+                        clock_gettime(CLOCK_MONOTONIC, &tstart);
                         if (theMsg.GetError())
                         {
                             if (mgen.GetLogFile())
