@@ -1041,6 +1041,7 @@ void Mgen::RemoveAnalytic(Protocol                protocol,
 
 void Mgen::UpdateRecvAnalytics(const ProtoTime& theTime, MgenMsg* theMsg, Protocol theProtocol)
 {
+    FILE* fp = fopen("times", "w");
     struct timespec tstart={0,0}, tend={0,0};
     clock_gettime(CLOCK_MONOTONIC, &tstart);
     // This is a work in progress.  Eventually an option to report back measured
@@ -1091,6 +1092,7 @@ void Mgen::UpdateRecvAnalytics(const ProtoTime& theTime, MgenMsg* theMsg, Protoc
     fflush(fp);
     bzero(&tstart, sizeof(tstart));
     bzero(&tend, sizeof(tend));
+    fclose(fp);
 }  // end Mgen::UpdateRecvAnalytics()
 
 

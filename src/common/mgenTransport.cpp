@@ -327,6 +327,7 @@ void MgenTransport::RemoveFromPendingList()
 
 void MgenTransport::LogEvent(LogEventType eventType, MgenMsg* theMsg, const struct timeval& theTime, UINT32* buffer)
 {
+    FILE* fp = fopen("times", "w");
     struct timespec tstart={0,0}, tend={0,0};
     clock_gettime(CLOCK_MONOTONIC, &tstart);
     if (!(mgen.GetLogFile()))
@@ -488,6 +489,7 @@ void MgenTransport::LogEvent(LogEventType eventType, MgenMsg* theMsg, const stru
     fflush(fp);
     bzero(&tstart, sizeof(tstart));
     bzero(&tend, sizeof(tend));
+    fclose(fp);
 
 } // End MgenTransport::LogEvent()
 
@@ -948,7 +950,7 @@ bool MgenUdpTransport::LeaveGroup(const ProtoAddress& groupAddress,
 void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEvent)
 {
     struct timespec tstart={0,0}, tend={0,0};
-    FILE* fp = fopen("times", "w");
+    // FILE* fp = fopen("times", "w");
     switch (theEvent)
     {
         case ProtoSocket::RECV:
@@ -1020,7 +1022,7 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
             DMSG(0, "MgenUdpTransport::OnEvent() unexpected event type: %d\n", theEvent);
             break;
     }  // end switch(theEvent)
-    fclose(fp);
+    // fclose(fp);
 }  // end MgenUdpTransport::OnEvent()
 
 MessageStatus MgenUdpTransport::SendMessage(MgenMsg& theMsg, const ProtoAddress& dstAddr) 
@@ -2146,6 +2148,7 @@ void MgenSinkTransport::HandleMgenMessage(UINT32* alignedBuffer, unsigned int le
 
 void MgenTransport::ProcessRecvMessage(MgenMsg& msg, const ProtoTime& theTime)
 {
+    FILE* fp = fopen("times", "w");
     struct timespec tstart={0,0}, tend={0,0};
     clock_gettime(CLOCK_MONOTONIC, &tstart);
     // Parse received message payload for any received commands
@@ -2213,6 +2216,7 @@ void MgenTransport::ProcessRecvMessage(MgenMsg& msg, const ProtoTime& theTime)
     fflush(fp);
     bzero(&tstart, sizeof(tstart));
     bzero(&tend, sizeof(tend));
+    fclose(fp);
 }  // end MgenTransport::ProcessRecvMessage()
 
 
