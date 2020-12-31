@@ -989,18 +989,18 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                             if (mgen.GetLogFile())
                                 LogEvent(RECV_EVENT, &theMsg, currentTime, alignedBuffer);
                         }
+                        clock_gettime(CLOCK_MONOTONIC, &tend);
+                        fprintf(fp,
+                            "Doing the analitics took about %.5f seconds\n",
+                            ((double)tend.tv_sec + 1.0e-9*tend.tv_nsec) - 
+                            ((double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec));
+                        fflush(fp);
                     }
                     else 
                     {
                         if (mgen.GetLogFile())
                             LogEvent(RERR_EVENT, &theMsg, currentTime);
                     }
-                    clock_gettime(CLOCK_MONOTONIC, &tend);
-                    fprintf(fp,
-                        "Doing the analitics took about %.5f seconds\n",
-                        ((double)tend.tv_sec + 1.0e-9*tend.tv_nsec) - 
-                        ((double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec));
-                    fflush(fp);
                     bzero(&tstart, sizeof(tstart));
                     bzero(&tend, sizeof(tend));
                 }  // end if (NULL != mgen.GetLogFile())
