@@ -992,7 +992,7 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                 //         if (mgen.GetLogFile())
                 //             LogEvent(RERR_EVENT, &theMsg, currentTime);
                 //     }
-                }  // end if (NULL != mgen.GetLogFile())
+                // }  // end if (NULL != mgen.GetLogFile())
                 len = MAX_SIZE;
             }  // end while(theSocket.RecvFrom())
             break;
