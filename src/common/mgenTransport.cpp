@@ -950,7 +950,7 @@ bool MgenUdpTransport::LeaveGroup(const ProtoAddress& groupAddress,
 void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEvent)
 {
     struct timespec tstart={0,0}, tend={0,0};
-    // FILE* fp = fopen("times", "a");
+    FILE* fp = fopen("times", "a");
     switch (theEvent)
     {
         case ProtoSocket::RECV:
@@ -994,7 +994,17 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                         }
                         else 
                         {
+                            clock_gettime(CLOCK_MONOTONIC, &tstart);
                             ProcessRecvMessage(theMsg, ProtoTime(currentTime));
+                            clock_gettime(CLOCK_MONOTONIC, &tend);
+    fprintf(fp,
+        "Doing the ProcessRecvMessage took about %.5f seconds\n",
+        ((double)tend.tv_sec + 1.0e-9*tend.tv_nsec) - 
+        ((double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec));
+    fflush(fp);
+    bzero(&tstart, sizeof(tstart));
+    bzero(&tend, sizeof(tend));
+    fclose(fp);
                             if (mgen.ComputeAnalytics())
                                 mgen.UpdateRecvAnalytics(currentTime, &theMsg, UDP);
                             if (mgen.GetLogFile())
@@ -2148,9 +2158,6 @@ void MgenSinkTransport::HandleMgenMessage(UINT32* alignedBuffer, unsigned int le
 
 void MgenTransport::ProcessRecvMessage(MgenMsg& msg, const ProtoTime& theTime)
 {
-    FILE* fp = fopen("timesProcessRecvMessage", "a");
-    struct timespec tstart={0,0}, tend={0,0};
-    clock_gettime(CLOCK_MONOTONIC, &tstart);
     // Parse received message payload for any received commands
     if (MgenMsg::MGEN_DATA != msg.GetPayloadType()) return;
     unsigned int bufferLen = msg.GetPayloadLength();
@@ -2208,15 +2215,7 @@ void MgenTransport::ProcessRecvMessage(MgenMsg& msg, const ProtoTime& theTime)
             bufferPtr += itemLen / sizeof(UINT32);
         }
     }
-    clock_gettime(CLOCK_MONOTONIC, &tend);
-    fprintf(fp,
-        "Doing the ProcessRecvMessage took about %.5f seconds\n",
-        ((double)tend.tv_sec + 1.0e-9*tend.tv_nsec) - 
-        ((double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec));
-    fflush(fp);
-    bzero(&tstart, sizeof(tstart));
-    bzero(&tend, sizeof(tend));
-    fclose(fp);
+    
 }  // end MgenTransport::ProcessRecvMessage()
 
 
