@@ -937,6 +937,8 @@ bool MgenUdpTransport::LeaveGroup(const ProtoAddress& groupAddress,
 // Receive and log a UDP packet
 void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEvent)
 {
+    struct timespec tstart={0,0}, tend={0,0};
+    FILE* fp = fopen("/root/var.log/times", "w");
     switch (theEvent)
     {
         case ProtoSocket::RECV:
@@ -950,6 +952,7 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                 if (len == 0) break;
                 if (mgen.GetLogFile() || mgen.ComputeAnalytics())
                 {
+                    clock_gettime(CLOCK_MONOTONIC, &tstart);
                     struct timeval currentTime;
                     ProtoSystemTime(currentTime);
                     MgenMsg theMsg;
@@ -992,6 +995,13 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                         if (mgen.GetLogFile())
                             LogEvent(RERR_EVENT, &theMsg, currentTime);
                     }
+                    clock_gettime(CLOCK_MONOTONIC, &tend);
+                    fprintf(fp,
+                        "Doing the analitics took about %.5f seconds\n",
+                        ((double)tend.tv_sec + 1.0e-9*tend.tv_nsec) - 
+                        ((double)tstart.tv_sec + 1.0e-9*tstart.tv_nsec));
+                    bzero(&tstart, sizeof(tstart));
+                    bzero(&tend, sizeof(tend));
                 }  // end if (NULL != mgen.GetLogFile())
                 len = MAX_SIZE;
             }  // end while(theSocket.RecvFrom())
@@ -1006,6 +1016,7 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
             DMSG(0, "MgenUdpTransport::OnEvent() unexpected event type: %d\n", theEvent);
             break;
     }  // end switch(theEvent)
+    fclose(fp);
 }  // end MgenUdpTransport::OnEvent()
 
 MessageStatus MgenUdpTransport::SendMessage(MgenMsg& theMsg, const ProtoAddress& dstAddr) 
