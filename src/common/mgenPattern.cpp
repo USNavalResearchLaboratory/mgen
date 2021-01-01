@@ -209,7 +209,7 @@ bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string, 
         {
 
             double aveRate;
-            char sizeText[256];
+            char sizeText[257];
             if (2 != sscanf(string, "%lf %256s", &aveRate, sizeText))
             {
                 DMSG(0, "MgenPattern::InitFromString(PERIODIC/POISSON) error: invalid parameters.\n");
@@ -285,7 +285,7 @@ bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string, 
         {
             double aveRate, jitterFraction;
             interval_remainder = 0.0;
-            char sizeText[256];
+            char sizeText[257];
             if (3 != sscanf(string, "%lf %256s %lf", &aveRate, sizeText, &jitterFraction))
             {
                 DMSG(0, "MgenPattern::InitFromString(JITTER) error: invalid parameters.\n");
