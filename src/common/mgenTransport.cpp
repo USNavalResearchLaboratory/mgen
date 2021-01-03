@@ -980,6 +980,7 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                         }
                         else 
                         {
+                            ProcessRecvMessage(theMsg, ProtoTime(currentTime));
                             if (mgen.ComputeAnalytics())
                                 mgen.UpdateRecvAnalytics(currentTime, &theMsg, UDP);
                         }
