@@ -1439,11 +1439,13 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
     if (fread(buffer, 1, 4, file) < 4)
     {
         DMSG(0, "Mgen::ConvertBinaryLog() fread() error: %s\n", GetErrorString());
+        fclose(file);
         return false;
     }
     if (strncmp("mgen", buffer, 4) != 0)
     {
         DMSG(0, "Mgen::ConvertBinaryLog() error: invalid mgen log file\n");
+        fclose(file);
         return false;
     }
     
@@ -1455,6 +1457,7 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
         if (fread(buffer+index, 1, 1, file) < 1)
         {
             DMSG(0, "Mgen::ConvertBinaryLog() fread() error: %s\n", GetErrorString());
+            fclose(file);
             return false;
         }
     }
@@ -1470,18 +1473,21 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
             if (version != 4 && version != 5)
             {
                 DMSG(0, "Mgen::ConvertBinaryLog() invalid log file version\n"); 
+                fclose(file);
                 return false;   
             }            
         }
         else
         {
             DMSG(0, "Mgen::ConvertBinaryLog() error finding log \"version\" value\n"); 
+            fclose(file);
             return false;  
         }                
     }
     else
     {
         DMSG(0, "Mgen::ConvertBinaryLog() error finding log \"version\" label\n"); 
+        fclose(file);
         return false;  
     }
     ptr = strstr(ptr, "type=");
@@ -1493,18 +1499,21 @@ bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
             if (strcmp(fileType, "binary_log"))
             {
                 DMSG(0, "Mgen::ConvertBinaryLog() invalid log file type\n"); 
+                fclose(file);
                 return false; 
             }
         }
         else
         {
             DMSG(0, "Mgen::ConvertBinaryLog() error finding log \"type\" value\n"); 
+            fclose(file);
             return false; 
         }
     }
     else
     {
         DMSG(0, "Mgen::ConvertBinaryLog() error finding log \"type\" label\n"); 
+        fclose(file);
         return false;
     }    
     
