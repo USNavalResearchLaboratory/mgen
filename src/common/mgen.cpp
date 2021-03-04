@@ -22,6 +22,7 @@
 
 #include <errno.h>
 Mgen::LogFunction Mgen::Log = fprintf;
+void (*Mgen::LogTimestamp)(FILE*, const struct timeval&, bool) = Mgen::LogLegacyTimestamp;
 
 #ifdef _WIN32_WCE
 /**
@@ -40,7 +41,24 @@ int Mgen::LogToDebug(FILE* /*filePtr*/, const char* format, ...)
 }  // end Mgen::LogToDebug()
 #endif // _WIN32_WCE
 
-void Mgen::LogTimestamp(FILE* filePtr, const struct timeval& theTime, bool localTime)
+void Mgen::SetEpochTimestamp(bool enable)
+{
+  if(enable)
+    {
+      LogTimestamp = LogEpochTimestamp;
+    }
+  else
+    {
+      LogTimestamp = LogLegacyTimestamp;
+    }
+}
+
+void Mgen::LogEpochTimestamp(FILE* filePtr, const struct timeval& theTime, bool localTime)
+{
+    Mgen::Log(filePtr, "%lu.%06lu ", theTime.tv_sec, theTime.tv_usec);
+}
+
+void Mgen::LogLegacyTimestamp(FILE* filePtr, const struct timeval& theTime, bool localTime)
 {
 #ifdef _WIN32_WCE
     struct tm timeStruct;
@@ -181,26 +199,8 @@ bool Mgen::Start()
             else
             {
 
-#ifdef _WIN32_WCE
-                struct tm timeStruct;
-                timeStruct.tm_hour = currentTime.tv_sec / 3600;
-                UINT32 hourSecs = 3600 * timeStruct.tm_hour;
-                timeStruct.tm_min = (currentTime.tv_sec - (hourSecs)) / 60;
-                timeStruct.tm_sec = currentTime.tv_sec - (hourSecs) - (60*timeStruct.tm_min);
-                timeStruct.tm_hour = timeStruct.tm_hour % 24;
-                struct tm* timePtr = &timeStruct;
-#else           
-                struct tm* timePtr;
-                if (local_time)
-                  timePtr = localtime((time_t*)&currentTime.tv_sec);
-                else
-                  timePtr = gmtime((time_t*)&currentTime.tv_sec);
-                
-#endif // if/else _WIN32_WCE
-
-                Mgen::Log(log_file, "%02d:%02d:%02d.%06lu START Mgen Version %s\n",
-                     timePtr->tm_hour, timePtr->tm_min, 
-                          timePtr->tm_sec, (UINT32)currentTime.tv_usec,MGEN_VERSION);
+                Mgen::LogTimestamp(log_file, currentTime, local_time);
+                Mgen::Log(log_file, "START Mgen Version %s\n", MGEN_VERSION);
             }
             if (log_empty) log_empty = false;
             fflush(log_file);
@@ -599,25 +599,8 @@ void Mgen::Stop()
             }
             else
             {
-#ifdef _WIN32_WCE
-                struct tm timeStruct;
-                timeStruct.tm_hour = currentTime.tv_sec / 3600;
-                UINT32 hourSecs = 3600 * timeStruct.tm_hour;
-                timeStruct.tm_min = (currentTime.tv_sec - hourSecs) / 60;
-                timeStruct.tm_sec = currentTime.tv_sec - hourSecs - (60*timeStruct.tm_min);
-                timeStruct.tm_hour = timeStruct.tm_hour % 24;
-                struct tm* timePtr = &timeStruct;
-#else            
-		struct tm* timePtr;
-		if (local_time)
-		  timePtr = localtime((time_t*)&currentTime.tv_sec);
-		else
-		  timePtr = gmtime((time_t*)&currentTime.tv_sec);
-
-#endif // if/else _WIN32_WCE
-                Mgen::Log(log_file, "%02d:%02d:%02d.%06lu STOP\n",
-                                   timePtr->tm_hour, timePtr->tm_min, 
-                                   timePtr->tm_sec, (UINT32)currentTime.tv_usec);
+                Mgen::LogTimestamp(log_file, currentTime, local_time);
+                Mgen::Log(log_file, "STOP\n");
             }  // end if/else(log_binary)
             
         }  //end if(log_file)
@@ -1465,6 +1448,7 @@ const StringMapper Mgen::COMMAND_LIST[] =
     {"+RETRY",      RETRY},
     {"+PAUSE",      PAUSE},
     {"+RECONNECT",  RECONNECT},
+    {"-EPOCHTIMESTAMP", EPOCH_TIMESTAMP},
     {"+OFF",        INVALID_COMMAND},  // to deconflict "offset" from "off" event
     {NULL,          INVALID_COMMAND}   
 };
@@ -2142,7 +2126,9 @@ bool Mgen::OnCommand(Mgen::Command cmd, const char* arg, bool override)
         SetDefaultRetryCount(retryCountValue, override);
         break;
     }
-  
+    case EPOCH_TIMESTAMP:
+      SetEpochTimestamp(true);
+      break;
     case INVALID_COMMAND:
       DMSG(0, "Mgen::OnCommand() Error: invalid command\n");
       return false;   

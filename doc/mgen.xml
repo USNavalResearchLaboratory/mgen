@@ -133,6 +133,7 @@
      [df {on|off}][analytics] [window &lt;secs&gt;]]
      [report] [suspend &lt;flowId(s)&gt;] [resume &lt;flowId(s)&gt;] [reset &lt;flowId(s)&gt;]
      [retry &lt;count&gt;[/&lt;delay&gt;]
+     [epochtimestamp]
 
 </programlisting>
 
@@ -801,6 +802,12 @@
             if the retry count is set to -1. If multiple flows are sharing the
             transport a common retry pattern should be used by all the flows
             or the last attribute set "wins".</entry>
+          </row>
+	  <row>
+            <entry><literal>epochtimestamp</literal></entry>
+
+            <entry>Log timestamps as epoch time in second.microsecond.<
+            format.</entry>
           </row>
         </tbody>
       </tgroup>
