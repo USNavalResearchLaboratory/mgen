@@ -803,10 +803,10 @@
             transport a common retry pattern should be used by all the flows
             or the last attribute set "wins".</entry>
           </row>
-	  <row>
+          <row>
             <entry><literal>epochtimestamp</literal></entry>
 
-            <entry>Log timestamps as epoch time in second.microsecond.<
+            <entry>Log timestamps as epoch time in second.microsecond.
             format.</entry>
           </row>
         </tbody>
