@@ -169,6 +169,7 @@ class Mgen
       RETRY,     // Enables TCP retry connection attempts
       PAUSE,     // Pauses flow while tcp attempts to reconnect
       RECONNECT, // Enables TCP reconnect
+      EPOCH_TIMESTAMP, // Log timetamp as epoch time in sec.usec format
       RESET
     };
 
@@ -209,7 +210,10 @@ class Mgen
     // Alternative logging function for WinCE debug window when logging to stdout/stderr
     static int Mgen::LogToDebug(FILE* filePtr, const char* format, ...);
 #endif  // if/else _WIN32_WCE
-    static void LogTimestamp(FILE* filePtr, const struct timeval& theTime, bool localTime);
+    static void (*LogTimestamp)(FILE*, const struct timeval&, bool);
+    static void SetEpochTimestamp(bool enable);
+    static void LogEpochTimestamp(FILE* filePtr, const struct timeval& theTime, bool localTime);
+    static void LogLegacyTimestamp(FILE* filePtr, const struct timeval& theTime, bool localTime);
     bool ParseScript(const char* path);
 #if OPNET  // JPH 11/16/2005
     bool ParseScript(List*);

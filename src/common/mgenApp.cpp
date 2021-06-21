@@ -56,7 +56,8 @@ void MgenApp::Usage()
             "     [queue <queueSize>][broadcast {on|off}]\n"
             "     [convert <binaryLog>][debug <debugLevel>]\n"
             "     [gpskey <gpsSharedMemoryLocation>]\n"
-            "     [boost] [reuse {on|off}]\n");
+            "     [boost] [reuse {on|off}]\n"
+            "     [epochtimestamp]\n");
 }  // end MgenApp::Usage()
 
 
@@ -81,6 +82,7 @@ const char* const MgenApp::CMD_LIST[] =
     "+gpskey",    // Override default gps shared memory location
     "+logdata",    // log optional data attribute? default ON
     "+loggpsdata", // log gps data? default ON
+    "-epochtimestamp", // epoch timesetamps? default OFF
 //   "-analytics",  // enables MGEN analytics reporting on received flows
     NULL
 };
@@ -465,6 +467,10 @@ bool MgenApp::OnCommand(const char* cmd, const char* val)
     {
         if (!dispatcher.BoostPriority())
             fprintf(stderr, "Unable to boost process priority.\n");
+    }
+    else if (!strncmp("epochtimestamp", lowerCmd, len))
+    {
+        mgen.SetEpochTimestamp(true);
     }
     else if (!strncmp("help", lowerCmd, len))
     {
