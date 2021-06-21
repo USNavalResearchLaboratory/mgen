@@ -93,6 +93,11 @@ class MgenAnalytic : public ProtoQueue::Item
                     const ProtoTime& txTime = ProtoTime(0.0),
                     UINT32           seqNum = 0);
         
+        void Log(FILE*            filePtr, 
+                 const ProtoTime& sentTime, 
+                 const ProtoTime& theTime, 
+                 bool             localTime) const;
+        
         const Report& GetReport(const ProtoTime& theTime);
         const ProtoTime& GetReportTime() const
             {return report_time;}
@@ -153,11 +158,11 @@ class MgenAnalytic : public ProtoQueue::Item
                                     unsigned int    numBytes = 0, 
                                     bool            freeOnDestruct = false);
                 
-                void Log(FILE*              filePtr, 
-                         const ProtoTime&   sentTime, 
-                         const ProtoTime&   theTime, 
-                         bool               localTime,
-                         ProtoAddress*      reporterAddr = NULL) const;
+                void Log(FILE*               filePtr, 
+                         const ProtoTime&    sentTime, 
+                         const ProtoTime&    theTime, 
+                         bool                localTime,
+                         const ProtoAddress& reporterAddr) const;
                 
                 ReportType GetReportType() const
                 {
@@ -343,7 +348,6 @@ class MgenAnalytic : public ProtoQueue::Item
             {return flow_keysize;}  
         
     private:
-            
         char*               flow_key;
         unsigned int        flow_keysize;  // in bits
         

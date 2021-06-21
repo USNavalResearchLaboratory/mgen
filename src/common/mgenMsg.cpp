@@ -1113,7 +1113,7 @@ bool MgenMsg::LogRecvEvent(FILE*                    logFile,
                     MgenAnalytic::Report report;
                     if (report.InitFromBuffer(bufferPtr, bufferLen))
                     {
-                        report.Log(logFile, tx_time, theTime, localTime, &src_addr); 
+                        report.Log(logFile, tx_time, theTime, localTime, src_addr); 
                         UINT8 reportLen = report.GetLength();
                         if (0 == reportLen) break; // truncated report
                         bufferLen -= reportLen;

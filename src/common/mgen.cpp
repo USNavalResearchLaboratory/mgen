@@ -1077,9 +1077,9 @@ void Mgen::UpdateRecvAnalytics(const ProtoTime& theTime, MgenMsg* theMsg, Protoc
             nextFlow = flow_list.GetNext(nextFlow);
         }       
         const MgenAnalytic::Report& report = analytic->GetReport(theTime);
-        if (NULL != controller)
+        if (NULL != controller)  // e.g., Mgendr GUI
             controller->OnUpdateReport(theTime, report);
-        report.Log(log_file, theTime, theTime, local_time);
+        analytic->Log(log_file, theTime, theTime, local_time);
     }
     
 }  // end Mgen::UpdateRecvAnalytics()

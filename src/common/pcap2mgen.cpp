@@ -464,12 +464,10 @@ int main(int argc, char* argv[])
                     return -1;
                 }
             }
-
             ProtoTime rxTime(hdr.ts);
             if (analytic->Update(rxTime, msg.GetMsgLen(), ProtoTime(msg.GetTxTime()), msg.GetSeqNum()))
             {
-                const MgenAnalytic::Report& report = analytic->GetReport(rxTime);
-                report.Log(outfile, rxTime, rxTime, false);
+                analytic->Log(outfile, rxTime, rxTime, false);
             }
             // we could dalso keep the analytic in a list and prune stale ones
         }
