@@ -80,8 +80,11 @@ enum
   };
 enum FragmentationStatus
 {
-    DF_OFF,      // df = false
-    DF_ON,      // df = true
+   // We pass df to protoSockets setFragmentation() method which
+   // reverses the bit setting.  
+
+    DF_ON,      // setFragmentation(false) = do not allow fragmentation set DF bit OFF
+    DF_OFF,     // setFragmentation(true) = allow fragmentation set DF bit ON
     DF_DEFAULT // leave socket DF option in its default state
 
 };
