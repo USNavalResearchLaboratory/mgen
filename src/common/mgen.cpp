@@ -70,12 +70,15 @@ void Mgen::LogLegacyTimestamp(FILE* filePtr, const struct timeval& theTime, bool
     struct tm* timePtr = &timeStruct;
 #else
     struct tm* timePtr;
+    time_t secs = theTime.tv_sec;
+
     if (localTime)
-      timePtr = localtime((time_t*)&theTime.tv_sec);
+        timePtr = localtime((time_t*)&secs);
     else
-      timePtr = gmtime((time_t*)&theTime.tv_sec);
+        timePtr = gmtime((time_t*)&secs);
+
 #endif // if/else _WIN32_WCE
-    Mgen::Log(filePtr, "%02d:%02d:%02d.%06lu ",
+     Mgen::Log(filePtr, "%02d:%02d:%02d.%06lu ",
                   timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
                   (UINT32)theTime.tv_usec);
 }  // end Mgen::LogTimeStamp()
