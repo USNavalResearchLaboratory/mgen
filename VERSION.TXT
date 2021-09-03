@@ -1,3 +1,11 @@
+Version 5.1.1
+=============
+    - Addition of "analytic" and "report" options for built-in per-flow analysis of
+      rate, loss, and latency metrics with the "report" option enabling embedding 
+      analytic report information into MGEN messages so that information can be 
+      collected from remote hosts
+    - Includes new "mgendr" GUI application source tree
+
 Version 5.02c
 =============
 
