@@ -1,9 +1,16 @@
-# protolib
-protolib/
-
 # build executables
 makefiles/mgen
 makefiles/mpmgr
+makefiles/pcap2mgen
+
+# build object files
+*.o
+*.a
+*.pyc
+
+#waf cruft
+.waf*
+.lock-waf*
 
 # OS generated files #
 .DS_Store

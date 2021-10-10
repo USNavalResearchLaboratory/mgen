@@ -130,7 +130,10 @@
      [localtime &lt;localtime&gt;] [queue &lt;queue&gt;]
      [broadcast {on|off}] [logdata {on|off}]
      [loggpsdata {on|off}] [gpsfile &lt;fileName&gt;]
-     [df {on|off}]
+     [df {on|off}][analytics] [window &lt;secs&gt;]]
+     [report] [suspend &lt;flowId(s)&gt;] [resume &lt;flowId(s)&gt;] [reset &lt;flowId(s)&gt;]
+     [retry &lt;count&gt;[/&lt;delay&gt;]
+     [epochtimestamp]
 
 </programlisting>
 
@@ -187,7 +190,7 @@
       mixed with the binary "sink" message stream.</para>
     </sect2>
 
-    <sect2 id="_MGEN_Log_Format">
+    <sect2 id="_EXAMPLE_SCRIPT">
       <title>Example Script</title>
 
       <para>Below is an example MGEN script which generates two "flows" of UDP
@@ -297,8 +300,8 @@
           </row>
 
           <row>
-            <entry><literal><link id="_DF"
-            linkend="_IPV6">df</link></literal></entry>
+            <entry><literal><link id="_DF" linkend="_DF">df
+            {ON|OFF}</link></literal></entry>
 
             <entry>Controls whether the DF fragmentation bit is set.
             {ON|OFF}</entry>
@@ -667,7 +670,7 @@
             which will result in no queuing behavior, e.g. the transmission
             timer will continue to fire at its regularly scheduled interval
             regardless of transport congestion. No pending message count will
-            be accumulated and message transmission will suceed or fail
+            be accumulated and message transmission will succeed or fail
             depending on transport availability. See <link
             linkend="_QUEUE">QUEUE</link> for more details about the queueing
             mechanism.</entry>
@@ -719,10 +722,93 @@
           </row>
 
           <row>
-            <entry><literal>df {on|off}</literal></entry>
+            <entry><literal>analytics</literal></entry>
 
-            <entry>Controls whether the df fragmentation bit is set for the
-            flow.</entry>
+            <entry>Enables built-in, per-flow analysis of received flows and
+            outputs "<link linkend="_FLOW_REPORT">REPORT</link>" events to the
+            mgen log file. The analysis (similar to NRL's TRPR tool) includes:
+            <orderedlist>
+                <listitem>
+                  <para>average received goodput rate for the given REPORT
+                  "window" time</para>
+                </listitem>
+
+                <listitem>
+                  <para>loss fraction measured for the given REPORT "window"
+                  time</para>
+                </listitem>
+
+                <listitem>
+                  <para>Average, minimum, and maximum latency for the given
+                  REPORT "window" time</para>
+                </listitem>
+              </orderedlist><para>See <link
+            linkend="_ANALYTICS">analytics</link> for more detailed
+            information.</para></entry>
+          </row>
+
+          <row>
+            <entry><literal>window &lt;secs&gt;</literal></entry>
+
+            <entry><para>Sets the analysis measurement window for analytics.
+            See <link linkend="_ANALYTICS">analytics</link> for more detailed
+            information.</para></entry>
+          </row>
+
+          <row>
+            <entry><literal>report</literal></entry>
+
+            <entry>Enables analytic reporting in all transmitting
+            flows.<para>See <link linkend="_REPORT">report</link> for more
+            detailed information.</para></entry>
+          </row>
+
+          <row>
+            <entry><literal>suspend &lt;flowId(s)|range&gt;</literal></entry>
+
+            <entry>Suspends <emphasis>local</emphasis> mgen flow(s) matching
+            the given flow id, list of comma separated flow ids, or
+            range.<para>See <link linkend="_SUSPEND">SUSPEND</link> for more
+            detailed information.</para></entry>
+          </row>
+
+          <row>
+            <entry><literal>resume &lt;flowId(s)|range&gt;</literal></entry>
+
+            <entry>Resumes <emphasis>local</emphasis> mgen flow(s) matching
+            the given flow id, list of comma separated flow ids, or range.
+            <para>See <link linkend="_RESUME">RESUME</link> for more detailed
+            information.</para></entry>
+          </row>
+
+          <row>
+            <entry><literal>reset &lt;flowId(s)|range&gt;</literal></entry>
+
+            <entry>Resets <emphasis>local</emphasis> mgen flow(s) matching the
+            given flow id, list of comma separated flow ids, or
+            range.<para>See <link linkend="_RESET">RESET</link> for more
+            detailed information.</para></entry>
+          </row>
+
+          <row>
+            <entry><literal>retry
+            &lt;count&gt;[/&lt;delay&gt;]</literal></entry>
+
+            <entry>Sets the default retry behavior for all data flows. If the
+            underlying TCP socket for a flow fails to connect, or disconnects,
+            attempt to reconnect the socket &lt;count&gt; times after
+            &lt;delay&gt; seconds. The default retry interval is 5 seconds.
+            The transport will attempt to reconnect over the life of the flow
+            if the retry count is set to -1. If multiple flows are sharing the
+            transport a common retry pattern should be used by all the flows
+            or the last attribute set "wins".</entry>
+          </row>
+
+          <row>
+            <entry><literal>epochtimestamp</literal></entry>
+
+            <entry>Log timestamps as epoch time in second.microsecond.
+            format.</entry>
           </row>
         </tbody>
       </tgroup>
@@ -1092,29 +1178,66 @@
       </sect3>
 
       <sect3 id="_COUNT">
-        <title>COUNT</title>
+        <title><link linkend="_COUNT">COUNT</link></title>
 
         <para>Option syntax:<literal/></para>
 
-        <para><literal>... COUNT &lt;msgCount&gt; ...</literal></para>
+        <para><literal>... COUNT &lt;msgCount&gt;[,off] ...</literal></para>
 
         <para>The optional COUNT attribute specifies the number of messages
         that are to be sent for the flow, e.g. a COUNT value of 1 means that
         one and only one mgen message will be sent. This attribute defaults to
         "-1", meaning mgen will send an unlimited number of messages until an
-        <link linkend="_OFF_Event">OFF</link> event occurs or the mgen program
-        completes. If a message count is specified, the mgen flow will be
-        stopped after the requested number of messages has been sent.</para>
+        <link linkend="_OFF_Event">OFF</link> event occurs. If a message count
+        is specified, the mgen flow will be paused after the requested number
+        of messages has been sent. If the optional ",off" attribute is set the
+        flow will be turned off after COUNT packets have been sent. The
+        default behavior will keep the flow "alive" after COUNT packets have
+        been sent and will be available for subsequent control.</para>
 
         <para>Note that an <link linkend="_OFF_Event">OFF</link> event will
         override any message COUNT specified (e.g. the flow will be terminated
         even if &lt;msgCount&gt; messages have not been sent) and that the
         <link linkend="_QUEUE">QUEUE</link> attribute will override (defer)
         OFF events.</para>
+
+        <para>If a flow is paused (e.g. packet rate is set to 0) before the
+        packet count as been reached, the initial message limit will still be
+        in effect when the flow is resumed, e.g. in the following example 10
+        total packets will be sent.</para>
+
+        <para><programlisting>0.0 ON 1 UDP dst 127.0.0.1/5000 periodic [1 1024] count 10
+# Pause flow
+5.0 mod 1 periodic [0 1024]
+# Resume flow
+10.0 mod 1 periodic [1 1024]
+60.0 off 1</programlisting>To ensure that the count is only applicable to the
+        first transmission command, reset the count to -1 (unlimited
+        messaging) or another count value:</para>
+
+        <para><programlisting>0.0 ON 1 UDP dst 127.0.0.1/5000 periodic [1 1024] count 10
+# Pause flow 
+5.0 mod 1 periodic [0 1024] 
+# Resume flow with no message limit
+10.0 mod 1 periodic [1 1024] COUNT -1
+# Pause flow
+15.0 mod 1 periodic [0 1024]
+# Restart flow and send 5 packets
+20.0 mod 1 periodic [1 1024] count 5
+60.0 off 1</programlisting>Message counts are kept on a per flow basis
+        regardless of how many flows are sharing a transport.</para>
+
+        <para>Given an input script with two gated flows, the mgen instance
+        will exist after 8 packets have been sent:</para>
+
+        <programlisting>0.0 on 1 UDP dst 127.0.0.1/5000 periodic [1 1024] count 5,off
+
+0.0 on 2 UDP dst 127.0.0.1/5000 periodic [1 1024] count 3,off</programlisting>
       </sect3>
 
       <sect3 id="Pattern__PER">
-        <title>Pattern (PERIODIC, POISSON, BURST, JITTER, CLONE)</title>
+        <title>Pattern (PERIODIC, POISSON, BURST, JITTER, CLONE,
+        &lt;sizeMin:sizeMax&gt;)</title>
 
         <para>Option syntax:<literal/></para>
 
@@ -1382,6 +1505,30 @@
 
           <para>0<literal>.0 ON 1 UDP DST 127.0.0.1/5000 CLONE [tcpdump
           tcpdump.dat [0]]</literal></para>
+        </sect4>
+
+        <sect4 id="CLONE_Pattern">
+          <title>Uniform random message size:</title>
+
+          <para>Option syntax:</para>
+
+          <para><literal>... &lt;patternType&gt; [&lt;rate&gt;
+          &lt;sizeMin:sizeMax&gt;]...</literal></para>
+
+          <para>Setting a message size range will send uniformly random
+          message sizes within the range sizeMin to sizeMax. The minimum
+          &lt;sizeMin&gt; must be as big as the minimum allowed message
+          size.</para>
+
+          <para>Example:</para>
+
+          <para><literal>#Start an MGEN flow and one message per second,
+          uniformaly random in size from 824 bytes</literal></para>
+
+          <para># to 1224 bytes (e.g. 1024 byes average).</para>
+
+          <para>0<literal>.0 ON 1 UDP DST 127.0.0.1/5000 PERIODIC [1
+          824:1224]</literal></para>
         </sect4>
       </sect3>
 
@@ -1817,6 +1964,287 @@
         <para><literal>1.0 ON 1 UDP DST 10.0.0.1/500 PER [1 1024] DF
         ON</literal></para>
       </sect3>
+
+      <sect3 id="_FLOW_REPORT">
+        <title>REPORT</title>
+
+        <para>Option syntax:</para>
+
+        <para>... REPORT ...</para>
+
+        <para>Instructs the flow to include per-flow analytic reports in its
+        transmitted MGEN message payload. MGEN nodes that receive these
+        "report" payloads will log REPORT events in their log files in
+        addition to RECV events if the analytics global has been set at the
+        receiving node. The reporting is "in-band" of scripted message
+        generation. The typical size of a per-flow report is 24-28 bytes but
+        is "hidden" in the normally "dummy" payload content of MGEN messages
+        so it doesn't really add overhead. The metrics reported are
+        efficiently quantized to enable the compact reports and that enables
+        reporting potentially on many received flows in a single transmitted
+        MGEN message.</para>
+
+        <para>The "in-band" reports are subject to the message size and rate
+        limits of the transmitting flow(s). A round-robin scheme, with
+        precedence to unreported and active flows, is used to populate the
+        message payload content with reports to provide assurance of delivery
+        of relevant report. Note that reports are sent redundantly when
+        possible when the message rate is sufficiently high. This provides
+        some assurance of report delivery even with message loss.
+        Post-processing of log files will require filtering of the redundant
+        REPORT lines logged.</para>
+
+        <para>An example flow command that enables this analytic reporting
+        is:</para>
+
+        <para><literal>mgen event "ON 1 UDP DST 127.0.0.1/5000 PER [1 1024]
+        report" window 10.0</literal></para>
+
+        <para>Here an MGEN message with report content for any analytics for
+        flows received by that MGEN node would be sent once per second. The
+        report content would be updated once per 10 seconds but the
+        receiver(s) of this reporting flow would still log a report once per
+        second. Of course, an MGEN node receiving nothing will have nothing to
+        report unless it has received prior flows. The REPORT "offset" will
+        become "stale" (a large value) for flows that have become
+        inactive.</para>
+
+        <para>Locally generated REPORT events can be distinguished by a 0.0
+        offset&gt; value and have the format:</para>
+
+        <programlisting>01:17:01.983235 REPORT proto&gt;UDP flow&gt;3 src&gt;127.0.0.1/63684 dst&gt;127.0.0.1/5002 offset&gt;0.000000 window&gt;1.970563 rate&gt;10.000000 kbps loss&gt;0.000000 latency ave&gt;0.000119 min&gt;0.000109 max&gt;0.000129
+</programlisting>
+
+        <para>REPORT events from remote nodes include "sent&gt;"
+        timestamp:</para>
+
+        <programlisting>01:17:01.983235 REPORT proto&gt;UDP flow&gt;3 src&gt;127.0.0.1/63684 dst&gt;127.0.0.1/5002 sent&gt;01:16.58.675309 offset&gt;0.023000 window&gt;1.970563 rate&gt;10.000000 kbps loss&gt;0.000000 latency ave&gt;0.000119 min&gt;0.000109 max&gt;0.000129</programlisting>
+
+        <para>The interpretation of the "sent&gt;" field and the "offset&gt;"
+        fields is the reported analytics measurement window,
+        <emphasis>End</emphasis> time is "sentTime - offset". The "offset" is
+        a quantized delay time (in seconds) from the time the included
+        analytics were computed (at window end) until they were included in
+        the MGEN message payload sent by the remote node.</para>
+
+        <para>When filtering duplicate REPORT items in a log file containing
+        REPORTs received from remote nodes, the filtering algorithm should
+        favor the REPORT event (among duplicates) that has the smallest
+        "offset" value. The quantization algorithm used to generate compact
+        reports yields more precision for small "offset" values as compared to
+        large "offset" values.</para>
+
+        <para>The usual time synchronization requirements for latency
+        measurement validity still stand, but it should be noted that the
+        latency "max/min" can be used to assess flow message delivery "jitter"
+        regardless of the validity of the absolute average latency
+        measurement.</para>
+
+        <para>There is also a global "report" command that can be used to make
+        all transmitting flows include the analytic reports by default, but
+        thought should be given to what reporting is required (i.e., a single
+        flow can report for all received flows and multiple reporting flows
+        will be redundant even though this reporting is "in-band" of scripted
+        message generation).</para>
+      </sect3>
+
+      <sect3 id="_SUSPEND">
+        <title>SUSPEND</title>
+
+        <para>Option syntax:</para>
+
+        <para>... SUSPEND &lt;flowId(s)|range&gt; ...</para>
+
+        <para>Uses in-band MGEN message payload content to suspend
+        <emphasis>remote</emphasis> MGEN flows matching the given flow id,
+        comma separated list of flow id(s), or flow id range.</para>
+
+        <para>Example Usage:</para>
+
+        <para><literal>mgen event "ON 1 UDP DST 127.0.0.1/5000 PER [1 1024]
+        suspend 1,3-5"</literal></para>
+
+        <para>Typically, it is expected that this command be used to manage
+        remote flows that were specified with a "count" limit option, but this
+        is not a requirement. Currently, the remote controlled flows
+        configured MUST have flowId values in the range of 1-40. (This could
+        be expanded with a minor update to the source code if a larger number
+        of flowId values need to be managed). Here is an example
+        scenario:</para>
+
+        <para>Remote MGEN (listening on port 5001 and sending to destination
+        port 5002):</para>
+
+        <programlisting>mgen event "listen udp 5001" event "on 1 udp dst 127.0.0.1/5002 per [1 1250]"</programlisting>
+
+        <para>Local MGEN (listening on port 5002 and sending to destination
+        port 5001):</para>
+
+        <programlisting>mgen event "listen udp 5002" event "on 1 udp dst 127.0.0.1/5001 per [1 1250]"</programlisting>
+
+        <para>At this point both the "remote" and "local" MGEN instances will
+        be sending their flows and receiving from one another. As an example,
+        the "local" MGEN can command the remote to suspend transmission of its
+        flow '1' using:</para>
+
+        <programlisting>mgen event "listen udp 5002" event "on 1 udp dst 127.0.0.1/5001 per [1 1250] suspend 1"</programlisting>
+
+        <para>Note that these suspend/resume/reset flow options can have
+        comma-delimited ranges of flowId values so the following examples are
+        valid:</para>
+
+        <programlisting>mgen event "on 1 udp dst 127.0.0.1/5001 per [1 1250] suspend 1-3,5,8-11</programlisting>
+
+        <para>Also, multiple options can be specified. For example:</para>
+
+        <programlisting>mgen event "on 1 udp dst 127.0.0.1/5001 per [1 1250] suspend 2,4, resume 5"</programlisting>
+
+        <para>The "suspend" and "resume" options simply pause and resume flow
+        transmission, respectively. The "reset" command can be used to act as
+        a "keep-alive" for remote flows that have the "count" option set. When
+        a "reset" command is received, the sender flow message counter is
+        reset so the flow will continue transmitting for as long as "reset"
+        commands are actively received. When "reset" reception stops, the
+        count-limited flow will end transmission once its count decrements to
+        zero per usual.</para>
+
+        <para>The use of the "reset" command can act as a "safe",
+        fault-tolerant mechanism so that a remote MGEN will automatically
+        terminate its transmission when messages are no longer received from
+        the local MGEN controller. Thus, if a network become congested, etc.,
+        the transmissions will halt. Similarly, in wireless networks,
+        transmissions by the remote would eventually cease when out of
+        communications range, but then resume once back in range and once
+        again actively receiving the "reset" commands from the controller.
+        Note that remote flows that don't have a "count" limit will
+        <emphasis>not</emphasis> expire and the "suspend" option must be used
+        to pause those.</para>
+
+        <para>Care should be taken to have a single controller managing a
+        remote MGEN. Note that multicast flow commands can be sent as well,
+        but again, care should be taken. TCP flows could even bue used for the
+        commands and reporting if desired.</para>
+
+        <para>The "reserver" field in the MGEN message format (byte prior to
+        the "payload_length" field is now used as a "payload_type" to indicate
+        whether the payload is MGEN_DATA or USER_DATA (i.e. user-defined
+        content). When the "<link linkend="_FLOW_REPORT">report</link>" flow
+        is set, this supersedes any user-defined payload content set for the
+        flow. Hence, if one is also using user-defined payloads, one should be
+        judicious in which flows are configured with the "report" option. Both
+        analytic <link linkend="_FLOW_REPORT">report </link> content and
+        remote flow command content can be carried in the MGEN_DATA payload
+        type. Supported report and command content may be extended over
+        time.</para>
+
+        <para>HINT: MGEN "mod" events can be used to dynamically control these
+        features. For example, the averaging "<link
+        linkend="_WINDOW">window</link>" can be changed on the fly, etc. as
+        well as dynamic use of the "suspend", "resume", and "reset" remote
+        control commands as desired.</para>
+      </sect3>
+
+      <sect3 id="_RESUME">
+        <title><link linkend="_RESUME">RESUME</link></title>
+
+        <para>Option syntax:</para>
+
+        <para>... RESUME &lt;flowId(s)|range&gt; ...</para>
+
+        <para>Uses in-band MGEN message payload content to resume
+        <emphasis>remote</emphasis> MGEN flows matching the given flow id,
+        comma separated list of flow id(s), or flow id range.</para>
+
+        <para>For example:</para>
+
+        <para><literal>mgen event "ON 1 UDP DST 127.0.0.1/5000 PER [1 1024]
+        resume 1-3,5,8-11"</literal></para>
+
+        <para>Typically, it is expected that this command be used to manage
+        remote flows that were specified with a "count" limit option, but this
+        is not a requirement. Currently, the remote controlled flows
+        configured MUST have flowId values in the range of 1-40. (This could
+        be expanded with a minor update to the source code if a larger number
+        of flowId values need to be managed). See <link
+        linkend="_SUSPEND">SUSPEND</link> for usage examples.</para>
+      </sect3>
+
+      <sect3 id="_RESET">
+        <title><link linkend="_RESET">RESET</link></title>
+
+        <para>Option syntax:</para>
+
+        <para>... RESET &lt;flowId(s)|range&gt; ...</para>
+
+        <para>Uses in-band MGEN message payload content to reset
+        <emphasis>remote</emphasis> MGEN flows matching the given flow id,
+        comma separated list of flow id(s), or flow id range.</para>
+
+        <para>For example:</para>
+
+        <para><literal>mgen event "ON 1 UDP DST 127.0.0.1/5000 PER [1 1024]
+        reset 1-3,5,8-11"</literal></para>
+
+        <para>The "reset" command can be used to act as a keep-alive for
+        remote flows that have the <link linkend="_COUNT">COUNT</link> option
+        set. When a "reset" command is received, the sender flow message
+        counter is reset so the flow will continue transmitting for as long as
+        "reset" commands are actively received. When "reset" reception stops,
+        the count limited flow will end transmission once its count decrements
+        to zero per usual. Note that the sequence number for the remote flow
+        is <emphasis>not</emphasis> reset.</para>
+
+        <para>The use of the "reset" command can act as a "safe",
+        fault-tolerant mechanism so that a remote MGEN will automatically
+        terminate its transmission when messages are no longer received from
+        the local MGEN controller. Thus if a network becomes congested, etc.,
+        the transmissions will halt. Similarly, in wireless networks,
+        transmissions by the remote would eventually cease when out of
+        communications range, but then resume once back in range and once
+        again actively receiving the "reset" commands from the controller.
+        Note that remote flows that don't have a "count" limit will
+        <emphasis>not</emphasis> expire and the "suspend" option must be used
+        to pause these.</para>
+
+        <para>Currently, the remote controlled flows configured MUST have
+        flowId values in the range of 1-40. (This could be expanded with a
+        minor update to the source code if a larger number of flowId values
+        need to be managed). See <link linkend="_SUSPEND">SUSPEND</link> for
+        an example scenario.</para>
+      </sect3>
+
+      <sect3 id="_RESET">
+        <title><link linkend="_RETRY">RETRY</link></title>
+
+        <para>Option syntax:</para>
+
+        <para>... RETRY &lt;count&gt;[|&lt;delay&gt;] ...</para>
+
+        <para>If the underlying TCP socket for the flow fails to connect, or
+        disconnects, attempt to reconnect the socket &lt;count&gt; times after
+        &lt;delay&gt; seconds. The default retry interval is 5 seconds. The
+        transport will attempt to reconnect over the life of the flow if the
+        retry count is set to -1. If multiple flows are sharing the transport
+        a common retry pattern should be used by all the flows or the last
+        attribute set "wins".</para>
+
+        <para>For example:</para>
+
+        <para>Attempt to connect every five seconds:</para>
+
+        <para><programlisting>ON 1 TCP DST 127.0.0.1/5000 PERIODIC [1 1024] RETRY -1/5 </programlisting></para>
+
+        <para>Attempt to connect twice after initial failure every 3
+        seconds</para>
+
+        <para><programlisting>ON 1 TCP DST 127.0.0.1/5000 PERIODIC [1 1024] RETRY 2/3 </programlisting></para>
+
+        <para>RECONNECT events are logged at each reconnect attempt:</para>
+
+        <programlisting>17:36:12.762619 RECONNECT flow&gt;1 srcPort&gt;35859 dst&gt;127.0.0.1/5000 
+17:36:17.763483 RECONNECT flow&gt;1 srcPort&gt;46864 dst&gt;127.0.0.1/5000 
+17:36:22.764783 RECONNECT flow&gt;1 srcPort&gt;46866 dst&gt;127.0.0.1/5000 </programlisting>
+      </sect3>
     </sect2>
 
     <sect2 id="_Reception_Events">
@@ -2072,14 +2500,14 @@
           </row>
 
           <row>
-            <entry><link linkend="_TTL">G</link></entry>
+            <entry><link linkend="_TTL">TTL</link></entry>
 
             <entry>Specifies a default TTL (time-to-live) hop count for
             transmitted multicast packets.</entry>
           </row>
 
           <row>
-            <entry><link linkend="_TTL">UNICAST_TTL</link></entry>
+            <entry><link linkend="_UNICAST_TTL">UNICAST_TTL</link></entry>
 
             <entry>Specifies a default TTL (time-to-live) hop count for
             transmitted unicast packets.</entry>
@@ -2149,7 +2577,7 @@
           </row>
 
           <row>
-            <entry><link linkend="_Logdata">LOGDATA</link></entry>
+            <entry><link linkend="_LOGDATA">LOGDATA</link></entry>
 
             <entry>Controls whether MGEN will log the optional data attribute
             field at MGEN receivers (including within MGEN binary log files).
@@ -2167,7 +2595,7 @@
           </row>
 
           <row>
-            <entry><link linkend="_Logdata">IPV4</link></entry>
+            <entry><link linkend="_IPV4">IPV4</link></entry>
 
             <entry>Forces mgen to open sockets for IPv4 operation (i.e.
             AF_INET domain sockets) only. The default behavior for mgen is to
@@ -2180,6 +2608,107 @@
 
             <entry>Controls whether the DF fragmentation bit is set.
             {ON|OFF}</entry>
+          </row>
+
+          <row>
+            <entry><link linkend="_ANALYTICS">ANALYTICS</link></entry>
+
+            <entry>Enables built-in, per-flow analysis of received flows and
+            outputs "REPORT" events to the mgen log file. See <olink
+            targetdoc="_ANALYTICS">analytics</olink> for more detailed
+            information.</entry>
+          </row>
+
+          <row>
+            <entry><link linkend="_WINDOW">WINDOW</link></entry>
+
+            <entry>Sets the analysis measurement window for analytics. See
+            <olink targetdoc="_ANALYTICS">analytics</olink> for more detailed
+            information.</entry>
+          </row>
+
+          <row>
+            <entry><link linkend="_REPORT">REPORT</link></entry>
+
+            <entry>Enables analytic reporting in all transmitting flows. See
+            <olink targetdoc="_REPORT">report</olink> for more detailed
+            information.</entry>
+          </row>
+
+          <row>
+            <entry><link linkend="_SUSPEND_GLOBAL">SUSPEND
+            &lt;flowId|range|all&gt;</link></entry>
+
+            <entry>Suspends a <emphasis>local</emphasis> flow (i.e. as opposed
+            to the control of remote flows that inserting this options into a
+            flow event provides). The main use for this would be to suspend
+            flows upon startup so that they may be activated later upon
+            receipt of remote flow command "resume" or "reset" messages. For
+            example:<programlisting>mgen event "on 1 udp dst 127.0.0.1/5001 per [1 1024]" suspend 1</programlisting><para>would
+            create a flow with flowid "1" that is immediately suspended (e.g.
+            not transmitting) upon startup. Then later, if a 'resume' or
+            'reset' remote flow command is received, the flow would be
+            activated and begin transmitting upon command. They keyword "all"
+            can also be used with the suspend command (but not with the
+            corresponding flow event option) to take action on
+            <emphasis>all</emphasis> flows. For example:<programlisting>mgen event "on 1 udp dst 127.0.0.1/5001 per [1 1024]" event "on 2 udp dsdt 127.0.0.1/5002 per [1 1024]" suspend all"</programlisting></para><para>would
+            create two flows that are suspended upon MGEN
+            startup.</para></entry>
+          </row>
+
+          <row>
+            <entry><link linkend="_RESUME_GLOBAL">RESUME
+            &lt;flowId|range|all&gt;</link></entry>
+
+            <entry>Resumes a <emphasis>local</emphasis> flow (i.e. as opposed
+            to the control of remote flows that inserting this options into a
+            flow event provides). The main use for this would be to resume
+            flows that have been previously suspended in a local mgen
+            instance. For example:<programlisting>mgen instance mgen1 event "on 1 udp dst 127.0.0.1/5001 per [1 1024]" suspend 1</programlisting><para>would
+            create a flow with flowid "1" that is immediately suspended (e.g.
+            not transmitting) upon startup. Then later, the global 'resume'
+            command can be used to activate the suspended flow.
+            <programlisting>mgen instance mgen1 resume 1</programlisting>They
+            keyword "all" can also be used with the resume command (but not
+            with the corresponding flow event option) to take action on
+            <emphasis>all</emphasis> flows. For example:<programlisting>mgen instance mgen1 resume all</programlisting></para><para>would
+            resume all flow(s) suspended in mgen instance
+            mgen1.</para></entry>
+          </row>
+
+          <row>
+            <entry><link linkend="_RESET_GLOBAL">RESET
+            &lt;flowId|range|all&gt;</link></entry>
+
+            <entry>Resets a <emphasis>local</emphasis> flow (i.e. as opposed
+            to the control of remote flows that inserting these options into a
+            flow event provides). The main use for this would be to reset
+            flows managed by local mgen instances. When a "reset" command is
+            received, the sender flow message counter is reset and the flow
+            will continue transmitting count messages. For
+            example:<programlisting>mgen instance mgen1 event "on 1 udp dst 127.0.0.1/5001 per [1 1024] count 10" </programlisting><para>would
+            create a flow with flowid "1" that is scheduled to send 10
+            messages upon startup. Then later, when a 'reset' remote flow
+            command is received, the flow would be activated and begin
+            retransmitting 10 messages. For example: flows. For
+            example:<programlisting>mgen instance mgen1 reset 1</programlisting></para><para>would
+            cause the counter for the flow to be reset and an additional 10
+            messages would be sent. If the counter has already expired the
+            reset message will have no effect.</para></entry>
+          </row>
+
+          <row>
+            <entry><link
+            linkend="_RETRY_GLOBAL">RETRY&lt;count&gt;[/&lt;delay&gt;]</link></entry>
+
+            <entry>Sets the default retry count and delay for all data flows.
+            If the underlying TCP socket for the flow fails to connect, or
+            disconnects, attempt to reconnect the socket &lt;count&gt; times
+            after &lt;delay&gt; seconds. The default retry interval is 5
+            seconds. The transport will attempt to reconnect over the life of
+            the flow if the retry count is set to -1. If multiple flows are
+            sharing the transport a common retry pattern should be used by all
+            the flows or the last attribute set "wins".</entry>
           </row>
         </tbody>
       </tgroup>
@@ -2291,7 +2820,7 @@
       <para><literal>TTL 32</literal></para>
     </sect2>
 
-    <sect2 id="_TTL">
+    <sect2 id="_TUNICAST_TTL">
       <title>UNICAST_TTL</title>
 
       <para>Script syntax:<literal/></para>
@@ -2404,11 +2933,22 @@
 
       <para>Script Syntax:</para>
 
-      <para><programlisting>DATA [&lt;hex&gt;,&lt;hex&gt;]</programlisting>User
+      <para><programlisting>DATA [&lt;hex&gt;[&lt;hex&gt;[&lt;hex&gt;...]]]</programlisting>User
       defined message payload can be specified with the DATA command. The data
       should be a hexadecimal representation of the user data where each pair
       of characters corresponds to one byte of user data. The contents will be
       placed in every packet generated by the flow.</para>
+
+      <para><programlisting>./mgen event "ON 1 UDP DST 127.0.0.1/5000 Periodic [1 1024] DATA [fffeffff]" event "LISTEN UDP 5000"
+mgen: version 5.1.1
+mgen: starting now ...
+19:39:06.617625 START Mgen Version 5.1.1
+19:39:06.618078 ON flow&gt;1 srcPort&gt;59275 dst&gt;127.0.0.1/5000 
+19:39:06.618168 LISTEN proto&gt;UDP port&gt;5000
+19:39:06.618340 RECV proto&gt;UDP flow&gt;1 seq&gt;0 src&gt;127.0.0.1/59275 dst&gt;127.0.0.1/5000 sent&gt;19:39:06.618199 size&gt;1024 gps&gt;INVALID,999.000000,999.000000,4294966297 data&gt;4:FFFEFFFF 
+19:39:07.620218 RECV proto&gt;UDP flow&gt;1 seq&gt;1 src&gt;127.0.0.1/59275 dst&gt;127.0.0.1/5000 sent&gt;19:39:07.619975 size&gt;1024 gps&gt;INVALID,999.000000,999.000000,4294966297 data&gt;4:FFFEFFFF </programlisting>The
+      data is inserted in each packet once and the remainder of the packet, if
+      any, is filled with zeros (unless compiled with RANDOM_FILL). </para>
     </sect2>
 
     <sect2 id="_INTERFACE">
@@ -2497,7 +3037,7 @@
       <para><literal>LOG logFile.drc</literal></para>
     </sect2>
 
-    <sect2 id="_Logdata">
+    <sect2 id="_LOGDATA">
       <title>LOGDATA</title>
 
       <para>Script syntax:<literal/></para>
@@ -2578,7 +3118,18 @@
       <para><literal>LOG logFile.drc</literal></para>
     </sect2>
 
-    <sect2 id="_SAVE">
+    <sect2>
+      <title>SEED</title>
+
+      <para>Script syntax:</para>
+
+      <para>SEED &lt;int&gt;</para>
+
+      <para>Seeds the random number generator with the provided int value. If
+      no seed is provided, the current time is used.</para>
+    </sect2>
+
+    <sect2 id="_IPV6">
       <title>IPv6</title>
 
       <para>Script syntax:<literal/></para>
@@ -2597,7 +3148,7 @@
       <para>IPV6</para>
     </sect2>
 
-    <sect2 id="_SAVE">
+    <sect2 id="_IPV4">
       <title>IPv4</title>
 
       <para>Script syntax:<literal/></para>
@@ -2616,7 +3167,7 @@
       <para><literal>IPv4</literal></para>
     </sect2>
 
-    <sect2 id="_SAVE">
+    <sect2 id="_DF">
       <title>DF</title>
 
       <para>Script syntax:<literal/></para>
@@ -2630,6 +3181,210 @@
       <para><literal># Set DF fragmentation bit</literal></para>
 
       <para><literal>DF on</literal></para>
+    </sect2>
+
+    <sect2 id="_ANALYTICS">
+      <title id="_ANALYTICS">ANALYTICS</title>
+
+      <para>Script syntax:<literal/></para>
+
+      <para><literal>ANALYTICS </literal></para>
+
+      <para>Enables build-in, per-flow analysis of received flows and outputs
+      "REPORT" events to the mgen log file. The analysis (similar to NRL's
+      TRPR) product includes:</para>
+
+      <orderedlist>
+        <listitem>
+          <para>average received goodput rate for the given <link
+          linkend="_REPORT">REPORT</link> "window" time</para>
+        </listitem>
+
+        <listitem>
+          <para>loss fraction measured for the given <link
+          linkend="_REPORT">REPORT</link> "window" time</para>
+        </listitem>
+
+        <listitem>
+          <para>average, minimum, and maximum latency for the given <link
+          linkend="_REPORT">REPORT</link> "window" time</para>
+        </listitem>
+      </orderedlist>
+
+      <para>For example,</para>
+
+      <programlisting>mgen event "listen udp 5000" analytics window 10</programlisting>
+
+      <para>would measure and log received message statistics once per 10
+      seconds for each flow detected.</para>
+
+      <para>The "window" command can be used to set the analysis measurement
+      window. A window of about 1 second is the default value. The window
+      SHOULD be set large enough to have multiple messages per window time for
+      useful measurement. The format of the REPORT lines are similar to other
+      MGEN events. For example, locally generated report events have a an
+      offset value of 0.0:</para>
+
+      <programlisting>01:17:01.983235 REPORT proto&gt;UDP flow&gt;3 src&gt;127.0.0.1/63684 dst&gt;127.0.0.1/5002 offset&gt;0.000000 window&gt;1.970563 rate&gt;10.000000 kbps loss&gt;0.000000 latency ave&gt;0.000119 min&gt;0.000109 max&gt;0.000129</programlisting>
+
+      <para>REPORT events from remote MGEN instances include a sent&gt;
+      field:</para>
+
+      <programlisting>01:17:01.983235 REPORT proto&gt;UDP flow&gt;3 src&gt;127.0.0.1/63684 dst&gt;127.0.0.1/5002 sent&gt;01:16.58.675309 offset&gt;0.000000 window&gt;1.970563 rate&gt;10.000000 kbps loss&gt;0.000000 latency ave&gt;0.000119 min&gt;0.000109 max&gt;0.000129</programlisting>
+
+      <para>The first timestamp field minus the value of the "offset" field is
+      when the reported measurement was computed (i.e. the time of the
+      <emphasis>end</emphasis> of the given averaging window being reported.)
+      The "offset" is useful when receiving report content from the remote
+      MGEN senders and not a locally generated report. (Locally generated
+      REPORT events the "offset" will be zero.) The "window" field indicates
+      what averaging window was used for the report (e.g., it may be different
+      for remote MGEN senders depending on how their "window" was set.</para>
+    </sect2>
+
+    <sect2 id="_WINDOW">
+      <title id="_WINDOW">WINDOW</title>
+
+      <para>Script syntax:<literal/></para>
+
+      <para><literal>WINDOW &lt;secs&gt;</literal></para>
+
+      <para>Sets the report analysis measurement window. A window of about 1
+      second is the default value. The window should be set large enough to
+      have multiple messages per window time for useful measurement. The
+      "window" field in the report line, e.g.</para>
+
+      <programlisting>01:17:01.983235 REPORT proto&gt;UDP flow&gt;3 src&gt;127.0.0.1/63684 dst&gt;127.0.0.1/5002 offset&gt;0.000000 window&gt;1.970563 rate&gt;10.000000 kbps loss&gt;0.000000 latency ave&gt;0.000119 min&gt;0.000109 max&gt;0.000129</programlisting>
+
+      <para>indicates what averaging window was used for the report (e.g., the
+      window in reports transmitted by remote MGEN senders may be different
+      than locally generated MGEN reports depending on how their "window"
+      command was set")</para>
+    </sect2>
+
+    <sect2 id="_REPORT">
+      <title id="_REPORT">REPORT</title>
+
+      <para>Script syntax:<literal/></para>
+
+      <para><literal>REPORT</literal></para>
+
+      <para>Enables <link linkend="_ANALYTICS">analytics</link> reporting in
+      all transmitting flows, meaning each flow will include in their
+      transmitted MGEN message payload content per-flow analytics reports.
+      MGEN nodes that receive these "report" payloads will also log those as
+      REPORT event in their log files in addition to the usual RECV events.
+      Note that the receiving mgen must have the <link
+      linkend="_ANALYTICS">analytics</link> global set in order to log the
+      REPORT messages. Thought should be given to what reporting is required
+      when considering the global REPORT option versus the per flow REPORT
+      option as a single flow can report for all received flows and multiple
+      reporting flows will be redundant (even though this reporting is
+      "in-band" of scripted message generation.) The metrics reported as
+      sufficiently quantized to enable compact reports and that enables
+      reporting potentially on many received flows in a single transmitted
+      MGEN message. See the flow <link linkend="_FLOW_REPORT">REPORT</link>
+      option for more detailed information on this capability.</para>
+    </sect2>
+
+    <sect2 id="_SUSPEND_GLOBAL">
+      <title id="_SUSPEND_GLOBAL">SUSPEND</title>
+
+      <para>Script syntax:<literal/></para>
+
+      <para><literal>SUSPEND &lt;flowId|range|all&gt;</literal></para>
+
+      <para>Suspends a local flow (i.e. as opposed to the control of remote
+      flows that inserting this options into a flow event provides). The main
+      use for this would be to suspend flows upon startup so that they may be
+      activated later upon receipt of remote flow command "resume" or "reset"
+      messages. For example: <programlisting>mgen event "on 1 udp dst 127.0.0.1/5001 per [1 1024]" suspend 1</programlisting>
+      would create a flow with flowid "1" that is immediately suspended (e.g.
+      not transmitting) upon startup. Then later, if a 'resume' or 'reset'
+      remote flow command is received, the flow would be activated and begin
+      transmitting upon command. They keyword "all" can also be used with the
+      suspend command (but not with the corresponding flow event option) to
+      take action on all flows. For example: <programlisting>mgen event "on 1 udp dst 127.0.0.1/5001 per [1 1024]" event "on 2 udp dsdt 127.0.0.1/5002 per [1 1024]" suspend all"</programlisting>
+      would create two flows that are suspended upon MGEN startup. Note that
+      the suspend global command can be send to an mgen instance.</para>
+    </sect2>
+
+    <sect2 id="_RESUME_GLOBAL">
+      <title id="_RESUME_GLOBAL">RESUME</title>
+
+      <para>Script syntax:<literal/></para>
+
+      <para><literal>SUSPEND &lt;flowId|range|all&gt;</literal></para>
+
+      <para>Resumes a local flow (i.e. as opposed to the control of remote
+      flows that inserting this options into a flow event provides). The main
+      use for this would be to resume flows that have been previously
+      suspended in a local mgen instance. For example:<programlisting>mgen event "on 1 udp dst 127.0.0.1/5001 per [1 1024]" suspend 1</programlisting>
+      would create a flow with flowid "1" that is immediately suspended (e.g.
+      not transmitting) upon startup. Then later, the global 'resume' command
+      can be used to activate the suspended flow.<programlisting>mgen instance mgen1 resume 1</programlisting>
+      They keyword "all" can also be used with the resume command (but not
+      with the corresponding flow event option) to take action on all flows.
+      For example:</para>
+
+      <programlisting>mgen instance mgen1 resume all</programlisting>
+
+      <para>would resume all flow(s) suspended in mgen instance mgen1</para>
+    </sect2>
+
+    <sect2 id="_RESET_GLOBAL">
+      <title id="_RESET_GLOBAL">RESET</title>
+
+      <para>Script syntax:<literal/></para>
+
+      <para><literal>RESET &lt;flowId|range|all&gt;</literal></para>
+
+      <para>Resets a local flow (i.e. as opposed to the control of remote
+      flows that inserting these options into a flow event provides). The main
+      use for this would be to reset flows managed by local mgen instances.
+      When a "reset" command is received, the sender flow message counter is
+      reset and the flow will continue transmitting count messages. For
+      example:<programlisting>mgen instance mgen1 event "on 1 udp dst 127.0.0.1/5001 per [1 1024] count 10" </programlisting>
+      would create a flow with flowid "1" that is scheduled to send 10
+      messages upon startup. Then later, when a 'reset' remote flow command is
+      received, the flow would be activated and begin retransmitting 10
+      messages. For example: flows. For example:<programlisting>mgen instance mgen1 reset 1</programlisting>
+      would cause the counter for the flow to be reset and an additional 10
+      messages would be sent. If the counter has already expired the reset
+      message will have no effect.</para>
+    </sect2>
+
+    <sect2 id="_RETRY_GLOBAL">
+      <title id="_GLOBAL_RETRY">RETRY</title>
+
+      <para>Script syntax:<literal/></para>
+
+      <para><literal>RETRY &lt;count&gt;[/&lt;delay&gt;]</literal></para>
+
+      <para>Sets the default retry behavior for all flows. If the underlying
+      TCP socket for the flow fails to connect, or disconnects, attempt to
+      reconnect the socket &lt;count&gt; times after &lt;delay&gt; seconds.
+      The default retry interval is 5 seconds. The transport will attempt to
+      reconnect over the life of the flow if the retry count is set to -1. If
+      multiple flows are sharing the transport a common retry pattern should
+      be used by all the flows or the last attribute set "wins".</para>
+
+      <para>For example:</para>
+
+      <para>Attempt to connect every five seconds:</para>
+
+      <para><programlisting>ON 1 TCP DST 127.0.0.1/5000 PERIODIC [1 1024] RETRY -1/5 </programlisting></para>
+
+      <para>Attempt to connect twice after initial failure every 3
+      seconds</para>
+
+      <para><programlisting>ON 1 TCP DST 127.0.0.1/5000 PERIODIC [1 1024] RETRY 2/3 </programlisting></para>
+
+      <para>RECONNECT events are logged at each reconnect attempt:</para>
+
+      <programlisting>17:36:12.762619 RECONNECT flow&gt;1 srcPort&gt;35859 dst&gt;127.0.0.1/5000 
+17:36:17.763483 RECONNECT flow&gt;1 srcPort&gt;46864 dst&gt;127.0.0.1/5000 
+17:36:22.764783 RECONNECT flow&gt;1 srcPort&gt;46866 dst&gt;127.0.0.1/5000 </programlisting>
     </sect2>
   </sect1>
 
@@ -2772,6 +3527,15 @@
 
               <entry>Indicates when an mgen TCP "client" or "sender" has
               established a TCP connection from the indicated source port or
+              to the destination ip address and port.</entry>
+            </row>
+
+            <row>
+              <entry><link
+              linkend="_Log_File_RECONNECT">RECONNECT</link></entry>
+
+              <entry>Indicates when an mgen TCP "client" as attempted to
+              reestablished a TCP connection from the indicated source port or
               to the destination ip address and port.</entry>
             </row>
 
@@ -3191,7 +3955,7 @@
       <para>23:00:00:723467 ACCEPT srcPort&gt;4007 dst&gt;10.0.0.2/5000</para>
     </sect2>
 
-    <sect2 id="_Log_File_SHUTDOWN" label="">
+    <sect2 id="_Log_File_SHUTDOWN" label="12">
       <title>Log File SHUTDOWN Events</title>
 
       <para>The format of the SHUTDOWN event log file line is:</para>
@@ -3280,6 +4044,31 @@
       dstPort&gt;5000</literal></para>
     </sect2>
 
+    <sect2 id="_Log_File_RECONNECT">
+      <title>Log File RECONNECT Events</title>
+
+      <para>The format of the RECONNECT event log file line is:</para>
+
+      <para>&lt;eventTime&gt; RECONNECT flow&gt;&lt;flowID&gt;
+      srcPort&gt;&lt;srcPort&gt; dst&gt;&lt;dstAddr&gt;&lt;dstPort&gt;
+      (client)</para>
+
+      <para>This event indicates an attempt to reconnect a TCP connection with
+      the indicated address and port that has disconnected either because the
+      connection could not be established in the first place or because the
+      connection was prematurely terminated. In the TCP client's log file, the
+      dst address and port reflect the address and port of the node the client
+      was attempting to connect or reconnect to. The &lt;flowID&gt; field
+      corresponds to the TCP flow ID of the connection. Note that if multiple
+      flows are sharing a TCP socket reconnect events will be logged for each
+      flow.</para>
+
+      <para>Example Client RECONNECT event log line:<literal/></para>
+
+      <para><literal>23:00:00:723467 DISCONNECT flow&gt;1 srcPort&gt;4000
+      dst&gt;10.0.0.2/5000</literal></para>
+    </sect2>
+
     <sect2 id="_Log_File_OFF">
       <title>Log File OFF Events</title>
 
@@ -3336,6 +4125,27 @@
       program was executed unless the global <link
       linkend="_START">START</link> command was invoked. The "STOP" command
       corresponds to when the mgen program was halted.</para>
+    </sect2>
+
+    <sect2 id="_LOG_FILE_REPORT_EVENTS">
+      <title id="_LOG_FILE_REPORT_EVENTS">Log File REPORT Events</title>
+
+      <para>The format of locally source REPORT events is (note the offset
+      will be 0.0 and there is no "sent&gt;" field):</para>
+
+      <para><literal>01:17:01.983235 REPORT proto&gt;UDP flow&gt;3
+      src&gt;127.0.0.1/63684 dst&gt;127.0.0.1/5002 offset&gt;0.000000
+      window&gt;1.970563 rate&gt;10.000000 kbps loss&gt;0.000000 latency
+      ave&gt;0.000119 min&gt;0.000109 max&gt;0.000129</literal></para>
+
+      <para>The format of REPORT events from remote nodes includes the
+      "sent&gt;" field:</para>
+
+      <para><literal>01:17:01.983235 REPORT proto&gt;UDP flow&gt;3
+      src&gt;127.0.0.1/63684 dst&gt;127.0.0.1/5002 sent&gt;01:16.58.675309
+      offset&gt;0.023000 window&gt;1.970563 rate&gt;10.000000 kbps
+      loss&gt;0.000000 latency ave&gt;0.000119 min&gt;0.000109
+      max&gt;0.000129</literal></para>
     </sect2>
   </sect1>
 
@@ -3490,8 +4300,9 @@ The format of the RECV event binary log file record is:
 
       <para>The &lt;type&gt; field contains the record type. The record type
       for TCP corresponds to the tcp event type (ON, CONNECT, DISCONNECT,
-      OFF). The &lt;protocol&gt; field indicates the protocol of the message
-      TCP &lt;2&gt;. &lt;0&gt; indicates an invalid protocol.</para>
+      RECONNECT, OFF). The &lt;protocol&gt; field indicates the protocol of
+      the message TCP &lt;2&gt;. &lt;0&gt; indicates an invalid
+      protocol.</para>
 
       <para>The &lt;eventRecordLength&gt; field contains the length of this
       record, starting with the next byte. Thus, it contains the length of the

@@ -1,7 +1,7 @@
 import os
 import subprocess
 import protokit
-
+import sys
 import shlex
 import datetime
 import struct
@@ -33,7 +33,7 @@ def deprecated(func):
 
 
 class gps:
-    def __init__(self, lat=None, lon=None, alt=None):
+    def __init__(self, lon=None, lat=None, alt=None):
         if lat is None or lon is None:
             self.valid = False
         else:
@@ -42,10 +42,9 @@ class gps:
             self.lon = lon
             self.alt = alt
 
-
 def get_payload_from_string(text):
     if len(text) > 255:
-        print "get_payload_from_string() Error: Payload > 255",text
+        sys.stderr.write("get_payload_from_string() Error: Payload > 255: %s\n" % text)
         return None
     return text.encode('hex','strict').rstrip()
     
@@ -101,9 +100,6 @@ class Flow:
             controller.add_flow(self)
         self.active = False
         
-    #def __del__(self):
-        #print "flow DTOR"
-     
     def is_valid(self):
         """Checks that the minimum parameters for a valid flow are set"""
         if self.flow_id is None:
@@ -324,7 +320,6 @@ class Event:
         # MGEN log format is "<time> <eventType> <attr1>><value> <attr2>><value> ...
         field = text.split()
         self.rx_time = get_time_from_string(field[0])
-        #print "\"%s\"" % field[1]
         self.type = self.get_event_type(field[1])
         for item in field[2:]:
             key,value = item.split('>')
@@ -391,7 +386,6 @@ class Controller:
         # TBD - should we try to connect to the instance_name to
         # see if it already exists instead of always creating a 
         # child process???
-        #print "mgen instance name " + self.instance_name
         self.mgen_pipe = protokit.Pipe("MESSAGE")
         try:
             self.mgen_pipe.Connect(self.instance_name)
@@ -410,9 +404,7 @@ class Controller:
             # Connect a ProtoPipe to the mgen instance to be able to control
             # the mgen instance as needed in the future
             self.mgen_pipe.Connect(self.instance_name)
-
-        
-        
+            
     def __del__(self):
         self.shutdown()
                 

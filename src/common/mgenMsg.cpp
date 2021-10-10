@@ -40,8 +40,8 @@ MgenMsg::MgenMsg()
     version(VERSION), flags(0),  
     packet_header_len(0), flow_id(0), 
     seq_num(0), latitude(0),longitude(0),altitude(0),
-    gps_status(INVALID_GPS), reserved(0),payload(NULL),
-    mp_payload(NULL),mp_payload_len(0),
+    gps_status(INVALID_GPS),payload_type(USER_DATA),
+    payload_len(0), payload_data(NULL),
     protocol(INVALID_PROTOCOL),
     msg_error(ERROR_NONE),
     compute_crc(true)
@@ -50,10 +50,10 @@ MgenMsg::MgenMsg()
 }
 MgenMsg::~MgenMsg()
 {
-	if (payload != NULL) delete payload;
 }
 
-MgenMsg& MgenMsg::operator= (const MgenMsg& x)
+/*
+MgenMsg& MgenMsg::operator=(const MgenMsg& x)
 {
   msg_len = x.msg_len;
   mgen_msg_len = x.mgen_msg_len;
@@ -70,27 +70,20 @@ MgenMsg& MgenMsg::operator= (const MgenMsg& x)
   longitude = x.longitude;
   altitude = x.altitude;
   gps_status = x.gps_status;
-  reserved = x.reserved;
-  if (x.payload != NULL) {
-    char *tmpStr = x.payload->GetPayload();
-    payload = new MgenPayload();
-    payload->SetPayload(tmpStr);
-    delete [] tmpStr;
-  }
+  payload_type = x.payload_type;
+  payload_len = x.payload_len;
+  payload_data = x.payload_data;  // note the pointer here is externally managed
   protocol = x.protocol;
   msg_error = x.msg_error;
   compute_crc = x.compute_crc;
-
   return *this;
 }
+*/
 
-UINT16 MgenMsg::GetPayloadLen() const {
-	if (payload == 0) return 0;
-	return payload->GetPayloadLen();
-}
-UINT16 MgenMsg::Pack(char* buffer,UINT16 bufferLen, bool includeChecksum,UINT32& tx_checksum)
+UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecksum, UINT32& tx_checksum)
 {
-    register UINT16 len = 0;
+    char* buffer = (char*)alignedBuffer;
+    UINT16 len = 0;
     
     // If these assertions fail, the code base needs some reworking
     // for compiler with different size settings (or set compiler
@@ -245,71 +238,59 @@ UINT16 MgenMsg::Pack(char* buffer,UINT16 bufferLen, bool includeChecksum,UINT32&
         packet_header_len = (UINT16)len;      
         return msgLen;    
     }   
-    // "reserved" field
-    if (msgLen >= (len + 1))
-	{
-        buffer[len++] = 0; 
-        packet_header_len = (UINT16)len;
-	}
-	else
-	{
-        memset(buffer+len,0,msgLen - len);
-        packet_header_len = (UINT16) len;
-        return msgLen;
-	}
-    // User defined payload was set
-	if (payload != NULL) {
-		if (msgLen >= (len + sizeof(INT16) + payload->GetPayloadLen())) {
-			temp16 = htons(payload->GetPayloadLen());
-			memcpy(buffer+len, &temp16, sizeof(INT16));
-			len += sizeof(INT16);
-			memcpy(buffer+len, payload->GetRaw(), payload->GetPayloadLen());
-			len += payload->GetPayloadLen();
-		} else {
-            // payload_len (payload didn't fit)
-			memset(buffer+len, 0, msgLen - len);
-			return msgLen;
-		}
-	} else
-      // Is there mp_payload?
-    {
-        if (msgLen >= (len + sizeof(short) + mp_payload_len))
-        {
-            // payload_len
-            temp16 = htons(mp_payload_len);
-            memcpy(buffer+len, &temp16, sizeof(short));
-            len += sizeof(short);
-            // mp payload
-            memcpy(buffer+len,mp_payload,mp_payload_len);
-            len += mp_payload_len;
-        }
-        else
-        {
-            // mp_payload_len (mp_payload didn't fit)
-            memset(buffer + len, 0, msgLen - len);
-            return msgLen;
-        }
-    }
     
-    // Zero file rest of buffer
+    if (msgLen >= (len+1))
+    {
+        buffer[len++] = (UINT8)payload_type;
+    }
+    else
+    {
+        packet_header_len = (UINT16)len;      
+        return msgLen;
+    }
+    if (msgLen >= (len+2))
+    {
+        UINT16 tmp16 = htons(payload_len);
+        memcpy(buffer+len, &tmp16, 2);
+        len += 2;
+    }
+    else
+    {
+        memset(buffer+len, 0, msgLen - len);
+        packet_header_len = (UINT16)len;      
+        return msgLen;
+    }
+    packet_header_len = (UINT16)len;  // everything _before_ the payload
+    if ((NULL != payload_data) && (msgLen >= (len+payload_len)))
+    {
+        // Copy whatever there is room for
+        memcpy(buffer+len, payload_data, payload_len);
+        len += payload_len;
+    }
+    else
+    {
+        memset(buffer+len-2, 0, 2);// zero payload_len
+    }
+    // Zero-fill rest of buffer
     if (msgLen > len)
     {
 #ifdef RANDOM_FILL
-        if (msgLen >= (2+len)) { //2 or more bytes filler
+        if (msgLen >= (2+len)) 
+        { 
+            //2 or more bytes filler
             memset(buffer+len,0,2);
             srand(time(NULL));
-            for (int fill=len+2;fill < msgLen;fill++) {
+            for (int fill=len+2;fill < msgLen;fill++)
                 memset(buffer+fill,rand(),1);
-            }
         } //1 byte difference
-        else if (msgLen != len) {
+        else if (msgLen != len) 
+        {
             memset(buffer+len,0,1);			  
         }
 #else
         memset(buffer+len, 0, msgLen - len);
 #endif //RANDOM_FILL
     }
-    
     if (includeChecksum)
     {
         if (msgLen > (len + 4)) 
@@ -318,8 +299,9 @@ UINT16 MgenMsg::Pack(char* buffer,UINT16 bufferLen, bool includeChecksum,UINT32&
             SetFlag(CHECKSUM);
         } 
         else
-          DMSG(0,"MgenMsg::PACK() no room for checksum\n");
-        
+        {
+            PLOG(PL_ERROR,"MgenMsg::PACK() no room for checksum\n");
+        }
         if (FlagIsSet(LAST_BUFFER)) 
           ComputeCRC32(tx_checksum,(UINT8*)buffer,msgLen - 4);
         else
@@ -329,18 +311,14 @@ UINT16 MgenMsg::Pack(char* buffer,UINT16 bufferLen, bool includeChecksum,UINT32&
     }
     return msgLen;
 }  // end MgenMsg::Pack()
-bool MgenMsg::Unpack(const char* buffer, UINT16 bufferLen,bool forceChecksum,bool log_data)
+
+bool MgenMsg::Unpack(UINT32* alignedBuffer, UINT16 bufferLen, bool forceChecksum, bool log_data)
 {
     // init optional fields
     host_addr.Invalidate();
     gps_status = INVALID_GPS;
-    reserved = 0;
-    if (payload != NULL) {
-        delete payload;
-        payload = NULL;
-    }
     
-    register unsigned int len = 0;
+    unsigned int len = 0;
     
     if (bufferLen < MIN_SIZE) 
 	{
@@ -348,7 +326,7 @@ bool MgenMsg::Unpack(const char* buffer, UINT16 bufferLen,bool forceChecksum,boo
         msg_error = ERROR_LENGTH;
         return false;
 	}
-    
+    const char* buffer = (const char*)alignedBuffer;
     UINT16 temp16;
     memcpy(&temp16,buffer+len,sizeof(INT16));
     msg_len = ntohs(temp16);
@@ -358,7 +336,7 @@ bool MgenMsg::Unpack(const char* buffer, UINT16 bufferLen,bool forceChecksum,boo
     version = (UINT8)buffer[len++];
     if (version != VERSION)
 	{
-        DMSG(0, "MgenMsg::Unpack() error: bad protocol version\n");
+        DMSG(0, "MgenMsg::Unpack() error: bad protocol version: %d\n", version);
         msg_error = ERROR_VERSION;
         //exit(0);
         return false;   
@@ -418,7 +396,6 @@ bool MgenMsg::Unpack(const char* buffer, UINT16 bufferLen,bool forceChecksum,boo
     dst_addr.SetRawHostAddress(addrType, buffer+len, addrLen); 
     dst_addr.SetPort(dstPort);
     len += addrLen;
-    
     // host_addr fields
     if ((len+4) <= bufferLen)
 	{
@@ -471,64 +448,54 @@ bool MgenMsg::Unpack(const char* buffer, UINT16 bufferLen,bool forceChecksum,boo
     // GPS position information
     if ((len+13) <= bufferLen)
 	{
-	  // latitude
-	  memcpy(&temp32, buffer+len, sizeof(INT32));
-	  latitude = ((double)ntohl(temp32))/60000.0 - 180.0;
-	  len += sizeof(INT32);
-	  // longitude
-	  memcpy(&temp32, buffer+len, sizeof(INT32));
-	  longitude = ((double)ntohl(temp32))/60000.0 - 180.0;
-	  len += sizeof(INT32);
-	  // altitude 
-	  memcpy(&temp32, buffer+len, sizeof(INT32));
-	  altitude = ntohl(temp32);
-	  len += sizeof(INT32);
-	  // status
-	  gps_status = (GPSStatus)buffer[len++];
+        // latitude
+        memcpy(&temp32, buffer+len, sizeof(INT32));
+        latitude = ((double)ntohl(temp32))/60000.0 - 180.0;
+        len += sizeof(INT32);
+        // longitude
+        memcpy(&temp32, buffer+len, sizeof(INT32));
+        longitude = ((double)ntohl(temp32))/60000.0 - 180.0;
+        len += sizeof(INT32);
+        // altitude 
+        memcpy(&temp32, buffer+len, sizeof(INT32));
+        altitude = ntohl(temp32);
+        len += sizeof(INT32);
+        // status
+        gps_status = (GPSStatus)buffer[len++];
 	}
     else
-      {
+    {
         packet_header_len = len;  
         return true;
-      }
-    
-    // "reserved" field
-    if (len < bufferLen)
+    }
+    // "payload_type" field
+    if ((len+1) <= bufferLen)
 	{
-        reserved = buffer[len++];
+        payload_type = (PayloadType)buffer[len++];
 	}
     else
 	{
         packet_header_len = len;
         return true;
 	}
-    // payload_len
-    if ((len+sizeof(INT16)) <= bufferLen)
+    // "payload_len" and "payload_data"
+    if ((len+2) <= bufferLen)
     {
         memcpy(&temp16, buffer+len, sizeof(INT16));
-        UINT16 payload_len = ntohs(temp16);
-        len += sizeof(INT16);
-        if (0 != payload_len) {
-            payload_len = payload_len < (bufferLen - len) ? payload_len : (bufferLen - len);
-
-	    if (log_data)
-	    {
-	      payload = new MgenPayload();
-	      char *tmpStr = new char[payload_len];
-	      memcpy(tmpStr,buffer+len,payload_len);
-	      payload->SetRaw(tmpStr,payload_len);
-	      delete [] tmpStr;
-	      len += payload_len;
-	    }
+        payload_len = ntohs(temp16);
+        len += 2;
+        packet_header_len = (UINT16)len;  
+        if ((0 != payload_len) && ((len+payload_len) <= bufferLen))
+        {
+            payload_data = alignedBuffer + len/4;
+            len += payload_len;
+        }
+        else
+        {
+            payload_len = 0;
+            payload_data = NULL;
         }
     }
-    else
-    {
-        if (payload != NULL) delete payload;
-    } 
-    
-    packet_header_len = len;
-    
     return true;
 }  // end MgenMsg::Unpack()
 
@@ -678,9 +645,9 @@ const UINT32 MgenMsg::CRC32_TABLE[256] =
 
 bool MgenMsg::LogRecvError(FILE*                    logFile,
                            bool                     logBinary,
-                           bool                     local_time,
+                           bool                     localTime,
                            bool                     flush,
-                           const struct timeval& theTime)
+                           const struct timeval&    theTime)
 {
     if (logBinary)
     {
@@ -762,37 +729,18 @@ bool MgenMsg::LogRecvError(FILE*                    logFile,
                 errorString = "dstAddr";
                 break;
         }
-
-#ifdef _WIN32_WCE
-        struct tm timeStruct;
-        timeStruct.tm_hour = theTime.tv_sec / 3600;
-        UINT32 hourSecs = 3600 * timeStruct.tm_hour;
-        timeStruct.tm_min = (theTime.tv_sec - hourSecs) / 60;
-        timeStruct.tm_sec = theTime.tv_sec - hourSecs - (60*timeStruct.tm_min);
-        timeStruct.tm_hour = timeStruct.tm_hour % 24;
-        struct tm* timePtr = &timeStruct;
-#else
-	struct tm* timePtr;
-	if (local_time)
-	  timePtr = localtime((time_t*)&theTime.tv_sec);
-	else
-	  timePtr = gmtime((time_t*)&theTime.tv_sec);
-
-#endif // if/else _WIN32_WCE
-        Mgen::Log(logFile, "%02d:%02d:%02d.%06lu RERR type>%s src>%s/%hu\n",
-                timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                (UINT32)theTime.tv_usec, errorString,
-                src_addr.GetHostString(), src_addr.GetPort());
-        
+        Mgen::LogTimestamp(logFile, theTime, localTime);
+        Mgen::Log(logFile, "RERR type>%s src>%s/%hu\n", errorString, 
+                           src_addr.GetHostString(), src_addr.GetPort());
     }
     if (flush)  fflush(logFile);
     return true;
 }  // end MgenMsg::LogRecvError()
 
 // ljt why not set addr in msg? and time?
-bool MgenMsg::LogTcpConnectionEvent(FILE*     logFile,
+bool MgenMsg::LogTcpConnectionEvent(FILE*                     logFile,
                                     bool                      logBinary,
-                                    bool                      local_time,
+                                    bool                      localTime,
                                     bool                      flush,
                                     LogEventType              eventType,
                                     bool                      isClient,
@@ -847,7 +795,7 @@ bool MgenMsg::LogTcpConnectionEvent(FILE*     logFile,
           header[index++] = IPv6;
           break;
         default:
-          DMSG(0, "MgenMsg::LogRecvError() unknown srcAddr type\n");
+          DMSG(0, "MgenMsg::LogTcpConnectionEvent() unknown srcAddr type\n");
           header[index++] = INVALID_ADDRESS;
           break;
         }
@@ -887,7 +835,7 @@ bool MgenMsg::LogTcpConnectionEvent(FILE*     logFile,
               header[index++] = IPv6;
               break;
             default:
-              DMSG(0, "MgenMsg::LogRecvEvent() unknown hostAddr type\n");
+              DMSG(0, "MgenMsg::LogTcpConnectionEvent() unknown hostAddr type\n");
               header[index++] = INVALID_ADDRESS;
               break;
             }
@@ -910,80 +858,74 @@ bool MgenMsg::LogTcpConnectionEvent(FILE*     logFile,
     }
     else 
     {
-#ifdef _WIN32_WCE
-        struct tm timeStruct;
-        timeStruct.tm_hour = theTime.tv_sec / 3600;
-        UINT32 hourSecs = 3600 * timeStruct.tm_hour;
-        timeStruct.tm_min = (theTime.tv_sec - hourSecs) / 60;
-        timeStruct.tm_sec = theTime.tv_sec - hourSecs - (60*timeStruct.tm_min);
-        timeStruct.tm_hour = timeStruct.tm_hour % 24;
-        struct tm* timePtr = &timeStruct;
-#else
-        struct tm* timePtr;
-        if (local_time)
-          timePtr = localtime((time_t*)&theTime.tv_sec);
-        else
-          timePtr = gmtime((time_t*)&theTime.tv_sec);
-        
-#endif // if/else _WIN32_WCE
-        Mgen::Log(logFile, "%02d:%02d:%02d.%06lu ",
-                  timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                  (UINT32)theTime.tv_usec);
-        
+        Mgen::LogTimestamp(logFile, theTime, localTime);
         switch (eventType)
         {
-        case ACCEPT_EVENT:
-          {
-              Mgen::Log(logFile,"ACCEPT src>%s/%hu dstPort>%hu", 
-                       addr.GetHostString(),addr.GetPort(),src_addr.GetPort());
-              break;
-          }
-        case ON_EVENT:
-          {
-              Mgen::Log(logFile,"ON flow>%lu srcPort>%hu dst>%s/%hu ",
+            case ACCEPT_EVENT:
+            {
+                Mgen::Log(logFile,"ACCEPT src>%s/%hu dstPort>%hu", 
+                        addr.GetHostString(),addr.GetPort(),src_addr.GetPort());
+                break;
+            }
+            case ON_EVENT:
+            {
+                Mgen::Log(logFile,"ON flow>%lu srcPort>%hu dst>%s/%hu ",
                         flow_id,src_addr.GetPort(),addr.GetHostString(),addr.GetPort());
-              break;
-          }
-        case CONNECT_EVENT:
-          {
-              Mgen::Log(logFile,"CONNECT flow>%lu srcPort>%hu dst>%s/%hu ",
+                break;
+            }
+            case CONNECT_EVENT:
+            {
+                Mgen::Log(logFile,"CONNECT flow>%lu srcPort>%hu dst>%s/%hu ",
                         flow_id,src_addr.GetPort(),addr.GetHostString(),addr.GetPort());
-              break;
-          }
-        case DISCONNECT_EVENT:
-          {
-              if (isClient)
-                Mgen::Log(logFile,"DISCONNECT flow>%lu srcPort>%hu dst>%s/%hu ",
-                          flow_id,src_addr.GetPort(),addr.GetHostString(),addr.GetPort());
-              else
-                Mgen::Log(logFile,"DISCONNECT src>%s/%hu dstPort>%hu ",
-                          addr.GetHostString(),addr.GetPort(),src_addr.GetPort());
-              break;
-          }
-        case SHUTDOWN_EVENT:
-          {
-              if (isClient)
-                Mgen::Log(logFile,"SHUTDOWN flow>%lu srcPort>%hu dst>%s/%hu ",
-                          flow_id,src_addr.GetPort(),addr.GetHostString(),addr.GetPort());
-              else
-                Mgen::Log(logFile,"SHUTDOWN src>%s/%hu dstPort>%hu",
-                          addr.GetHostString(),addr.GetPort(),src_addr.GetPort());
-              break;
-          }
-        case OFF_EVENT:
-          {
-              if (isClient)
-                Mgen::Log(logFile,"OFF flow>%lu srcPort>%u dst>%s/%hu ",
-                          flow_id,src_addr.GetPort(),addr.GetHostString(),addr.GetPort());
-              else
-                Mgen::Log(logFile,"OFF src>%s/%hu dstPort>%hu ",
-                          addr.GetHostString(),addr.GetPort(),src_addr.GetPort());
-              break;
-          }
-        default:
-          DMSG(0,"Mgen::LogRecvEvent() error: invalid event type\n");
-          ASSERT(0);
-          break;
+                break;
+            }
+            case DISCONNECT_EVENT:
+            {
+                if (isClient)
+                    Mgen::Log(logFile,"DISCONNECT flow>%lu srcPort>%hu dst>%s/%hu ",
+                            flow_id,src_addr.GetPort(),addr.GetHostString(),addr.GetPort());
+                else
+                    Mgen::Log(logFile,"DISCONNECT src>%s/%hu dstPort>%hu ",
+                            addr.GetHostString(),addr.GetPort(),src_addr.GetPort());
+                break;
+            }
+            case RECONNECT_EVENT:
+            {
+                if (isClient)
+                    Mgen::Log(logFile,"RECONNECT flow>%lu srcPort>%hu dst>%s/%hu ",
+                            flow_id,src_addr.GetPort(),addr.GetHostString(),addr.GetPort());
+                else
+                    Mgen::Log(logFile,"RECONNECT src>%s/%hu dstPort>%hu ",
+                            addr.GetHostString(),addr.GetPort(),src_addr.GetPort());
+                break;
+                
+            }
+            case SHUTDOWN_EVENT:
+            {
+                if (isClient)
+                    Mgen::Log(logFile,"SHUTDOWN flow>%lu srcPort>%hu dst>%s/%hu ",
+                            flow_id,src_addr.GetPort(),addr.GetHostString(),addr.GetPort());
+                else
+                    Mgen::Log(logFile,"SHUTDOWN src>%s/%hu dstPort>%hu",
+                            addr.GetHostString(),addr.GetPort(),src_addr.GetPort());
+                break;
+            }
+            case OFF_EVENT:
+            {
+                if (isClient)
+                    Mgen::Log(logFile,"OFF flow>%lu srcPort>%u dst>%s/%hu ",
+                            flow_id,src_addr.GetPort(),addr.GetHostString(),addr.GetPort());
+                else
+                    Mgen::Log(logFile,"OFF src>%s/%hu dstPort>%hu ",
+                            addr.GetHostString(),addr.GetPort(),src_addr.GetPort());
+                break;
+            }
+            default:
+            {
+                DMSG(0,"Mgen::LogTcpConnectionEvent() error: invalid event type\n");
+                ASSERT(0);
+                break;
+            }
         } // end switch (eventType)
         if (host_addr.IsValid())
         {
@@ -1003,11 +945,13 @@ bool MgenMsg::LogTcpConnectionEvent(FILE*     logFile,
 
 bool MgenMsg::LogRecvEvent(FILE*                    logFile,
                            bool                     logBinary, 
-                           bool                     local_time,
-			   bool                     log_data,
-			   bool                     log_gps_data,
-                           char*                    msgBuffer,
+                           bool                     localTime,
+                           bool                     logRx,
+			               bool                     logData,
+			               bool                     logGpsData,
+                           UINT32*                  alignedMsgBuffer,
                            bool                     flush,
+                           int                      ttl,  // will be >= 0 when known
                            const struct timeval&    theTime)
 {	      
 
@@ -1020,7 +964,6 @@ bool MgenMsg::LogRecvEvent(FILE*                    logFile,
         // put protocol in the "reserved" field
         header[index++] = (char)protocol;
         // set "recordLength" (Note we only save payload for RECV events)
-        UINT16 payload_len = payload == 0 ? 0 : payload->GetPayloadLen();
         UINT16 recordLength = 0;
         recordLength = 12 + src_addr.GetLength() + packet_header_len + payload_len;      
         UINT16 temp16 = htons(recordLength);
@@ -1042,16 +985,16 @@ bool MgenMsg::LogRecvEvent(FILE*                    logFile,
         // set "src_addrType"
         switch(src_addr.GetType())
         {
-        case ProtoAddress::IPv4:
-          header[index++] = IPv4;
-          break;
-        case ProtoAddress::IPv6:
-          header[index++] = IPv6;
-          break;
-        default:
-          DMSG(0, "MgenMsg::LogRecvEvent() unknown src_addr type\n");
-          header[index++] = INVALID_ADDRESS;
-          break;
+            case ProtoAddress::IPv4:
+              header[index++] = IPv4;
+              break;
+            case ProtoAddress::IPv6:
+              header[index++] = IPv6;
+              break;
+            default:
+              DMSG(0, "MgenMsg::LogRecvEvent() unknown src_addr type\n");
+              header[index++] = INVALID_ADDRESS;
+              break;
         }
         
         // set "src_addrLen"
@@ -1072,6 +1015,7 @@ bool MgenMsg::LogRecvEvent(FILE*                    logFile,
         // write message content as remainder of record
         UINT16 msgLength = recordLength - index + 4;
         
+        char* msgBuffer = (char*)alignedMsgBuffer;
         // Clear CHECKSUM flag for binary logging
         msgBuffer[FLAGS_OFFSET] &= ~CHECKSUM;
         
@@ -1089,105 +1033,109 @@ bool MgenMsg::LogRecvEvent(FILE*                    logFile,
     }
     else
     {
-#ifdef _WIN32_WCE
-        struct tm timeStruct;
-        timeStruct.tm_hour = theTime.tv_sec / 3600;
-        UINT32 hourSecs = 3600 * timeStruct.tm_hour;
-        timeStruct.tm_min = (theTime.tv_sec - hourSecs) / 60;
-        timeStruct.tm_sec = theTime.tv_sec - hourSecs - (60*timeStruct.tm_min);
-        timeStruct.tm_hour = timeStruct.tm_hour % 24;
-        struct tm* timePtr = &timeStruct;
-#else
-        struct tm* timePtr;
-        if (local_time)
-          timePtr = localtime((time_t*)&theTime.tv_sec);
-        else
-          timePtr = gmtime((time_t*)&theTime.tv_sec);
-        
-#endif // if/else _WIN32_WCE
-        Mgen::Log(logFile, "%02d:%02d:%02d.%06lu ",
-                  timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                  (UINT32)theTime.tv_usec);
-        
-        Mgen::Log(logFile,"RECV proto>%s flow>%lu seq>%lu src>%s/%hu ",
-                  MgenEvent::GetStringFromProtocol(protocol),
-                  flow_id, seq_num, src_addr.GetHostString(), 
-                  src_addr.GetPort());
-#ifdef _WIN32_WCE
-        struct tm timeStruct;
-        timeStruct.tm_hour = tx_time.tv_sec / 3600;
-        UINT32 hourSecs = 3600 * timeStruct.tm_hour;
-        timeStruct.tm_min = (tx_time.tv_sec - hourSecs) / 60;
-        timeStruct.tm_sec = tx_time.tv_sec - hourSecs - (60*timeStruct.tm_min);
-        timeStruct.tm_hour = timeStruct.tm_hour % 24;
-        struct tm* timePtr = &timeStruct;
-#else
-        if (local_time)
-          timePtr = localtime((time_t*)&tx_time.tv_sec);
-        else
-          timePtr = gmtime((time_t*)&tx_time.tv_sec);
-        
-#endif // if/else _WIN32_WCE
-        Mgen::Log(logFile, "dst>%s/%hu ",
-                  dst_addr.GetHostString(), dst_addr.GetPort());
-        Mgen::Log(logFile,"sent>%02d:%02d:%02d.%06lu size>%u ",
-                  timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                  (UINT32)tx_time.tv_usec, msg_len);
-        // Here we are looking at the message's host_addr
-        if (host_addr.IsValid())
+        if (logRx)
         {
-            Mgen::Log(logFile, "host>%s/%hu ", host_addr.GetHostString(),
-                      host_addr.GetPort());      
+            Mgen::LogTimestamp(logFile, theTime, localTime);
+            Mgen::Log(logFile,"RECV proto>%s flow>%lu seq>%lu src>%s/%hu ",
+                      MgenEvent::GetStringFromProtocol(protocol),
+                      flow_id, seq_num, src_addr.GetHostString(), 
+                      src_addr.GetPort());
+            Mgen::Log(logFile, "dst>%s/%hu sent>",  dst_addr.GetHostString(), dst_addr.GetPort());
+            Mgen::LogTimestamp(logFile, tx_time, localTime);
+            Mgen::Log(logFile,"size>%u ", msg_len);
+            // Here we are looking at the message's host_addr
+            if (host_addr.IsValid())
+            {
+                Mgen::Log(logFile, "host>%s/%hu ", host_addr.GetHostString(), host_addr.GetPort());      
+            }
+            
+            if (ttl >= 0)
+                Mgen::Log(logFile, "ttl>%d ", ttl);
+
+            // (TBD) only output GPS info if INVALID_GPS != gps_status
+            const char* statusString  = NULL;
+            switch (gps_status)
+            {
+                case INVALID_GPS:
+                  statusString = "INVALID";
+                  break;
+                case STALE:
+                  statusString = "STALE";
+                  break;
+                case CURRENT:
+                  statusString = "CURRENT";
+                  break; 
+                default:
+                  DMSG(0, "MgenMsg::LogRecvEvent() invalid GPS status\n");
+                  Mgen::Log(logFile, "\n");
+                  return false;
+            } // end switch (gps_status)
+	        if (logGpsData)
+	            Mgen::Log(logFile, "gps>%s,%f,%f,%ld ", statusString,
+		                            latitude, longitude, altitude);
+
+            if (payload_len && logData)
+            {
+                if (USER_DATA == payload_type)
+                {
+                    Mgen::Log(logFile, "data>%hu:", payload_len);
+                    char* payloadString = MgenPayload::GetPayloadString((const char*)payload_data, payload_len);    
+                    Mgen::Log(logFile, "%s ", payloadString);    
+                    delete[] payloadString;
+                }
+            } 
+
+            if (FlagIsSet(MgenMsg::CONTINUES)) 
+            {
+                Mgen::Log(logFile,"flags>0x%02x ",(flags & MgenMsg::CONTINUES));
+            }
+            if (FlagIsSet(MgenMsg::END_OF_MSG))
+            {
+                Mgen::Log(logFile,"flags>0x%02x ",(flags & MgenMsg::END_OF_MSG));
+            }		  
+            if (FlagIsSet(MgenMsg::CHECKSUM_ERROR)) // We had a checksum error
+            {
+                SetFlag(MgenMsg::CHECKSUM_ERROR);
+                Mgen::Log(logFile,"flags>0x%02x ",(flags & MgenMsg::CHECKSUM_ERROR));
+            }
+            Mgen::Log(logFile, "\n");
+        }  // end if log_rx
+        
+        if ((MGEN_DATA == payload_type) && (payload_len > 0))
+        {
+            // For now, look for an analytic "REPORT" ... we will generalize the "type" field more later
+            unsigned int bufferLen = payload_len;
+            UINT32* bufferPtr = payload_data;
+            while (bufferLen > 0)
+            {
+                if ((UINT8)MgenDataItem::GetItemType(bufferPtr) > 0x0f)
+                {
+                    MgenAnalytic::Report report;
+                    if (report.InitFromBuffer(bufferPtr, bufferLen))
+                    {
+                        report.Log(logFile, tx_time, theTime, localTime, src_addr); 
+                        UINT8 reportLen = report.GetLength();
+                        if (0 == reportLen) break; // truncated report
+                        bufferLen -= reportLen;
+                        bufferPtr += (reportLen/sizeof(UINT32));
+                    }
+                    else
+                    {
+                        PLOG(PL_ERROR, "MgenMsg::LogRecvEvent() warning: received invalid REPORT payload\n");
+                        break;
+                    }
+                }
+                else
+                {
+                    MgenDataItem item(bufferPtr, bufferLen);
+                    UINT16 itemLen = item.GetLength();
+                    if (0 == itemLen) break; // truncated item
+                    bufferLen -= itemLen;
+                    bufferPtr += itemLen / sizeof(UINT32);
+                }
+            }
         }
-        
-        // (TBD) only output GPS info if INVALID_GPS != gps_status
-        const char* statusString  = NULL;
-        switch (gps_status)
-        {
-        case INVALID_GPS:
-          statusString = "INVALID";
-          break;
-        case STALE:
-          statusString = "STALE";
-          break;
-        case CURRENT:
-          statusString = "CURRENT";
-          break; 
-        default:
-          DMSG(0, "MgenMsg::LogRecvEvent() invalid GPS status\n");
-          Mgen::Log(logFile, "\n");
-          return false;
-        } // end switch (gps_status)
-	if (log_gps_data)
-	  Mgen::Log(logFile, "gps>%s,%f,%f,%ld ", statusString,
-		    latitude, longitude, altitude);
-        UINT16 payload_len = payload == NULL ? 0 : payload->GetPayloadLen();
-        if (payload_len && log_data)
-        {
-            Mgen::Log(logFile, "data>%hu:", payload_len);
-            char * payld = payload->GetPayload();    
-            Mgen::Log(logFile, "%s ", payld);    
-            delete [] payld;
-            //		for (unsigned int i = 0; i < payload_len; i++)
-            //		  Mgen::Log(logFile, "%02x ", (UINT8)payload[i]);    
-        } 
-        
-        if ( FlagIsSet(MgenMsg::CONTINUES)) 
-        {
-            Mgen::Log(logFile,"flags>0x%02x ",(flags & MgenMsg::CONTINUES));
-        }
-        if (FlagIsSet(MgenMsg::END_OF_MSG))
-        {
-            Mgen::Log(logFile,"flags>0x%02x ",(flags & MgenMsg::END_OF_MSG));
-        }		  
-        if (FlagIsSet(MgenMsg::CHECKSUM_ERROR)) // We had a checksum error
-        {
-            SetFlag(MgenMsg::CHECKSUM_ERROR);
-            Mgen::Log(logFile,"flags>0x%02x ",(flags & MgenMsg::CHECKSUM_ERROR));
-        }
-        
-        Mgen::Log(logFile, "\n");
-    }
+    }  // end if/else logBinary
 
     if (flush) {fflush(logFile);}
     
@@ -1196,8 +1144,8 @@ bool MgenMsg::LogRecvEvent(FILE*                    logFile,
 
 bool MgenMsg::LogSendEvent(FILE*    logFile, 
                            bool     logBinary, 
-                           bool     local_time,
-                           char*    msgBuffer,
+                           bool     localTime,
+                           UINT32*  alignedMsgBuffer,
                            bool     flush,
                            const struct timeval& theTime)
 {
@@ -1251,6 +1199,7 @@ bool MgenMsg::LogSendEvent(FILE*    logFile,
         UINT16 msgLength = recordLength - index + 4;
         
         // Clear CHECKSUM flag for binary logging
+        char* msgBuffer = (char*)alignedMsgBuffer;
         msgBuffer[FLAGS_OFFSET] &= ~CHECKSUM;
         if (fwrite(msgBuffer, 1, msgLength, logFile) < msgLength)
         {
@@ -1261,28 +1210,7 @@ bool MgenMsg::LogSendEvent(FILE*    logFile,
     }
     else
     {
-        
-#ifdef _WIN32_WCE
-        struct tm timeStruct;
-        timeStruct.tm_hour = theTime.tv_sec / 3600;
-        UINT32 hourSecs = 3600 * timeStruct.tm_hour;
-        timeStruct.tm_min = (theTime.tv_sec - hourSecs) / 60;
-        timeStruct.tm_sec = theTime.tv_sec - hourSecs - (60*timeStruct.tm_min);
-        timeStruct.tm_hour = timeStruct.tm_hour % 24;
-        struct tm* timePtr = &timeStruct;
-#else
-        struct tm* timePtr;
-        if (local_time)
-          timePtr = localtime((time_t*)&theTime.tv_sec);
-        else
-          timePtr = gmtime((time_t*)&theTime.tv_sec);
-        
-#endif // if/else _WIN32_WCE
-        
-        Mgen::Log(logFile, "%02d:%02d:%02d.%06lu ",
-                  timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                  (UINT32)theTime.tv_usec); 
-        
+        Mgen::LogTimestamp(logFile, theTime, localTime); 
         Mgen::Log(logFile,"SEND proto>%s flow>%lu seq>%lu srcPort>%hu dst>%s/%hu",
                   MgenEvent::GetStringFromProtocol(protocol),
                   flow_id, 
@@ -1321,6 +1249,7 @@ void MgenMsg::LogDrecEvent(LogEventType eventType, const DrecEvent *event, UINT1
     if (NULL == logFile) return;
     struct timeval eventTime;
     ProtoSystemTime(eventTime);
+    bool localTime = mgen.GetLocalTime();
     if (mgen.GetLogBinary())
     {
         char buffer[128];
@@ -1411,47 +1340,24 @@ void MgenMsg::LogDrecEvent(LogEventType eventType, const DrecEvent *event, UINT1
     }
     else
     {
-
-#ifdef _WIN32_WCE
-        struct tm timeStruct;
-        timeStruct.tm_hour = eventTime.tv_sec / 3600;
-        UINT32 hourSecs = 3600 * timeStruct.tm_hour;
-        timeStruct.tm_min = (eventTime.tv_sec - hourSecs) / 60;
-        timeStruct.tm_sec = eventTime.tv_sec - hourSecs - (60*timeStruct.tm_min);
-        timeStruct.tm_hour = timeStruct.tm_hour % 24;
-        struct tm* timePtr = &timeStruct;
-#else            
-	struct tm* timePtr;
-	if (mgen.GetLocalTime())
-	  timePtr = localtime((time_t*)&eventTime.tv_sec);
-	else
-	  timePtr = gmtime((time_t*)&eventTime.tv_sec);
-
-#endif // if/else _WIN32_WCE
         switch (eventType)
         {
             case LISTEN_EVENT:
-
-               Mgen::Log(logFile, "%02d:%02d:%02d.%06lu LISTEN proto>%s port>%hu\n",
-                                        timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                                       (UINT32)eventTime.tv_usec,
+               Mgen::LogTimestamp(logFile, eventTime, localTime);
+               Mgen::Log(logFile, "LISTEN proto>%s port>%hu\n",
                                         MgenBaseEvent::GetStringFromProtocol(event->GetProtocol()),
                                         portNumber);
                 break;
             case IGNORE_EVENT:
-                Mgen::Log(logFile, "%02d:%02d:%02d.%06lu IGNORE proto>%s port>%hu\n",
-                                        timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                                       (UINT32)eventTime.tv_usec,
+                Mgen::LogTimestamp(logFile, eventTime, localTime);
+               Mgen::Log(logFile, "IGNORE proto>%s port>%hu\n",
                                         MgenBaseEvent::GetStringFromProtocol(event->GetProtocol()),
                                         portNumber);
                 break;
             case JOIN_EVENT:
             {
-               Mgen::Log(logFile, "%02d:%02d:%02d.%06lu JOIN group>%s",
-                                        timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                                        (UINT32)eventTime.tv_usec,
-                                        event->GetGroupAddress().GetHostString());
-
+                Mgen::LogTimestamp(logFile, eventTime, localTime);
+                Mgen::Log(logFile, "JOIN group>%s", event->GetGroupAddress().GetHostString());
                 // If source is valid, it means it is SSM, print source as well
                 if ( event->GetSourceAddress().IsValid() )
                 {
@@ -1474,11 +1380,9 @@ void MgenMsg::LogDrecEvent(LogEventType eventType, const DrecEvent *event, UINT1
             }
             case LEAVE_EVENT:
             {
-                Mgen::Log(logFile, "%02d:%02d:%02d.%06lu LEAVE group>%s",
-                                        timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                                        (UINT32)eventTime.tv_usec,
+                Mgen::LogTimestamp(logFile, eventTime, localTime);
+                Mgen::Log(logFile, "LEAVE group>%s",
                                         event->GetGroupAddress().GetHostString());
-
                 // If source is valid, it means it is SSM, print source as well
                 if ( event->GetSourceAddress().IsValid() )
                 {
@@ -1510,31 +1414,16 @@ void MgenMsg::LogDrecEvent(LogEventType eventType, const DrecEvent *event, UINT1
 
 } // end MgenMsg::LogDrecEvent
 
-void MgenMsg::SetPayload(char *buffer) {
-	if (payload == NULL) payload = new MgenPayload();
-	payload->SetPayload(buffer);
-}
-
-const char *MgenMsg::GetPayload() const {
-	if (payload == NULL) return NULL;
-	return payload->GetPayload();
-}
-
-const char *MgenMsg::GetPayloadRaw() {
-	if (payload == NULL) return NULL;
-	return payload->GetRaw();
-}
-
-
-bool MgenMsg::ConvertBinaryLog(const char* path,Mgen& mgen)
+bool MgenMsg::ConvertBinaryLog(const char* path, Mgen& mgen)
 {
-    FILE* log_file = mgen.GetLogFile();
-    bool local_time = mgen.GetLocalTime();
+    FILE* logFile = mgen.GetLogFile();
+    bool localTime = mgen.GetLocalTime();
     bool log_flush = mgen.GetLogFlush();
+    bool log_rx = mgen.GetLogRx();
     bool log_data = mgen.GetLogData();
     bool log_gps_data = mgen.GetLogGpsData();
 
-    if (NULL == log_file) return false;
+    if (NULL == logFile) return false;
     FILE* file = fopen(path, "rb");
     if (!file)
     {
@@ -1542,18 +1431,21 @@ bool MgenMsg::ConvertBinaryLog(const char* path,Mgen& mgen)
         return false;    
     }
     const unsigned int BINARY_RECORD_MAX = 1024;  // maximum record size
-    char buffer[BINARY_RECORD_MAX];
+    UINT32 alignedBuffer[BINARY_RECORD_MAX/4];
+    char* buffer = (char*)alignedBuffer;
     const char* eventName;
     // Read ASCII binary log header line
     // The first four characters should be "mgen"
     if (fread(buffer, 1, 4, file) < 4)
     {
         DMSG(0, "Mgen::ConvertBinaryLog() fread() error: %s\n", GetErrorString());
+        fclose(file);
         return false;
     }
     if (strncmp("mgen", buffer, 4) != 0)
     {
         DMSG(0, "Mgen::ConvertBinaryLog() error: invalid mgen log file\n");
+        fclose(file);
         return false;
     }
     
@@ -1565,6 +1457,7 @@ bool MgenMsg::ConvertBinaryLog(const char* path,Mgen& mgen)
         if (fread(buffer+index, 1, 1, file) < 1)
         {
             DMSG(0, "Mgen::ConvertBinaryLog() fread() error: %s\n", GetErrorString());
+            fclose(file);
             return false;
         }
     }
@@ -1580,18 +1473,21 @@ bool MgenMsg::ConvertBinaryLog(const char* path,Mgen& mgen)
             if (version != 4 && version != 5)
             {
                 DMSG(0, "Mgen::ConvertBinaryLog() invalid log file version\n"); 
+                fclose(file);
                 return false;   
             }            
         }
         else
         {
             DMSG(0, "Mgen::ConvertBinaryLog() error finding log \"version\" value\n"); 
+            fclose(file);
             return false;  
         }                
     }
     else
     {
         DMSG(0, "Mgen::ConvertBinaryLog() error finding log \"version\" label\n"); 
+        fclose(file);
         return false;  
     }
     ptr = strstr(ptr, "type=");
@@ -1603,18 +1499,21 @@ bool MgenMsg::ConvertBinaryLog(const char* path,Mgen& mgen)
             if (strcmp(fileType, "binary_log"))
             {
                 DMSG(0, "Mgen::ConvertBinaryLog() invalid log file type\n"); 
+                fclose(file);
                 return false; 
             }
         }
         else
         {
             DMSG(0, "Mgen::ConvertBinaryLog() error finding log \"type\" value\n"); 
+            fclose(file);
             return false; 
         }
     }
     else
     {
         DMSG(0, "Mgen::ConvertBinaryLog() error finding log \"type\" label\n"); 
+        fclose(file);
         return false;
     }    
     
@@ -1658,328 +1557,123 @@ bool MgenMsg::ConvertBinaryLog(const char* path,Mgen& mgen)
         unsigned int index = 0;
         switch (eventType)
         {
-        case RECV_EVENT:
-          {
-              // get "eventTime"
-              struct timeval eventTime;
-              UINT32 temp32;
-              memcpy(&temp32, buffer+index, sizeof(INT32));
-              eventTime.tv_sec = ntohl(temp32);
-              index += sizeof(INT32);
-              memcpy(&temp32, buffer+index, sizeof(INT32));
-              eventTime.tv_usec = ntohl(temp32);
-              index += sizeof(INT32);
-#ifdef _WIN32_WCE
-              struct tm timeStruct;
-              timeStruct.tm_hour = eventTime.tv_sec / 3600;
-              UINT32 hourSecs = 3600 * timeStruct.tm_hour;
-              timeStruct.tm_min = (eventTime.tv_sec - hourSecs) / 60;
-              timeStruct.tm_sec = eventTime.tv_sec - hourSecs - (60*timeStruct.tm_min);
-              timeStruct.tm_hour = timeStruct.tm_hour % 24;
-              struct tm* timePtr = &timeStruct;
-#else            
-              struct tm* timePtr;
-              if (local_time)
-                timePtr = localtime((time_t*)&eventTime.tv_sec);
-              else
-                timePtr = gmtime((time_t*)&eventTime.tv_sec);
-              
-#endif // if/else _WIN32_WCE
-              // get "srcPort"
-              UINT16 temp16;
-              memcpy(&temp16, buffer+index, sizeof(INT16));
-              UINT16 srcPort = ntohs(temp16);
-              index += sizeof(INT16);
-              // get "srcAddrType"
-              ProtoAddress::Type addrType;
-              switch (buffer[index++])
+            case RECV_EVENT:
               {
-              case MgenMsg::IPv4:
-                addrType = ProtoAddress::IPv4;
-                break;
-              case MgenMsg::IPv6:
-                addrType = ProtoAddress::IPv6;
-                break;
-              default:
-                DMSG(0, "Mgen::ConvertBinaryLog() unknown source address type:%d\n",
-                     buffer[index-1]);
-                fclose(file);
-                return false;   
-              }
-              // get "srcAddrLen"
-              unsigned int addrLen = (unsigned int)buffer[index++];
-              ProtoAddress srcAddr;
-              // get "srcAddr"
-              srcAddr.SetRawHostAddress(addrType, buffer+index, addrLen);
-              index += addrLen;
-              srcAddr.SetPort(srcPort);
-              
-              // The remainder of the record corresponds to the message content
-              MgenMsg msg;
-              msg.SetProtocol(theProtocol);
-              msg.SetSrcAddr(srcAddr);
-              msg.SetTxTime(eventTime);
-              msg.Unpack(buffer+index, recordLength - index, false, log_data);
-              msg.LogRecvEvent(log_file, false, local_time, log_data, log_gps_data, NULL, log_flush,eventTime);
-              
-              break;
-          }
-        case SEND_EVENT:
-          {
-
-              MgenMsg msg;
-              // get tcp mgen_msg_len
-              if (theProtocol == TCP)
-              {
+                  // get "eventTime"
+                  struct timeval eventTime;
                   UINT32 temp32;
-                  memcpy(&temp32,buffer+index,sizeof(INT32));
-                  msg.SetMgenMsgLen(ntohl(temp32));
-                  index += sizeof(UINT32);
-                  
-              }
-              msg.SetProtocol(theProtocol);
-              msg.Unpack(buffer+index, recordLength, false, log_data);
-              msg.LogSendEvent(log_file,false, local_time, NULL, log_flush, msg.tx_time);
-              break;
-          }
-        case LISTEN_EVENT:
-        case IGNORE_EVENT:
-          {
-              eventName = (LISTEN_EVENT == eventType) ? "LISTEN" : "IGNORE";
-              unsigned int index = 0;
-              // get "eventTime"
-              struct timeval eventTime;
-              UINT32 temp32;
-              memcpy(&temp32, buffer+index, sizeof(INT32));
-              eventTime.tv_sec = ntohl(temp32);
-              index += sizeof(INT32);
-              memcpy(&temp32, buffer+index, sizeof(INT32));
-              eventTime.tv_usec = ntohl(temp32);
-              index += sizeof(INT32);
-              // get "protocol"
-              const char* protoName = 
-                MgenBaseEvent::GetStringFromProtocol((Protocol)buffer[index++]);
-              // skip "reserved" field
-              index++;
-              // get "portNumber"
-              UINT16 temp16;
-              memcpy(&temp16, buffer+index, sizeof(INT16));
-              UINT16 portNumber = ntohs(temp16);
-              // Output text log format
-#ifdef _WIN32_WCE
-              struct tm timeStruct;
-              timeStruct.tm_hour = eventTime.tv_sec / 3600;
-              UINT32 hourSecs = 3600 * timeStruct.tm_hour;
-              timeStruct.tm_min = (eventTime.tv_sec - hourSecs) / 60;
-              timeStruct.tm_sec = eventTime.tv_sec - hourSecs - (60*timeStruct.tm_min);
-              timeStruct.tm_hour = timeStruct.tm_hour % 24;
-              struct tm* timePtr = &timeStruct;
-#else            
-              struct tm* timePtr;
-              if (local_time)
-                timePtr = localtime((time_t*)&eventTime.tv_sec);
-              else
-                timePtr = gmtime((time_t*)&eventTime.tv_sec);
-              
-#endif // if/else _WIN32_WCE
-              Mgen::Log(log_file, "%02d:%02d:%02d.%06lu %s proto>%s port>%hu\n",
-                        timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                        (UINT32)eventTime.tv_usec, eventName,
-                        protoName, portNumber);
-              break;   
-          }
-        case JOIN_EVENT:
-        case LEAVE_EVENT:
-          {
-              unsigned int index = 0;
-              // get "eventTime"
-              struct timeval eventTime;
-              UINT32 temp32;
-              memcpy(&temp32, buffer+index, sizeof(INT32));
-              eventTime.tv_sec = ntohl(temp32);
-              index += sizeof(INT32);
-              memcpy(&temp32, buffer+index, sizeof(INT32));
-              eventTime.tv_usec = ntohl(temp32);
-              index += sizeof(INT32);
-              // get "groupPort"
-              UINT16 temp16;
-              memcpy(&temp16, buffer+index, sizeof(INT16));
-              UINT16 groupPort = ntohs(temp16);
-              index += sizeof(INT16);
-              // get "groupAddrType"
-              ProtoAddress::Type addrType;
-              switch (buffer[index++])
-              {
-              case MgenMsg::IPv4:
-                addrType = ProtoAddress::IPv4;
-                break;
-              case MgenMsg::IPv6:
-                addrType = ProtoAddress::IPv6;
-                break;
-              default:
-                DMSG(0, "Mgen::ConvertBinaryLog() unknown source address type\n");
-                fclose(file);
-                return false;   
-              }
-              // get "groupAddrLen"
-              unsigned int addrLen = (unsigned int)buffer[index++];
-              ProtoAddress groupAddr;
-              // get "groupAddr"
-              groupAddr.SetRawHostAddress(addrType, buffer+index, addrLen);
-              index += addrLen;
-              // get "ifaceNameLen"
-              unsigned int ifaceNameLen = buffer[index++];
-              char ifaceName[128];
-              memcpy(ifaceName, buffer+index, ifaceNameLen);
-              ifaceName[ifaceNameLen] = '\0';
-              // Output text log format
-              eventName = (JOIN_EVENT == eventType) ? "JOIN" : "LEAVE";
-#ifdef _WIN32_WCE
-              struct tm timeStruct;
-              timeStruct.tm_hour = eventTime.tv_sec / 3600;
-              UINT32 hourSecs = 3600 * timeStruct.tm_hour;
-              timeStruct.tm_min = (eventTime.tv_sec - hourSecs) / 60;
-              timeStruct.tm_sec = eventTime.tv_sec - hourSecs - (60*timeStruct.tm_min);
-              timeStruct.tm_hour = timeStruct.tm_hour % 24;
-              struct tm* timePtr = &timeStruct;
-#else            
-              struct tm* timePtr;
-              if (local_time)
-                timePtr = localtime((time_t*)&eventTime.tv_sec);
-              else
-                timePtr = gmtime((time_t*)&eventTime.tv_sec);
-              
-#endif // if/else _WIN32_WCE
-              Mgen::Log(log_file, "%02d:%02d:%02d.%06lu %s group>%s",
-                        timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                        (UINT32)eventTime.tv_usec, eventName,
-                        groupAddr.GetHostString());
-              if (ifaceNameLen) Mgen::Log(log_file, " interface>%s", ifaceName);
-              if (groupPort)
-                Mgen::Log(log_file, " port>%hu\n", groupPort);
-              else
-                Mgen::Log(log_file, "\n");
-              break;
-          }
-        case START_EVENT:
-        case STOP_EVENT:
-          {
-              eventName = (START_EVENT == eventType) ? "START" : "STOP";
-              unsigned int index = 0;
-              // get "eventTime"
-              struct timeval eventTime;
-              UINT32 temp32;
-              memcpy(&temp32, buffer+index, sizeof(INT32));
-              eventTime.tv_sec = ntohl(temp32);
-              index += sizeof(INT32);
-              memcpy(&temp32, buffer+index, sizeof(INT32));
-              eventTime.tv_usec = ntohl(temp32);
-              index += sizeof(INT32);
-#ifdef _WIN32_WCE
-              struct tm timeStruct;
-              timeStruct.tm_hour = eventTime.tv_sec / 3600;
-              UINT32 hourSecs = 3600 * timeStruct.tm_hour;
-              timeStruct.tm_min = (eventTime.tv_sec - hourSecs) / 60;
-              timeStruct.tm_sec = eventTime.tv_sec - hourSecs - (60*timeStruct.tm_min);
-              timeStruct.tm_hour = timeStruct.tm_hour % 24;
-              struct tm* timePtr = &timeStruct;
-#else            
-              struct tm* timePtr;
-              if (local_time)
-                timePtr = localtime((time_t*)&eventTime.tv_sec);
-              else
-                timePtr = gmtime((time_t*)&eventTime.tv_sec);
-              
-#endif // if/else _WIN32_WCE
-              Mgen::Log(log_file, "%02d:%02d:%02d.%06lu %s\n",
-                        timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                        (UINT32)eventTime.tv_usec, eventName);
-              break;
-          }
-        case ON_EVENT:
-        case ACCEPT_EVENT:
-        case CONNECT_EVENT:
-        case DISCONNECT_EVENT:
-        case OFF_EVENT:
-        case SHUTDOWN_EVENT:
-          {
-              // get "eventTime"
-              struct timeval eventTime;
-              UINT32 temp32;
-              memcpy(&temp32, buffer+index, sizeof(INT32));
-              eventTime.tv_sec = ntohl(temp32);
-              index += sizeof(INT32);
-              memcpy(&temp32, buffer+index, sizeof(INT32));
-              eventTime.tv_usec = ntohl(temp32);
-              index += sizeof(INT32);
-#ifdef _WIN32_WCE
-              struct tm timeStruct;
-              timeStruct.tm_hour = eventTime.tv_sec / 3600;
-              UINT32 hourSecs = 3600 * timeStruct.tm_hour;
-              timeStruct.tm_min = (eventTime.tv_sec - hourSecs) / 60;
-              timeStruct.tm_sec = eventTime.tv_sec - hourSecs - (60*timeStruct.tm_min);
-              timeStruct.tm_hour = timeStruct.tm_hour % 24;
-              struct tm* timePtr = &timeStruct;
-#else            
-              struct tm* timePtr;
-              if (local_time)
-                timePtr = localtime((time_t*)&eventTime.tv_sec);
-              else
-                timePtr = gmtime((time_t*)&eventTime.tv_sec);
-              
-#endif // if/else _WIN32_WCE
-              
-              // get "srcPort"
-              UINT16 temp16;
-              memcpy(&temp16, buffer+index, sizeof(INT16));
-              UINT16 port = ntohs(temp16);
-              index += sizeof(INT16);
-              
-              // get "srcAddrType"
-              ProtoAddress::Type addrType;
-              switch (buffer[index++])
-              {
-              case MgenMsg::IPv4:
-                addrType = ProtoAddress::IPv4;
-                break;
-              case MgenMsg::IPv6:
-                addrType = ProtoAddress::IPv6;
-                break;
-              default:
-                DMSG(0, "Mgen::ConvertBinaryLog() unknown source address type:%d\n",
-                     buffer[index-1]);
-                fclose(file);
-                return false;   
-              }
-              // get "srcAddrLen"
-              unsigned int addrLen = (unsigned int)buffer[index++];
-              ProtoAddress addr;
-              // get "srcAddr"
-              addr.SetRawHostAddress(addrType, buffer+index, addrLen);
-              index += addrLen;
-              addr.SetPort(port);
-              // get "dstPort"
-              memcpy(&temp16,buffer+index,sizeof(INT16));
-              UINT16 dstPort = ntohs(temp16);
-              index += sizeof(INT16);              
-              
-              // get "flow_id" (it might not exist - its' how we
-              // are differentiating between clients and servers
-              // for now)
-              UINT32 flow_id = 0;
-              memcpy(&temp32,buffer+index,sizeof(UINT32));
-              flow_id = ntohl(temp32);
-              index += sizeof(UINT32);	    
-              
-              ProtoAddress hostAddr;
-              // get "hostPort"
-              if ((index+4) <= recordLength)
-              {
-                  
+                  memcpy(&temp32, buffer+index, sizeof(INT32));
+                  eventTime.tv_sec = ntohl(temp32);
+                  index += sizeof(INT32);
+                  memcpy(&temp32, buffer+index, sizeof(INT32));
+                  eventTime.tv_usec = ntohl(temp32);
+                  index += sizeof(INT32);
+                  // get "srcPort"
+                  UINT16 temp16;
                   memcpy(&temp16, buffer+index, sizeof(INT16));
-                  UINT16 hostPort = ntohs(temp16);
+                  UINT16 srcPort = ntohs(temp16);
                   index += sizeof(INT16);
-                  // get "hostAddrType"
+                  // get "srcAddrType"
+                  ProtoAddress::Type addrType;
+                  switch (buffer[index++])
+                  {
+                    case MgenMsg::IPv4:
+                        addrType = ProtoAddress::IPv4;
+                        break;
+                    case MgenMsg::IPv6:
+                        addrType = ProtoAddress::IPv6;
+                        break;
+                    default:
+                        DMSG(0, "Mgen::ConvertBinaryLog() unknown source address type:%d\n",
+                                buffer[index-1]);
+                        fclose(file);
+                        return false;   
+                  }
+                  // get "srcAddrLen"
+                  unsigned int addrLen = (unsigned int)buffer[index++];
+                  ProtoAddress srcAddr;
+                  // get "srcAddr"
+                  srcAddr.SetRawHostAddress(addrType, buffer+index, addrLen);
+                  index += addrLen;
+                  srcAddr.SetPort(srcPort);
+
+                  // The remainder of the record corresponds to the message content
+                  MgenMsg msg;
+                  msg.SetProtocol(theProtocol);
+                  msg.SetSrcAddr(srcAddr);
+                  msg.SetTxTime(eventTime);
+                  ASSERT(0 == index%4)
+                  msg.Unpack(alignedBuffer+index/4, recordLength - index, false, log_data);
+                  msg.LogRecvEvent(logFile, false, localTime, log_rx, log_data, log_gps_data, NULL, -1, log_flush,eventTime);
+                  break;
+              }
+            case SEND_EVENT:
+              {
+                  MgenMsg msg;
+                  // get tcp mgen_msg_len
+                  if (theProtocol == TCP)
+                  {
+                      UINT32 temp32;
+                      memcpy(&temp32,buffer+index,sizeof(INT32));
+                      msg.SetMgenMsgLen(ntohl(temp32));
+                      index += sizeof(UINT32);
+
+                  }
+                  msg.SetProtocol(theProtocol);
+                  ASSERT(0 == index%4)
+                  msg.Unpack(alignedBuffer+index/4, recordLength, false, log_data);
+                  msg.LogSendEvent(logFile,false, localTime, NULL, log_flush, msg.tx_time);
+                  break;
+              }
+            case LISTEN_EVENT:
+            case IGNORE_EVENT:
+              {
+                  eventName = (LISTEN_EVENT == eventType) ? "LISTEN" : "IGNORE";
+                  unsigned int index = 0;
+                  // get "eventTime"
+                  struct timeval eventTime;
+                  UINT32 temp32;
+                  memcpy(&temp32, buffer+index, sizeof(INT32));
+                  eventTime.tv_sec = ntohl(temp32);
+                  index += sizeof(INT32);
+                  memcpy(&temp32, buffer+index, sizeof(INT32));
+                  eventTime.tv_usec = ntohl(temp32);
+                  index += sizeof(INT32);
+                  // get "protocol"
+                  const char* protoName = 
+                    MgenBaseEvent::GetStringFromProtocol((Protocol)buffer[index++]);
+                  // skip "reserved" field
+                  index++;
+                  // get "portNumber"
+                  UINT16 temp16;
+                  memcpy(&temp16, buffer+index, sizeof(INT16));
+                  UINT16 portNumber = ntohs(temp16);
+                  // Output text log format
+                  Mgen::LogTimestamp(logFile, eventTime, localTime);
+                  Mgen::Log(logFile, "%s proto>%s port>%hu\n",
+                            eventName, protoName, portNumber);
+                  break;   
+              }
+            case JOIN_EVENT:
+            case LEAVE_EVENT:
+              {
+                  unsigned int index = 0;
+                  // get "eventTime"
+                  struct timeval eventTime;
+                  UINT32 temp32;
+                  memcpy(&temp32, buffer+index, sizeof(INT32));
+                  eventTime.tv_sec = ntohl(temp32);
+                  index += sizeof(INT32);
+                  memcpy(&temp32, buffer+index, sizeof(INT32));
+                  eventTime.tv_usec = ntohl(temp32);
+                  index += sizeof(INT32);
+                  // get "groupPort"
+                  UINT16 temp16;
+                  memcpy(&temp16, buffer+index, sizeof(INT16));
+                  UINT16 groupPort = ntohs(temp16);
+                  index += sizeof(INT16);
+                  // get "groupAddrType"
+                  ProtoAddress::Type addrType;
                   switch (buffer[index++])
                   {
                   case MgenMsg::IPv4:
@@ -1989,106 +1683,216 @@ bool MgenMsg::ConvertBinaryLog(const char* path,Mgen& mgen)
                     addrType = ProtoAddress::IPv6;
                     break;
                   default:
-                    addrType = ProtoAddress::INVALID;
-                    break;
+                    DMSG(0, "Mgen::ConvertBinaryLog() unknown source address type\n");
+                    fclose(file);
+                    return false;   
                   }
-                  // get "hostAddrLen"
-                  addrLen = (unsigned int)buffer[index++];
-                  
-                  if (index+addrLen <= recordLength)
+                  // get "groupAddrLen"
+                  unsigned int addrLen = (unsigned int)buffer[index++];
+                  ProtoAddress groupAddr;
+                  // get "groupAddr"
+                  groupAddr.SetRawHostAddress(addrType, buffer+index, addrLen);
+                  index += addrLen;
+                  // get "ifaceNameLen"
+                  unsigned int ifaceNameLen = buffer[index++];
+                  char ifaceName[128];
+                  memcpy(ifaceName, buffer+index, ifaceNameLen);
+                  ifaceName[ifaceNameLen] = '\0';
+                  // Output text log format
+                  eventName = (JOIN_EVENT == eventType) ? "JOIN" : "LEAVE";
+                  Mgen::LogTimestamp(logFile, eventTime, localTime);
+                  Mgen::Log(logFile, "%s group>%s", eventName, groupAddr.GetHostString());
+                  if (ifaceNameLen) Mgen::Log(logFile, " interface>%s", ifaceName);
+                  if (groupPort)
+                    Mgen::Log(logFile, " port>%hu\n", groupPort);
+                  else
+                    Mgen::Log(logFile, "\n");
+                  break;
+              }
+            case START_EVENT:
+            case STOP_EVENT:
+              {
+                  eventName = (START_EVENT == eventType) ? "START" : "STOP";
+                  unsigned int index = 0;
+                  // get "eventTime"
+                  struct timeval eventTime;
+                  UINT32 temp32;
+                  memcpy(&temp32, buffer+index, sizeof(INT32));
+                  eventTime.tv_sec = ntohl(temp32);
+                  index += sizeof(INT32);
+                  memcpy(&temp32, buffer+index, sizeof(INT32));
+                  eventTime.tv_usec = ntohl(temp32);
+                  index += sizeof(INT32);
+                  Mgen::LogTimestamp(logFile, eventTime, localTime);
+                  Mgen::Log(logFile, "%s\n", eventName);
+                  break;
+              }
+            case ON_EVENT:
+            case ACCEPT_EVENT:
+            case CONNECT_EVENT:
+            case DISCONNECT_EVENT:
+            case OFF_EVENT:
+            case SHUTDOWN_EVENT:
+	    case RECONNECT_EVENT:
+              {
+                  // get "eventTime"
+                  struct timeval eventTime;
+                  UINT32 temp32;
+                  memcpy(&temp32, buffer+index, sizeof(INT32));
+                  eventTime.tv_sec = ntohl(temp32);
+                  index += sizeof(INT32);
+                  memcpy(&temp32, buffer+index, sizeof(INT32));
+                  eventTime.tv_usec = ntohl(temp32);
+                  index += sizeof(INT32);
+
+                  // get "srcPort"
+                  UINT16 temp16;
+                  memcpy(&temp16, buffer+index, sizeof(INT16));
+                  UINT16 port = ntohs(temp16);
+                  index += sizeof(INT16);
+
+                  // get "srcAddrType"
+                  ProtoAddress::Type addrType;
+                  switch (buffer[index++])
                   {
-                      if (ProtoAddress::INVALID != addrType && addrLen)
+                  case MgenMsg::IPv4:
+                    addrType = ProtoAddress::IPv4;
+                    break;
+                  case MgenMsg::IPv6:
+                    addrType = ProtoAddress::IPv6;
+                    break;
+                  default:
+                    DMSG(0, "Mgen::ConvertBinaryLog() unknown source address type:%d\n",
+                         buffer[index-1]);
+                    fclose(file);
+                    return false;   
+                  }
+                  // get "srcAddrLen"
+                  unsigned int addrLen = (unsigned int)buffer[index++];
+                  ProtoAddress addr;
+                  // get "srcAddr"
+                  addr.SetRawHostAddress(addrType, buffer+index, addrLen);
+                  index += addrLen;
+                  addr.SetPort(port);
+                  // get "dstPort"
+                  memcpy(&temp16,buffer+index,sizeof(INT16));
+                  UINT16 dstPort = ntohs(temp16);
+                  index += sizeof(INT16);              
+
+                  // get "flow_id" (it might not exist - its' how we
+                  // are differentiating between clients and servers
+                  // for now)
+                  UINT32 flow_id = 0;
+                  memcpy(&temp32,buffer+index,sizeof(UINT32));
+                  flow_id = ntohl(temp32);
+                  index += sizeof(UINT32);	    
+
+                  ProtoAddress hostAddr;
+                  // get "hostPort"
+                  if ((index+4) <= recordLength)
+                  {
+
+                      memcpy(&temp16, buffer+index, sizeof(INT16));
+                      UINT16 hostPort = ntohs(temp16);
+                      index += sizeof(INT16);
+                      // get "hostAddrType"
+                      switch (buffer[index++])
                       {
-                          // get "hostAddr"
-                          hostAddr.SetRawHostAddress(addrType, buffer+index, addrLen);
-                          index += addrLen;
-                          hostAddr.SetPort(hostPort);
+                      case MgenMsg::IPv4:
+                        addrType = ProtoAddress::IPv4;
+                        break;
+                      case MgenMsg::IPv6:
+                        addrType = ProtoAddress::IPv6;
+                        break;
+                      default:
+                        addrType = ProtoAddress::INVALID;
+                        break;
+                      }
+                      // get "hostAddrLen"
+                      addrLen = (unsigned int)buffer[index++];
+
+                      if (index+addrLen <= recordLength)
+                      {
+                          if (ProtoAddress::INVALID != addrType && addrLen)
+                          {
+                              // get "hostAddr"
+                              hostAddr.SetRawHostAddress(addrType, buffer+index, addrLen);
+                              index += addrLen;
+                              hostAddr.SetPort(hostPort);
+                          }
                       }
                   }
+                  // Let's just keep it verbose and clear...
+                  switch (eventType) 
+                  {
+                      case ON_EVENT:
+                            Mgen::LogTimestamp(logFile, eventTime, localTime);
+                            Mgen::Log(logFile, "ON flow>%lu srcPort>%hu dst>%s/%hu",
+                                        flow_id,dstPort,addr.GetHostString(),addr.GetPort());
+                            break;
+                      case ACCEPT_EVENT:
+                            Mgen::LogTimestamp(logFile, eventTime, localTime);
+                            Mgen::Log(logFile, "ACCEPT src>%s/%hu dstPort>%hu",
+                                        addr.GetHostString(),addr.GetPort(),dstPort);
+                            break;
+                      case CONNECT_EVENT:
+                            Mgen::LogTimestamp(logFile, eventTime, localTime);
+                            Mgen::Log(logFile, "CONNECT flow>%lu srcPort>%hu dst>%s/%hu",
+                                        flow_id,dstPort,addr.GetHostString(),addr.GetPort());
+                            break;
+                      case DISCONNECT_EVENT:
+                            Mgen::LogTimestamp(logFile, eventTime, localTime);
+                            if (flow_id)
+                                Mgen::Log(logFile, "DISCONNECT flow>%lu dst>%s/%hu srcPort>%hu",
+                                            flow_id,addr.GetHostString(),addr.GetPort(),dstPort);
+                            else
+                                Mgen::Log(logFile, "DISCONNECT src>%s/%hu dstPort>%hu",
+                                            addr.GetHostString(),addr.GetPort(), dstPort);
+                            break;
+			    
+		      case RECONNECT_EVENT:
+			// We will only have client side connect events but log
+			// both in the event this changes.
+			    Mgen::LogTimestamp(logFile, eventTime, localTime);
+                            if (flow_id)
+                                Mgen::Log(logFile, "RECONNECT flow>%lu dst>%s/%hu srcPort>%hu",
+                                            flow_id,addr.GetHostString(),addr.GetPort(),dstPort);
+                            else
+                                Mgen::Log(logFile, "RECONNECT src>%s/%hu dstPort>%hu",
+                                            addr.GetHostString(),addr.GetPort(), dstPort);
+                            break;
+
+                      case SHUTDOWN_EVENT:
+                            Mgen::LogTimestamp(logFile, eventTime, localTime);
+                            if (flow_id)
+                                Mgen::Log(logFile, "SHUTDOWN flow>%lu dst>%s/%hu srcPort>%hu",
+                                            flow_id,addr.GetHostString(),addr.GetPort(), dstPort);
+                            else
+                                Mgen::Log(logFile, "SHUTDOWN src>%s/%hu dstPort>%hu",
+                                            addr.GetHostString(),addr.GetPort(), dstPort);
+                            break;
+
+                      case OFF_EVENT:
+                            Mgen::LogTimestamp(logFile, eventTime, localTime);
+                            if (flow_id)
+                                Mgen::Log(logFile, "OFF flow>%lu srcPort>%hu dst>%s/%hu",
+                                            flow_id,dstPort, addr.GetHostString(),addr.GetPort());
+                            else
+                                Mgen::Log(logFile, "OFF src>%s/%hu dstPort>%hu",
+                                            addr.GetHostString(),addr.GetPort(),dstPort);
+                            break;
+                      default:
+                            DMSG(0,"Mgen::ConvertBinaryLog Invalid event type.\n");
+                  }
+                  if (hostAddr.IsValid()) 		
+                        Mgen::Log(logFile,"host>%s/%hu", hostAddr.GetHostString(),hostAddr.GetPort());	   	  
+                  Mgen::Log(logFile,"\n");
+                  break;
               }
-              
-              // Let's just keep it verbose and clear...
-              switch (eventType) 
-              {
-              case ON_EVENT:
-                Mgen::Log(log_file, "%02d:%02d:%02d.%06lu ON flow>%lu srcPort>%hu dst>%s/%hu",
-                          timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                          (UINT32)eventTime.tv_usec,
-                          flow_id,dstPort,addr.GetHostString(),addr.GetPort());
-                break;
-              case ACCEPT_EVENT:
-                Mgen::Log(log_file, "%02d:%02d:%02d.%06lu ACCEPT src>%s/%hu dstPort>%hu",
-                          timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                          (UINT32)eventTime.tv_usec,
-                          addr.GetHostString(),addr.GetPort(),dstPort);
-                
-                break;
-              case CONNECT_EVENT:
-                Mgen::Log(log_file, "%02d:%02d:%02d.%06lu CONNECT flow>%lu srcPort>%hu dst>%s/%hu",
-                          timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                          (UINT32)eventTime.tv_usec,
-                          flow_id,dstPort,addr.GetHostString(),addr.GetPort());
-                break;
-              case DISCONNECT_EVENT:
-                if (flow_id)
-                  Mgen::Log(log_file, "%02d:%02d:%02d.%06lu DISCONNECT flow>%lu dst>%s/%hu srcPort>%hu",
-                            timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                            (UINT32)eventTime.tv_usec,
-                            flow_id,addr.GetHostString(),addr.GetPort(),
-                            dstPort);
-                else
-                  Mgen::Log(log_file, "%02d:%02d:%02d.%06lu DISCONNECT src>%s/%hu dstPort>%hu",
-                            timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                            (UINT32)eventTime.tv_usec,
-                            addr.GetHostString(),addr.GetPort(),
-                            dstPort);
-                
-                break;
-                
-              case SHUTDOWN_EVENT:
-                if (flow_id)
-                  Mgen::Log(log_file, "%02d:%02d:%02d.%06lu SHUTDOWN flow>%lu dst>%s/%hu srcPort>%hu",
-                            timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                            (UINT32)eventTime.tv_usec,
-                            flow_id,addr.GetHostString(),addr.GetPort(),
-                            dstPort);
-                else
-                  Mgen::Log(log_file, "%02d:%02d:%02d.%06lu SHUTDOWN src>%s/%hu dstPort>%hu",
-                            timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                            (UINT32)eventTime.tv_usec,
-                            addr.GetHostString(),addr.GetPort(),
-                            dstPort);
-                
-                break;
-                
-              case OFF_EVENT:
-                if (flow_id)
-                  Mgen::Log(log_file, "%02d:%02d:%02d.%06lu OFF flow>%lu srcPort>%hu dst>%s/%hu",
-                            timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                            (UINT32)eventTime.tv_usec,
-                            flow_id,dstPort,
-                            addr.GetHostString(),addr.GetPort());
-                else
-                  Mgen::Log(log_file, "%02d:%02d:%02d.%06lu OFF src>%s/%hu dstPort>%hu",
-                            timePtr->tm_hour, timePtr->tm_min, timePtr->tm_sec, 
-                            (UINT32)eventTime.tv_usec,
-                            addr.GetHostString(),addr.GetPort(),dstPort);
-                
-                break;
-              default:
-                DMSG(0,"Mgen::ConvertBinaryLog Invalid event type.\n");
-              }
-              if (hostAddr.IsValid()) 		
-                Mgen::Log(log_file,"host>%s/%hu",
-                          hostAddr.GetHostString(),hostAddr.GetPort());	   	  
-              Mgen::Log(log_file,"\n");
-              
-              break;
-          }
-        default:
-          DMSG(0, "Mgen::ConvertBinaryLog() invalid event type\n");
-          fclose(file);
-          return false;
+            default:
+              DMSG(0, "Mgen::ConvertBinaryLog() invalid event type\n");
+              fclose(file);
+              return false;
         }  // end switch(eventType)
     }  // end while(1)
     fclose(file);

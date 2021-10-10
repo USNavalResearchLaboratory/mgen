@@ -15,6 +15,7 @@ LOCAL_EXPORT_CFLAGS := $(LOCAL_CFLAGS)
 
 LOCAL_SRC_FILES := \
 	../../../src/common/mgen.cpp \
+	../../../src/common/mgenAnalytic.cpp \
 	../../../src/common/mgenEvent.cpp \
 	../../../src/common/mgenFlow.cpp \
 	../../../src/common/mgenMsg.cpp \
@@ -26,4 +27,4 @@ LOCAL_SRC_FILES := \
 	../../../src/common/mgenApp.cpp
 include $(BUILD_EXECUTABLE)
 
-$(call import-module,protolib/makefiles/android/jni)
+$(call import-module,protolib/makefiles/android-ndk/jni)

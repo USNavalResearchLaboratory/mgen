@@ -256,12 +256,12 @@ bool MgenPayloadMgr::OnCommand(MgenPayloadMgr::Command cmd, const char* arg,bool
       
     case EVENT:
       {
-	if (!mgen.ParseEvent(arg,0))
-	  {
-	    DMSG(0,"MgenPayloadMgr::OnCommand() Error: error parsing event\n");
-	    return false;   
-	  }
-      break;
+          if (!mgen.ParseEvent(arg,0,false))
+          {
+              DMSG(0,"MgenPayloadMgr::OnCommand() Error: error parsing event\n");
+              return false;   
+          }
+          break;
       }
     case INPUT:
       {
@@ -607,7 +607,7 @@ bool MgenPayloadMgr::ParseEvent(const char* lineBuffer,unsigned int lineCount)
       {
 	DMSG(0,"MgenPayloadMgr::ParseEvent()");
 
-	if (!mgen.ParseEvent(lineBuffer,lineCount))
+	if (!mgen.ParseEvent(lineBuffer,lineCount,false))
 	  {
 	    DMSG(0,"MgenPaylogMgr::ParseEvent() mgen.ParseEvent error %s %d",lineBuffer,lineCount);
 	  }

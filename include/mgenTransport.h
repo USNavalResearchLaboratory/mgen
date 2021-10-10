@@ -99,14 +99,20 @@ class MgenTransport
     virtual void Close() = 0;
     virtual bool HasListener() = 0;
     virtual MessageStatus SendMessage(MgenMsg& theMsg,
-                             const ProtoAddress& dst_addr,
-                             char* txBuffer) = 0;
+                             const ProtoAddress& dstAddr) = 0;
     virtual bool StartOutputNotification() {return true;}
     virtual void StopOutputNotification() {;}
     virtual bool StartInputNotification() {return true;}
     virtual void StopInputNotification() {;}
     virtual bool Shutdown() {return false;}
     virtual const char* GetInterface() = 0;
+    virtual void SetRetryCount(int retryCount) {;}
+    virtual void SetRetryDelay(unsigned int retryDelay) {;}
+    virtual int GetRetryCount() {return 0;}
+    virtual unsigned int GetRetryDelay() {return 0;}
+    virtual bool Reconnect(ProtoAddress::Type addrType) {return true;}
+    
+    void ProcessRecvMessage(MgenMsg& msg, const ProtoTime& theTime);
 
     // base class implementation
     UINT16 GetSrcPort() {return srcPort;}
@@ -114,7 +120,7 @@ class MgenTransport
     void PrintList(); // ljt
     bool SendPendingMessage();
     void RemoveFromPendingList();
-    void LogEvent(LogEventType theEvent,MgenMsg* theMsg,const struct timeval& theTime,char* buffer = NULL);
+    void LogEvent(LogEventType theEvent,MgenMsg* theMsg, const struct timeval& theTime, UINT32* buffer = NULL);
     Protocol GetProtocol() {return protocol;}
     void SetDstAddr(const ProtoAddress& theAddress) {dstAddress = theAddress;}
 
@@ -127,7 +133,10 @@ class MgenTransport
     }
     void DecrementReferenceCount() 
     {
-        reference_count--;
+        if (reference_count > 0)
+        {
+            reference_count--;
+        }
     }
     int GetReferenceCount() {return reference_count;}
     static ProtoSocket::Protocol GetSocketProtocol(Protocol theProtocol)
@@ -148,8 +157,6 @@ class MgenTransport
         DMSG(0,"SocketTransport::SocketTransport() Error: Invalid protocol specified.\n");		
         return ProtoSocket::INVALID_PROTOCOL;
     }
-    int GetMessagesSent() {return messages_sent;}
-    void SetMessagesSent(int messagesSent) {messages_sent = messagesSent;}
     Mgen& GetMgen() {return mgen;}
   private: 
     MgenTransport*  prev;  
@@ -164,7 +171,6 @@ class MgenTransport
     MgenFlow*       pending_head;
     MgenFlow*       pending_tail;
     MgenFlow*       pending_current;
-    int             messages_sent;
 };  // end class MgenTransport
 
 /** 
@@ -196,6 +202,7 @@ class MgenSocketTransport : public MgenTransport
     }
     bool IsSocketTransport() {return true;}
     UINT16 GetSocketPort() {return socket.GetPort();}
+
     bool OwnsSocket(const ProtoSocket& theSocket) 
     {
         if (&socket == &theSocket)
@@ -220,10 +227,12 @@ class MgenSocketTransport : public MgenTransport
     virtual bool SetDF(FragmentationStatus df);
     virtual bool SetMulticastInterface(const char* interfaceName) 
     {
-        if (interfaceName != NULL && '\0' != interfaceName[0])
-          strcpy(interface_name,interfaceName);
+        if (NULL == interfaceName)
+            interface_name[0] = '\0';
+        else
+            strcpy(interface_name,interfaceName);
         return true;
-    }     
+    }
     bool HasListener() {return (socket.HasListener());}
     const char* GetInterface()
     {
@@ -272,7 +281,7 @@ class MgenUdpTransport : public MgenSocketTransport
     bool LeaveGroup(const ProtoAddress& theAddress, 
 		    const ProtoAddress& sourceAddress,
                     const char* interfaceName = NULL);
-    MessageStatus SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer);
+    MessageStatus SendMessage(MgenMsg& theMsg,const ProtoAddress& dstAddr);
     bool Listen(UINT16 port,ProtoAddress::Type addrType, bool bindOnOpen);
     
     unsigned int GroupCount() {return group_count;}
@@ -314,6 +323,7 @@ class MgenTcpTransport : public MgenSocketTransport
     ~MgenTcpTransport();
 
     void OnEvent(ProtoSocket& theSocket,ProtoSocket::Event theEvent);
+    bool Reconnect(ProtoAddress::Type addrType);
     bool Open(ProtoAddress::Type addrType, bool bindOnOpen);
     bool Listen(UINT16 port,ProtoAddress::Type addrType, bool bindOnOpen);
     bool Accept(ProtoSocket& theSocket);
@@ -338,8 +348,8 @@ class MgenTcpTransport : public MgenSocketTransport
     bool IsConnected() {return socket.IsConnected();}
     bool IsConnecting() {return socket.IsConnecting();}
     bool IsListening() {return socket.IsListening();}
-    void OnRecvMsg(unsigned int numBytes,unsigned int bufferIndex,const char* buffer);
-    MessageStatus SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer);
+    void OnRecvMsg(unsigned int numBytes, unsigned int bufferIndex, const UINT32* buffer);
+    MessageStatus SendMessage(MgenMsg& theMsg, const ProtoAddress& dstAddr);
     bool GetNextTxBuffer(unsigned int numBytes);
     void SetupNextTxBuffer();
     UINT16 GetNextTxFragment();
@@ -367,10 +377,17 @@ class MgenTcpTransport : public MgenSocketTransport
     void ResetRxMsgState();
     bool IsClient() {return is_client;};
     void IsClient(bool isClient) {is_client = isClient;};
-  private:
+    void SetRetryCount(int retryCount) {retry_count = retryCount;}
+    void SetRetryDelay(unsigned int retryDelay) {retry_delay = retryDelay;}
+    int GetRetryCount() {return retry_count;}
+    unsigned int GetRetryDelay() {return retry_delay;}
+    virtual void SetEventOptions(const MgenEvent* theEvent);
+    void ScheduleReconnect(ProtoSocket& theSocket);
+    
+private:
     bool                    is_client;
     MgenMsg                 tx_msg;
-    char                    tx_msg_buffer[TX_BUFFER_SIZE];
+    UINT32                  tx_msg_buffer[TX_BUFFER_SIZE/4 + 1];
     unsigned int            tx_buffer_index;
     unsigned int            tx_buffer_pending;
     unsigned int            tx_msg_offset;
@@ -379,13 +396,15 @@ class MgenTcpTransport : public MgenSocketTransport
     struct timeval          tx_time; // send time of first tcp fragment
 	
     MgenMsg                 rx_msg;
-    char                    rx_msg_buffer[TX_BUFFER_SIZE];
+    UINT32                  rx_msg_buffer[TX_BUFFER_SIZE/4 + 1];
     unsigned int            rx_buffer_index;
     char                    rx_checksum_buffer[4];
     UINT16                  rx_fragment_pending;
     UINT16                  rx_msg_index;
     UINT32                  rx_checksum;
-	
+
+    int                     retry_count;
+    unsigned int            retry_delay;
 }; // end class MgenTcpTransport
 
 /**
@@ -414,10 +433,11 @@ class MgenSinkTransport : public MgenTransport
     bool Open(ProtoAddress::Type addrType, bool bindOnOpen);
     // source open
     bool Open();
+    void DecrementReferenceCount();
     bool OnOutputReady();
-    void HandleMgenMessage(const char* buffer, unsigned int len,const ProtoAddress& srcAddr);
+    void HandleMgenMessage(UINT32* alignedBuffer, unsigned int len,const ProtoAddress& srcAddr);
     bool OnInputReady();
-    char* GetMsgBuffer() {return msg_buffer;}
+    UINT32* GetMsgBuffer() {return msg_buffer;}
     int GetMsgLength() {return msg_length;}
     void SetMsgLength(int inLength) {msg_length = inLength;}
     void SetMsgIndex(int inIndex) {msg_index = inIndex;}
@@ -427,13 +447,14 @@ class MgenSinkTransport : public MgenTransport
     virtual void SetSink(class ProtoMessageSink* theSink) = 0; // ljt
 
   protected:
-    bool sink_non_blocking;
-    char path[PATH_MAX];
-    bool is_source;
-	enum {BUFFER_MAX = 8192}; // ljt
-    UINT32                      msg_length;
-    UINT32                      msg_index;
-    char                        msg_buffer[MAX_SIZE];
+    enum {BUFFER_MAX = 8192}; // ljt
+    
+    bool        sink_non_blocking;
+    char        path[PATH_MAX];
+    bool        is_source;
+	UINT32      msg_length;
+    UINT32      msg_index;
+    UINT32      msg_buffer[MAX_SIZE/4 + 1];
     
 }; // end class MgenTransport::MgenSinkTransport
 
@@ -465,17 +486,17 @@ class MgenAppSinkTransport : public MgenSinkTransport, public ProtoChannel
     bool Open();
     bool OnOutputReady();
     bool Write(char* buffer, unsigned int* nbytes);
-    MessageStatus SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer); 
+    MessageStatus SendMessage(MgenMsg& theMsg, const ProtoAddress& dstAddr); 
     bool OnInputReady();
 	bool Read(char* buffer, UINT32 nBytes, UINT32& bytesRead);
-	void OnEvent(ProtoChannel& theChannel,ProtoChannel::Notification theNotification);
+	void OnEvent(ProtoChannel& theChannel,ProtoChannel::NotifyFlag theFlag);
     void SetSink(class ProtoMessageSink* theSink) {;}
 
  private:
 
 #ifdef WIN32
     ProtoDispatcher::Descriptor     descriptor;
-	OVERLAPPED  write_overlapped; 
+	OVERLAPPED                      write_overlapped; 
 #endif // WIN32
     
     

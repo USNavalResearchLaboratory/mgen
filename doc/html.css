@@ -12,7 +12,7 @@ h4,
 h5,
 h6 {
     color: #394986;
-    font-height: bold;
+    font-weight: bold;
     margin-top: 1.33ex;
     margin-bottom: 1.33ex;
 }
@@ -39,7 +39,7 @@ h6 {
 }
 
 table {
-    border-spacing: 0;
+    border-collapse: collapse;
     font-size: 1em;
 }
 
@@ -50,11 +50,30 @@ tfoot {
 
 th,
 td {
-    padding: 0 0.5ex;
+    padding: 0.5ex;
 }
 
 blockquote {
-    margin-top: 1.33ex 4ex;
+    margin: 1.33ex 4em;
+}
+
+div.caution,
+div.important,
+div.note,
+div.tip,
+div.warning {
+    padding: 1em;
+    background-color: #FFFFEE;
+    border-left: 1ex solid #DDDDC0;
+    margin: 1.33ex 4em;
+}
+
+div.caution > .title,
+div.important > .title,
+div.note > .title,
+div.tip > .title,
+div.warning  > .title {
+    margin-top: 0px;
 }
 
 p,
@@ -87,7 +106,7 @@ pre {
 pre {
     white-space: pre;
     background-color: #EEEEEE;
-    border: 1px solid #C0C0C0;
+    border: 1px dotted #C0C0C0;
     padding: 1ex;
 }
 
@@ -97,26 +116,26 @@ li {
 }
 
 *[compact] > li {
-    margin-top: 0;
-    margin-bottom: 0;
+    margin-top: 0px;
+    margin-bottom: 0px;
 }
 
 dt {
     margin-top: 1.33ex;
-    margin-bottom: 0;
+    margin-bottom: 0px;
 }
 
 dd {
-    margin-top: 0;
+    margin-top: 0px;
     margin-bottom: 1.33ex;
 }
 
 *[compact] > dt {
-    margin-top: 0;
+    margin-top: 0px;
 }
 
 *[compact] > dd {
-    margin-bottom: 0;
+    margin-bottom: 0px;
 }
 
 div.toc,
@@ -137,10 +156,29 @@ div.list-of-tables dl,
 div.list-of-examples dl,
 div.list-of-equations dl,
 div.list-of-procedures dl {
-    margin-top: 0;
-    margin-bottom: 0;
+    margin-top: 0px;
+    margin-bottom: 0px;
 }
 
+div.toc ul,
+div.index ul,
+div.list-of-figures ul,
+div.list-of-tables ul,
+div.list-of-examples ul,
+div.list-of-equations ul,
+div.list-of-procedures ul {
+    list-style-type: none;
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+
+div.toc li,
+div.index li,
+div.list-of-figures li,
+div.list-of-tables li,
+div.list-of-examples li,
+div.list-of-equations li,
+div.list-of-procedures li,
 div.toc dt,
 div.index dt,
 div.list-of-figures dt,
@@ -159,8 +197,15 @@ div.list-of-tables dd,
 div.list-of-examples dd,
 div.list-of-equations dd,
 div.list-of-procedures dd {
-    margin-top: 0;
-    margin-bottom: 0;
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+
+div.toc-title {
+    font-size: 1.1em;
+    font-weight: bold;
+    margin-top: 1.33ex;
+    margin-bottom: 1.33ex;
 }
 
 div.toc span.part,
@@ -175,16 +220,21 @@ div.attribution {
 
 div.sidebar {
     background-color: #EEEEFF;
-    border: 1px solid #C0C0DD;
+    border: 0.5ex solid #C0C0DD;
+    border-left-style: none;
+    border-right-style: none;
     padding: 1ex;
     margin-top: 1.33ex;
     margin-bottom: 1.33ex;
 }
 
-div.sidebar > p.title {
-    margin-top: 0.33ex;
-}
-
+div.sidebar-title,
+div.example-title,
+div.figure-title,
+div.table-title,
+div.procedure-title,
+div.equation-title,
+div.sidebar > p.title,
 div.example > p.title,
 div.figure > p.title,
 div.table > p.title,
@@ -192,6 +242,8 @@ div.procedure > p.title,
 div.equation > p.title {
     color: #394986;
     font-weight: bold;
+    margin-top: 1.33ex;
+    margin-bottom: 1.33ex;
 }
 
 div.orderedlist,
@@ -202,7 +254,7 @@ div.calloutlist {
 
 div.orderedlist > table,
 div.calloutlist > table {
-    margin: 0;
+    margin: 0px;
 }
 
 div.orderedlist > table td,
@@ -227,6 +279,30 @@ a:link {
 a:visited {
     text-decoration: none;
     color: #135678;
+}
+
+span.bold-italic {
+    font-style: italic;
+    font-weight: bold; 
+    text-decoration: none;
+}
+
+span.underline {
+    font-style: normal; 
+    font-weight: normal; 
+    text-decoration: underline;
+}
+
+span.strikethrough {
+    font-style: normal; 
+    font-weight: normal; 
+    text-decoration: line-through;
+}
+
+span.highlight {
+    font-style: normal; 
+    font-weight: normal; 
+    background-color: #F0F080;
 }
 
 span.term {
@@ -264,7 +340,7 @@ a img {
 
 hr.footnote-hr {
     width: 100px;
-    margin-left: 0;
+    margin-left: 0px;
     text-align: left;
 }
 

@@ -15,14 +15,14 @@ receiver.send_event("listen udp 5000")
 sender = mgen.Controller("sender")
 
 # "Manually"  start a flow from this sender
-sender.send_event("on 1 udp dst 127.0.0.1/5000 per [1 1024]")
+#sender.send_event("on 1 udp dst 127.0.0.1/5000 per [1 1024]")
 
 
 # Here's another way to create a sender flow using the mgen.Flow class
 flow2 = mgen.Flow(2, sender)
 flow2.set_protocol('UDP')
 flow2.set_destination('127.0.0.1', 5000)
-flow2.set_pattern('periodic [1 512]')
+flow2.set_pattern('periodic [0.1 64]')
 flow2.set_count(6)
 flow2.start()
 
@@ -33,7 +33,7 @@ if payload is not None:
     sender.send_event("3.0 mod 1 data [%s]" %payload)
 
 # alternatively with no size validation
-sender.send_event("6.0 mod 1 data [%s]" % "Flow 1 modified payload".encode('hex','strict').rstrip())
+#sender.send_event("6.0 mod 1 data [%s]" % "Flow 1 modified payload".encode('hex','strict').rstrip())
 
 
 # Monitor mgen receiver's output for events

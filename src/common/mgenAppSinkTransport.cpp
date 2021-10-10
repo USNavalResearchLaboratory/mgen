@@ -20,20 +20,20 @@ MgenSinkTransport* MgenSinkTransport::Create(Mgen& theMgen, Protocol theProtocol
     return static_cast<MgenSinkTransport*>(new MgenAppSinkTransport(theMgen,theProtocol));
 }
 
-MgenAppSinkTransport::MgenAppSinkTransport(Mgen& theMgen,
-                                           Protocol theProtocol,
-                                           UINT16        thePort,
-                                           const ProtoAddress&   theDstAddress)
+MgenAppSinkTransport::MgenAppSinkTransport(Mgen&                theMgen,
+                                           Protocol             theProtocol,
+                                           UINT16               thePort,
+                                           const ProtoAddress&  theDstAddress)
   : MgenSinkTransport(theMgen,theProtocol,thePort,theDstAddress)
 {
 
     ProtoDispatcher* theDispatcher = static_cast<ProtoDispatcher*>(&theMgen.GetSocketNotifier());
     ProtoChannel::SetNotifier(static_cast<ProtoChannel::Notifier*>(theDispatcher));
     ProtoChannel::SetListener(this,&MgenAppSinkTransport::OnEvent);
+    path[0] = '\0';
 }
 
-MgenAppSinkTransport::MgenAppSinkTransport(Mgen& theMgen,
-                                     Protocol theProtocol)
+MgenAppSinkTransport::MgenAppSinkTransport(Mgen& theMgen, Protocol theProtocol)
   : MgenSinkTransport(theMgen,theProtocol)
 {
 
@@ -46,26 +46,24 @@ MgenAppSinkTransport::~MgenAppSinkTransport()
 {
 
 }
-void MgenAppSinkTransport::OnEvent(ProtoChannel& theChannel,ProtoChannel::Notification theNotification)
+void MgenAppSinkTransport::OnEvent(ProtoChannel& theChannel, ProtoChannel::NotifyFlag theFlag)
 {  
-    switch (theNotification)
+    switch (theFlag)
     {
-    case ProtoChannel::NOTIFY_INPUT:
-      {
-          OnInputReady();
-          
-          break;
-      }
-    case ProtoChannel::NOTIFY_OUTPUT:
-      if (OnOutputReady()) 
-      {	  
-          SendPendingMessage();
-      }
-      
-      break;
-    case ProtoChannel::NOTIFY_NONE:
-    default:
-      DMSG(0,"Mgen::OnEvent() Invalid notification received.\n");
+        case ProtoChannel::NOTIFY_INPUT:
+        {
+            OnInputReady();
+            break;
+        }
+        case ProtoChannel::NOTIFY_OUTPUT:
+            if (OnOutputReady()) 
+                SendPendingMessage();   
+
+            break;
+        case ProtoChannel::NOTIFY_NONE:
+        default:
+            DMSG(0,"Mgen::OnEvent() Invalid notification received.\n");
+            break;
     }
     
 } // end MgenAppSinkTransport::OnEvent()
@@ -87,7 +85,7 @@ bool MgenAppSinkTransport::Open(ProtoAddress::Type addrType, bool bindOnOpen)
     DMSG(0, "MgenAppSinkTransport::Open() \"sink\" option not support under WinCE\n");
     return false;
 #else // else _WIN32_WCE
-    if (path && !strcmp(path, "STDOUT"))
+    if (('\0' == path[0]) || 0 == strcmp(path, "STDOUT"))
     {
       descriptor = (ProtoDispatcher::Descriptor)GetStdHandle(STD_OUTPUT_HANDLE);
         // (TBD) set stdout for overlapped I/O ???
@@ -117,7 +115,7 @@ bool MgenAppSinkTransport::Open(ProtoAddress::Type addrType, bool bindOnOpen)
 
 #endif  // if/else _WIN32_WCE   
 #else   // if/else WIN32
-    if (path && !strcmp(path, "STDOUT"))
+    if (('\0' == path[0]) || 0 == strcmp(path, "STDOUT"))
     {
         descriptor = fileno(stdout);
         if (sink_non_blocking)
@@ -158,21 +156,18 @@ bool MgenAppSinkTransport::Open(ProtoAddress::Type addrType, bool bindOnOpen)
 } // end MgenAppSinkTransport::Open
 
 
-MessageStatus MgenAppSinkTransport::SendMessage(MgenMsg& theMsg,const ProtoAddress& dst_addr,char* txBuffer)
+MessageStatus MgenAppSinkTransport::SendMessage(MgenMsg& theMsg, const ProtoAddress& dstAddr)
 {
     
     UINT32 txChecksum = 0;
     unsigned int len = 0;
     theMsg.SetFlag(MgenMsg::LAST_BUFFER);
 
-    len = theMsg.Pack(txBuffer,theMsg.GetMsgLen(),mgen.GetChecksumEnable(),txChecksum);
-    
-    if (len == 0)
-      {
-	return MSG_SEND_FAILED; // no room
-      }
+    UINT32 txBuffer[MAX_SIZE/4 + 1];
+    len = theMsg.Pack(txBuffer,theMsg.GetMsgLen(),mgen.GetChecksumEnable(), txChecksum);
+    if (0 == len) return MSG_SEND_FAILED; // no room
     if (mgen.GetChecksumEnable() && theMsg.FlagIsSet(MgenMsg::CHECKSUM))
-      theMsg.WriteChecksum(txChecksum,(unsigned char*)txBuffer,(UINT32)len);
+        theMsg.WriteChecksum(txChecksum,(unsigned char*)txBuffer, (UINT32)len);
 
     if (msg_index >= msg_length)
     {
@@ -194,7 +189,6 @@ MessageStatus MgenAppSinkTransport::SendMessage(MgenMsg& theMsg,const ProtoAddre
     struct timeval currentTime;
     ProtoSystemTime(currentTime);
     LogEvent(SEND_EVENT,&theMsg,currentTime,txBuffer); 
-    messages_sent++;
     return MSG_SEND_OK;
     
 } // end MgenAppSinkTransport::SendMessage
@@ -204,7 +198,7 @@ bool MgenAppSinkTransport::OnOutputReady()
 
     unsigned int nbytes = msg_length - msg_index;
 
-    if (!Write(msg_buffer+msg_index, &nbytes))
+    if (!Write(((char*)msg_buffer)+msg_index, &nbytes))
       {
         DMSG(0, "MgenAppSinkTransport::OnOutputReady() error writing to output!\n");
         return false;
@@ -277,7 +271,7 @@ bool MgenAppSinkTransport::Write(char* buffer, unsigned int* nbytes)
     } 
 #endif // !_WIN32_WCE
 #else // !WIN32
-    ssize_t put = 0;
+    unsigned int put = 0;
     while (put < (ssize_t)len)
     {
         ssize_t result = write(descriptor, buffer+put, len - put);
@@ -320,7 +314,7 @@ bool MgenAppSinkTransport::Open()
     DMSG(0, "MgenAppSinkTransport::Open() \"source\" option not supported under WinCE\n");
     return false;
 #else // else _WIN32_WC#
-    if (path && !strcmp(path, "STDIN"))
+    if (('\0' == path[0]) || 0 == strcmp(path, "STDOUT"))
     {
       descriptor = (ProtoDispatcher::Descriptor)GetStdHandle(STD_INPUT_HANDLE);
         // (TBD) set stdout for overlapped I/O ???
@@ -342,7 +336,7 @@ bool MgenAppSinkTransport::Open()
 
 #endif  // if/else _WIN32_WCE    
 #else   // if/else !WIN32
-    if (path && !strcmp(path, "STDIN"))
+    if (('\0' == path[0]) || 0 == strcmp(path, "STDIN"))
     {
         descriptor = fileno(stdin);
         // Make the stdin non-blocking
@@ -377,7 +371,7 @@ bool MgenAppSinkTransport::OnInputReady()
 	UINT32 count;
     if (msg_length)
     {
-      if (Read(msg_buffer+msg_index, msg_length - msg_index, count))
+      if (Read(((char*)msg_buffer)+msg_index, msg_length - msg_index, count))
         {
             msg_index += count;
             if (msg_index == msg_length)
@@ -406,9 +400,9 @@ bool MgenAppSinkTransport::OnInputReady()
     }
     else
     {
-        // Reading first four bytes of MGEN message to get
+        // Reading first two bytes of MGEN message to get
         // MGEN "messageSize" field
-        if (Read(msg_buffer+msg_index, 2 - msg_index, count))
+        if (Read(((char*)msg_buffer)+msg_index, 2 - msg_index, count))
         {
             msg_index += count;
             if (2 == msg_index)
@@ -494,13 +488,13 @@ bool MgenAppSinkTransport::Read(char* buffer, UINT32 nBytes, UINT32& bytesRead)
                 bytesRead = 0;
                 return true;
             default:
-	      DMSG(0, "MgenAppSinkTransport::Read() read error: %s errno>%d\n", strerror(errno),errno);
-            return false;   
+	            DMSG(0, "MgenAppSinkTransport::Read() read error: %s errno>%d\n", strerror(errno),errno);
+                return false;   
         }
     }
     else
     {
-        bytesRead = result;
+        bytesRead = (UINT32)result;
         return true;   
     }
 #endif // endif WIN32

@@ -1,6 +1,7 @@
 #include "mgenGlobals.h" // can't forward declare enum's
 #include "mgenEvent.h"
 #include "mgen.h"  // for Mgen::SCRIPT_LINE_MAX
+#include "protoString.h"  // for ProtoTokenator
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -15,11 +16,15 @@ MgenBaseEvent::MgenBaseEvent(Category theCategory)
 
 MgenEvent::MgenEvent()
  : MgenBaseEvent(MGEN), flow_id(0), event_type(INVALID_TYPE), src_port(0),
-   payload(0), count(-1),protocol(INVALID_PROTOCOL), tos(0), ttl(255),option_mask(0),df(DF_DEFAULT),
-   queue(0),connect(false)
+   payload(0), count(-1), keep_alive(true),
+   protocol(INVALID_PROTOCOL), tos(0), ttl(255),
+   retry_count(0), retry_delay(0),
+   df(DF_DEFAULT), option_mask(0), queue(0), connect(false), 
+   report_analytics(false), report_feedback(false), flow_status()
 {
     interface_name[0] = '\0';
     flow_label = 0;
+    option_mask = 0;
 }
 
 MgenEvent::~MgenEvent() {
@@ -38,7 +43,7 @@ MgenEvent::Type MgenEvent::GetTypeFromString(const char* string)
 {
     // Make comparison case-insensitive
     char upperString[16];
-    unsigned int len = strlen(string);
+    size_t len = strlen(string);
     len = len < 15 ? len : 15;
     unsigned int i;
     for (i =0 ; i < len; i++)
@@ -79,7 +84,7 @@ Protocol MgenBaseEvent::GetProtocolFromString(const char* string)
 {
     // Make comparison case-insensitive
     char upperString[16];
-    unsigned int len = strlen(string);
+    size_t len = strlen(string);
     len = len < 15 ? len : 15;
     unsigned int i;
     for (i =0 ; i < len; i++)
@@ -139,6 +144,14 @@ const StringMapper MgenEvent::OPTION_LIST[] =
     {"COUNT",COUNT},
     {"QUEUE",QUEUE},
     {"CONNECT",CONNECT},
+    {"REPORT", REPORT},
+    {"FEEDBACK", FEEDBACK},
+    {"SUSPEND", SUSPEND},
+    {"RESUME", RESUME},
+    {"RESET", RESET},
+    {"RETRY", RETRY},
+    {"PAUSE", PAUSE},
+    {"RECONNECT", RECONNECT},
     {"XXXX", INVALID_OPTION}   
 }; // end MgenEvent::OPTION_LIST
 
@@ -149,7 +162,7 @@ MgenEvent::Option MgenEvent::GetOptionFromString(const char* string)
 {
     // Make comparison case-insensitive
     char upperString[16];
-    unsigned int len = strlen(string);
+    size_t len = strlen(string);
     len = len < 15 ? len : 15;
     unsigned int i;
     for (i =0 ; i < len; i++)
@@ -190,6 +203,21 @@ const char* MgenEvent::GetStringFromOption(Option option)
     }
     return "INVALID";
 } // end MgenEvent::GetStringFromOption()
+
+bool MgenEvent::IsInternalCmd()
+{
+    // TODO: Create list of valid internal commands
+    if ((OptionIsSet(MgenEvent::PAUSE)
+         ||
+         OptionIsSet(MgenEvent::RECONNECT)))
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
 
 /**
  * format: <time> <flowId> <type> [options ...]
@@ -250,10 +278,18 @@ bool MgenEvent::InitFromString(const char* string)
         DMSG(0, "MgenEvent::InitFromString() Error: invalid <flowId>\n");
         return false;
     }
-    flow_id = flowId;
+    flow_id = (UINT32)flowId;
     // Point to next field, skipping any white space
     ptr += strlen(fieldBuffer);
     while ((' ' == *ptr) || ('\t' == *ptr)) ptr++;
+
+    if (!flow_status.Init())
+    {
+        PLOG(PL_ERROR,"MgenEvent::InitFromString() error: unable to init flow_status!\n");
+        return false;
+    }
+    flow_status.Clear();
+
     
     // Finally, iterate through any options
     option_mask = 0;
@@ -372,6 +408,26 @@ bool MgenEvent::InitFromString(const char* string)
                   return false;
               }
               count = countValue;
+
+              // Check for keep alive attribute
+
+              char* keepAlivePtr = strchr(fieldBuffer, ',');
+              if (keepAlivePtr)
+              {
+                 char keepAliveValue[Mgen::SCRIPT_LINE_MAX];
+                 if (1 != sscanf(keepAlivePtr, "%s", keepAliveValue))
+                 {
+                     DMSG(0, "MgenEvent::InitFromString() Error: invalid keep alive value\n");
+                     return false;
+                 }
+                 
+                 if ((strcmp(keepAliveValue,",off"))
+                     ||
+                     (strcmp(keepAliveValue,",OFF")))
+                 {
+                     keep_alive = false;
+                 }
+              }
               // Set ptr to next field, skipping any white space
               ptr += strlen(fieldBuffer);
               while ((' ' == *ptr) || ('\t' == *ptr)) ptr++;
@@ -415,15 +471,15 @@ bool MgenEvent::InitFromString(const char* string)
               while ((' ' == *ptr) || ('\t' == *ptr)) ptr++;
               break;
           }  
-	case BROADCAST:  // broadcast on or off
-	  {
+        case BROADCAST:  // broadcast on or off
+        {
               if (1 != sscanf(ptr, "%s", fieldBuffer))
               {
                   DMSG(0, "MgenEvent::InitFromString() Error: missing {on|off}\n");
                   return false;   
               }
               bool broadcastValue;
-              unsigned int len = strlen(fieldBuffer);
+              size_t len = strlen(fieldBuffer);
               unsigned int i;
               for (i = 0 ; i < len; i++)
                   fieldBuffer[i] = toupper(fieldBuffer[i]);
@@ -451,7 +507,7 @@ bool MgenEvent::InitFromString(const char* string)
                 return false;   
             }
             FragmentationStatus dfValue;
-            unsigned int len = strlen(fieldBuffer);
+            size_t len = strlen(fieldBuffer);
             unsigned int i;
             for (i = 0 ; i < len; i++)
                 fieldBuffer[i] = toupper(fieldBuffer[i]);
@@ -595,7 +651,7 @@ bool MgenEvent::InitFromString(const char* string)
                   DMSG(0, "MgenEvent::InitFromString() Error: invalid <seqNum>\n");
                   return false;
               }
-              sequence = seqTemp;
+              sequence = (UINT32)seqTemp;
               // Set ptr to next field, skipping any white space
               ptr += strlen(fieldBuffer);
               while ((' ' == *ptr) || ('\t' == *ptr)) ptr++;
@@ -616,7 +672,7 @@ bool MgenEvent::InitFromString(const char* string)
                     nested--;
                   if ('\0' == *ptr)
                   {
-                      DMSG(0, "MgenEvent::InitFromString() Error: non-terminated <patternParams>\n");
+                      DMSG(0, "MgenEvent::InitFromString() Error: non-terminated <data>\n");
                       return false;
                   }
               }
@@ -648,19 +704,128 @@ bool MgenEvent::InitFromString(const char* string)
                   return false;
               }
               queue = queueLimit;
-              // Set ptr to next field, skipping any whie space
+              // Set ptr to next field, skipping any white space
               ptr += strlen(fieldBuffer);
-              while((' ' == *ptr) || ('\t' == *ptr)) ptr++;
-              
+              while (0 != isspace(*ptr)) ptr++;
               break;
           }
-          
         case CONNECT:
           {
               connect = true;
               break;
 
           }
+        case REPORT:
+          {
+              report_analytics = true;
+              break;
+
+          }
+        case FEEDBACK:
+          {
+              report_analytics = true;
+              report_feedback = true;
+              break;
+
+          }
+        case PAUSE:
+        case RECONNECT:
+        {
+            break;
+        }
+        case SUSPEND:
+        case RESUME:
+        case RESET:
+        {
+            if (1 != sscanf(ptr,"%s", fieldBuffer))
+            {
+                PLOG(PL_ERROR,"MgenEvent::InitFromString() error: missing command remote flowId list\n");
+                return false;
+            }
+            // Use ProtoTokenator to parse flow id list of comma-delimited ranges and items
+            ProtoTokenator tk1(fieldBuffer, ',');
+            const char* item;
+            while (NULL != (item = tk1.GetNextItem()))
+            {
+                ProtoTokenator tk2(item, '-');
+                const char* flowIdText = tk2.GetNextItem();
+                unsigned int startId = 0;
+                if ((NULL == flowIdText) || (1 != sscanf(flowIdText, "%u", &startId)) ||
+                    (0 == startId))
+                {
+                    PLOG(PL_ERROR, "MgenEvent::InitFromString() error: invalid command remote flowId list\n");
+                    return false;
+                }
+                flowIdText = tk2.GetNextItem();
+                unsigned int endId = 0;
+                if (NULL == flowIdText)
+                {
+                    endId = startId;
+                }
+                else if ((1 != sscanf(flowIdText, "%u", &endId)) || (endId < startId))
+                {
+                    PLOG(PL_ERROR, "MgenEvent::InitFromString() error: invalid command remote flowId list\n");
+                    return false;
+                }
+                MgenFlowCommand::Status status;
+                switch (option)
+                {
+                    case SUSPEND:
+                        status = MgenFlowCommand::FLOW_SUSPEND;
+                        break;
+                    case RESUME:
+                        status = MgenFlowCommand::FLOW_RESUME;
+                        break;
+                    case RESET:
+                        status = MgenFlowCommand::FLOW_RESET;
+                        break;
+                    default:
+                        status = MgenFlowCommand::FLOW_UNCHANGED;  // won't occur
+                        break;
+                }
+                flow_status.SetRange(startId, endId, status);
+            }
+          // Set ptr to next field, skipping any white space
+          ptr += strlen(fieldBuffer);
+          while (0 != isspace(*ptr)) ptr++;
+          break;
+        }
+        case RETRY:     // tcp retry [<cnt>/[<delay>]]
+          {
+              if (1 != sscanf(ptr, "%s", fieldBuffer))
+              {
+                  DMSG(0, "MgenEvent::InitFromString() Error: finding <retryCountValue>\n");
+                  return false;   
+              }
+              int retryCountValue;
+              if (1 != sscanf(fieldBuffer, "%d", &retryCountValue))
+              {
+                  DMSG(0, "MgenEvent::InitFromString() Error: invalid <retryCountValue>\n");
+                  return false;
+              }
+              retry_count = retryCountValue;
+              char* delayPtr = strchr(fieldBuffer, '/');
+              if (delayPtr)
+              {
+                 *delayPtr++ = '\0';
+                 int retryDelayValue;
+                 if (1 != sscanf(delayPtr, "%u", &retryDelayValue))
+                 {
+                     DMSG(0, "MgenEvent::InitFromString() Error: invalid retry delay value\n");
+                     return false;
+                 }
+                 retry_delay = retryDelayValue;
+                 ptr += strlen(fieldBuffer) + strlen(delayPtr) + 1;
+              }
+              else
+              {
+                  ptr += strlen(fieldBuffer);
+              }
+              // Set ptr to next field, skipping any white space
+              while ((' ' == *ptr) || ('\t' == *ptr)) ptr++;
+              break;
+          }
+
         case INVALID_OPTION:
           DMSG(0, "MgenEvent::InitFromString() Error: invalid event option: \"%s\"\n",
                fieldBuffer);
@@ -737,7 +902,7 @@ DrecEvent::Type DrecEvent::GetTypeFromString(const char* string)
 {
     // Make comparison case-insensitive
     char upperString[16];
-    unsigned int len = strlen(string);
+    size_t len = strlen(string);
     len = len < 15 ? len : 15;
     unsigned int i;
     for (i =0 ; i < len; i++)
@@ -780,7 +945,7 @@ DrecEvent::Option DrecEvent::GetOptionFromString(const char* string)
 
     // Make comparison case-insensitive
     char upperString[16];
-    unsigned int len = strlen(string);
+    size_t len = strlen(string);
     len = len < 15 ? len : 15;
     unsigned int i;
     for (i =0 ; i < len; i++)
@@ -1035,8 +1200,8 @@ bool DrecEvent::InitFromString(const char* string)
 }  // end DrecEvent::InitFromString()
 
 
-UINT16* DrecEvent::CreatePortArray(const char*     portList,
-                                           UINT16* portCount)
+UINT16* DrecEvent::CreatePortArray(const char* portList,
+                                   UINT16*     portCount)
 {
     UINT16 count = 0;
     unsigned int arraySize = 0;
@@ -1046,7 +1211,7 @@ UINT16* DrecEvent::CreatePortArray(const char*     portList,
     {
         // 1) Find and copy the next field
         const char* commaPtr = strchr(ptr, ',');
-        UINT32 len;
+        long len;
         if (commaPtr)
         {
             len = commaPtr - ptr;
@@ -1119,6 +1284,45 @@ UINT16* DrecEvent::CreatePortArray(const char*     portList,
     return array;
 }  // end DrecEvent::CreatePortArray()
 
+MgenEvent::FlowStatus::FlowStatus()
+{
+}
+
+MgenEvent::FlowStatus::~FlowStatus()
+{
+    status_lo.Destroy();
+    status_hi.Destroy();
+}
+
+bool MgenEvent::FlowStatus::Init()
+{
+    if (!status_lo.Init(MAX_FLOW))
+    {
+        PLOG(PL_ERROR, "MgenEvent::FlowStatus::Init() error: %s\n", GetErrorString());
+        return false;
+    }
+    if (!status_hi.Init(MAX_FLOW))
+    {
+        PLOG(PL_ERROR, "MgenEvent::FlowStatus::Init() error: %s\n", GetErrorString());
+        status_lo.Destroy();
+        return false;
+    }
+    return true;
+}  // end MgenEvent::FlowStatus::Init()
+
+void MgenEvent::FlowStatus::SetRange(UINT32 start, UINT32 end, MgenFlowCommand::Status status)
+{
+    if (0 != (0x01 & status))
+        status_lo.SetBits(start - 1, end - start + 1);
+    else
+        status_lo.UnsetBits(start - 1, end - start + 1);
+    if (0 != (0x02 & status))
+        status_hi.SetBits(start - 1, end - start + 1);
+    else
+        status_hi.UnsetBits(start - 1, end - start + 1);
+}  // end  MgenEvent::FlowStatus::SetRange()
+
+
 MgenEventList::MgenEventList()
  : head(NULL), tail(NULL)
 {
@@ -1187,9 +1391,9 @@ void  MgenEventList::Insert(MgenBaseEvent* theEvent)
 void MgenEventList::Precede(MgenBaseEvent* nextEvent, 
                             MgenBaseEvent* theEvent)
 {
-    if ((theEvent->next = nextEvent))
+    if (NULL != (theEvent->next = nextEvent))
     {
-        if ((theEvent->prev = nextEvent->prev))
+        if (NULL != (theEvent->prev = nextEvent->prev))
             theEvent->prev->next = theEvent;
         else
             head = theEvent;
@@ -1197,7 +1401,7 @@ void MgenEventList::Precede(MgenBaseEvent* nextEvent,
     }
     else
     {
-        if ((theEvent->prev = tail))
+        if (NULL != (theEvent->prev = tail))
             tail->next = theEvent;
         else
             head = theEvent;

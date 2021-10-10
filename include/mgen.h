@@ -2,20 +2,34 @@
 #define _MGEN
 
 #include "protokit.h"
+#include "protoTime.h"
+#include "protoBitmask.h"
 #include "mgenFlow.h"
 #include "mgenGlobals.h"
 #include "mgenMsg.h"
+#include "mgenPayload.h"
+#include "mgenAnalytic.h"
 
 class MgenController
 {
-  public:
-    virtual ~MgenController() {};
-    
-    virtual void OnMsgReceive(MgenMsg& msg) = 0;
-    virtual void OnOffEvent(char * buffer,int len) = 0;
-    virtual void OnStopEvent(char * buffer, int len) = 0;
-  protected:
-    MgenController() {};
+    public:
+        virtual ~MgenController() {};
+
+        virtual void OnMsgReceive(MgenMsg& msg) {}
+        virtual void OnOffEvent(char * buffer,int len) {}
+        virtual void OnStopEvent(char * buffer, int len) {}
+
+        // Called when a local analytic report is updated
+        virtual void OnUpdateReport(const ProtoTime&              theTime, 
+                                    const MgenAnalytic::Report&   report) {}
+        // Called when a remote report is received
+        virtual void OnRecvReport(const ProtoTime&              theTime, 
+                                  const MgenAnalytic::Report&   report,
+                                  const ProtoAddress&           senderAddr,
+                                  const ProtoTime&              sentTime) {}
+
+    protected:
+        MgenController() {};
 
 }; // end MgenController class
 
@@ -35,7 +49,7 @@ class DrecGroupList
     
     bool JoinGroup(Mgen&                     mgen,
                    const ProtoAddress&       groupAddress, 
-		   const ProtoAddress&       sourceAddress,
+		           const ProtoAddress&       sourceAddress,
                    const char*               interfaceName = NULL,
                    UINT16                    thePort = 0,
                    bool                      deferred = false);
@@ -83,9 +97,9 @@ class DrecGroupList
     };  // end class DrecGroupList::DrecMgenTransport
     
     DrecMgenTransport* FindMgenTransportByGroup(const ProtoAddress& groupAddr,
-						const ProtoAddress& sourceAddr,
-                                                const char*           interfaceName = NULL,
-                                                UINT16        thePort = 0);
+						                        const ProtoAddress& sourceAddr,
+                                                const char*         interfaceName = NULL,
+                                                UINT16              thePort = 0);
     
     
     void Append(DrecMgenTransport* item);
@@ -98,7 +112,9 @@ class DrecGroupList
 /**
  * @class Mgen
  *
- * @brief Mgen is the top level state and controller of an MGEN instance.  Intended to be embedded into applications or network simulation agents.  Contains primary elemenets: MgenFlowList, MgenEventList, MgenTransportList, DrecGroupList, ProtocolTimerMgr and various default parameters.
+ * @brief Mgen is the top level state and controller of an MGEN instance.  Intended to be embedded into 
+   applications or network simulation agents.  Contains primary elemenets: MgenFlowList, MgenEventList, 
+   MgenTransportList, DrecGroupList, ProtocolTimerMgr and various default parameters.
 */
 
 class Mgen 
@@ -123,10 +139,11 @@ class Mgen
       LOG,       // open log file for appending
       NOLOG,     // no output
       TXLOG,     // turn transmit logging on
+      RXLOG,     // turn recv event loggging on/off (on by default)
       LOCALTIME, // print log messages in localtime rather than gmtime (the default)
       DLOG,      // set debug log file
       SAVE,      // save pending flow state/offset info on exit.
-      DEBUG,     // specify debug level
+      DEBUG_LEVEL,     // specify debug level
       OFFSET,    // time offset into script
       TXBUFFER,  // Tx socket buffer size
       RXBUFFER,  // Rx socket buffer size
@@ -143,18 +160,33 @@ class Mgen
       TXCHECKSUM,// include checksums in transmitted MGEN messages
       RXCHECKSUM,// force checksum validation at receiver _always_
       QUEUE,     // Turn off tx_timer when pending queue exceeds this limit
-      REUSE      // Toggle socket reuse on and off
+      REUSE,     // Toggle socket reuse on and off
+      ANALYTICS, // Turns on compute of analytics (and logging if enabled)
+      REPORT,    // Include analytic reports in message payloads for all flows
+      WINDOW,    // specifies analytic averaging window size (seconds)
+      SUSPEND,
+      RESUME,
+      RETRY,     // Enables TCP retry connection attempts
+      PAUSE,     // Pauses flow while tcp attempts to reconnect
+      RECONNECT, // Enables TCP reconnect
+      EPOCH_TIMESTAMP, // Log timetamp as epoch time in sec.usec format
+      RESET
     };
+
     static Command GetCommandFromString(const char* string);
     enum CmdType {CMD_INVALID, CMD_ARG, CMD_NOARG};
     static const char* GetCmdName(Command cmd);
     static CmdType GetCmdType(const char* cmd);
     void SetController(MgenController* theController)
-    {controller = theController;}
-    MgenController* GetController() {return controller;}
-    ProtoSocket::Notifier& GetSocketNotifier() {return socket_notifier;}
-    MgenTransportList& GetTransportList() {return  transport_list;} // for ns2
+        {controller = theController;}
+    MgenController* GetController() 
+        {return controller;}
+    ProtoSocket::Notifier& GetSocketNotifier() 
+        {return socket_notifier;}
+    MgenTransportList& GetTransportList() 
+        {return  transport_list;} // for ns2
 
+    void ProcessFlowCommand(MgenFlowCommand::Status status, UINT32 flowId);
     bool OnCommand(Mgen::Command cmd, const char* arg, bool override = false);
     bool GetChecksumEnable() {return checksum_enable;}
     bool GetChecksumForce() {return checksum_force;}
@@ -168,32 +200,61 @@ class Mgen
     bool GetLocalTime() {return local_time;}
     bool GetLogFlush() {return log_flush;}
     bool GetLogTx() {return log_tx;}
+    bool GetLogRx() {return log_rx;}
     bool GetReuse() {return reuse;}
     typedef int (*LogFunction)(FILE*, const char*, ...);
-#ifndef _WIN32_WCE
+    void SetLogFunction(LogFunction logFunction) 
+        {Log = logFunction;}
     static LogFunction Log;
-#else
-    static LogFunction Log;
+#ifdef _WIN32_WCE
     // Alternative logging function for WinCE debug window when logging to stdout/stderr
     static int Mgen::LogToDebug(FILE* filePtr, const char* format, ...);
 #endif  // if/else _WIN32_WCE
-    
+    static void (*LogTimestamp)(FILE*, const struct timeval&, bool);
+    static void SetEpochTimestamp(bool enable);
+    static void LogEpochTimestamp(FILE* filePtr, const struct timeval& theTime, bool localTime);
+    static void LogLegacyTimestamp(FILE* filePtr, const struct timeval& theTime, bool localTime);
     bool ParseScript(const char* path);
 #if OPNET  // JPH 11/16/2005
     bool ParseScript(List*);
 #endif  // OPNET
-    bool ParseEvent(const char* lineBuffer, unsigned int lineCount);
+    bool ParseEvent(const char* lineBuffer, unsigned int lineCount, bool internalCmd);
     
     double GetCurrentOffset() const;
     bool GetOffsetPending() {return offset_pending;}
     
     void InsertDrecEvent(DrecEvent* event);
 
+    void SetComputeAnalytics(bool state)
+        {compute_analytics = true;}
+    bool ComputeAnalytics() const
+        {return compute_analytics;}
+    void SetReportAnalytics(bool state)
+        {report_analytics = true;}
+    bool ReportAnalytics() const
+        {return report_analytics;}
+    
     void SetDefaultSocketType(ProtoAddress::Type addrType) 
     {addr_type = addrType;}
     ProtoAddress::Type GetDefaultSocketType() {return addr_type;}
     
     void SetDefaultReuse(bool reuseTemp) { reuse = reuseTemp;}
+
+    void SetDefaultRetryCount(int retryCountValue, bool override)
+    {
+        default_retry_count = default_retry_count_lock ?
+          (override ? retryCountValue : default_retry_count) :
+          retryCountValue;
+        default_retry_count_lock = override ? true : default_retry_count_lock;
+    }
+
+    void SetDefaultRetryDelay(unsigned int retryDelayValue, bool override)
+    {
+        default_retry_delay = default_retry_delay_lock ?
+          (override ? retryDelayValue : default_retry_delay) :
+          retryDelayValue;
+        default_retry_delay_lock = override ? true : default_retry_delay_lock;
+    }
 
     void SetPositionCallback(MgenPositionFunc* callback,
                              const void*       clientData) 
@@ -248,6 +309,8 @@ class Mgen
     bool ConvertBinaryLog(const char* path);  
     
     bool IsStarted () {return started;};
+    
+    void UpdateRecvAnalytics(const ProtoTime& currentTime, MgenMsg* theMsg = NULL, Protocol theProtocol = UDP);
     
     MgenTransport* GetMgenTransport(Protocol theProtocol,
                                     UINT16 srcPort,
@@ -305,7 +368,24 @@ class Mgen
 
     ProtoAddress& GetHostAddr() {return host_addr;}
     MgenFlowList& GetFlowList() {return flow_list;}
+    
+    MgenFlow* FindFlowById(UINT32 flowId)
+        {return flow_list.FindFlowById(flowId);}
+    
+    // Grasshopper, you must use these carefully
+    bool ProcessDrecEvent(const DrecEvent& event);
+    bool ProcessMgenEvent(const MgenEvent& event);
+    void RemoveFlow(MgenFlow& theFlow)
+        {flow_list.Remove(theFlow);}  // flow must be stopped first
+    
+    void RemoveAnalytic(Protocol                protocol,
+                        const ProtoAddress&     srcAddr,
+                        const ProtoAddress&     dstAddr,
+                        UINT32                  flowId);
 
+    void SetAnalyticWindow(double windowSize);
+    double GetAnalyticWindow() const
+        {return analytic_window;}
     bool GetDefaultBroadcast() {return default_broadcast;}
     unsigned int GetDefaultMulticastTtl() {return default_multicast_ttl;}
     unsigned int GetDefaultUnicastTtl() {return default_unicast_ttl;}
@@ -313,6 +393,8 @@ class Mgen
     unsigned int GetDefaultTos() {return default_tos;}
     unsigned int GetDefaultTxBuffer() {return default_tx_buffer;}
     unsigned int GetDefaultRxBuffer() {return default_rx_buffer;}
+    int GetDefaultRetryCount() {return default_retry_count;}
+    unsigned int GetDefaultRetryDelay() {return default_retry_delay;}
     const char* GetDefaultMulticastInterface() 
     {return (('\0' != default_interface[0]) ? default_interface : NULL);}
     int GetDefaultQueuLimit() {return default_queue_limit;}
@@ -392,7 +474,6 @@ class Mgen
     
     bool OnStartTimeout(ProtoTimer& theTimer);
     bool OnDrecEventTimeout(ProtoTimer& theTimer);
-    void ProcessDrecEvent(const DrecEvent& event);
 
     // Common state
 	MgenController*    controller; // optional mgen controller
@@ -421,11 +502,13 @@ class Mgen
     unsigned int       default_rx_buffer;                             
     bool               default_broadcast;
     unsigned char      default_tos;                                        
-    unsigned char      default_multicast_ttl;         // multicast ttl            
-    unsigned char      default_unicast_ttl;           // unicast ttl            
-    FragmentationStatus default_df; // socket df/fragmentation
+    unsigned char      default_multicast_ttl; // multicast ttl            
+    unsigned char      default_unicast_ttl;   // unicast ttl            
+    FragmentationStatus default_df;           // socket df/fragmentation
     char               default_interface[16]; // multicast interface name  
     int                default_queue_limit;
+    int                default_retry_count;   // Number of tcp retry attempts
+    unsigned int       default_retry_delay;   // Seconds to delay between tcp retry attempts
     // Socket state
     bool               default_broadcast_lock;
     bool               default_tos_lock;
@@ -436,6 +519,8 @@ class Mgen
     bool               default_rx_buffer_lock;     
     bool               default_interface_lock;
     bool               default_queue_limit_lock;
+    bool               default_retry_count_lock;
+    bool               default_retry_delay_lock;
     
     char               sink_path[PATH_MAX];
     char               source_path[PATH_MAX];
@@ -455,6 +540,11 @@ class Mgen
     DrecEvent*         next_drec_event;      // for iterating drec_event_list
     DrecGroupList      drec_group_list;
     ProtoAddress::Type addr_type;
+    MgenAnalyticTable  analytic_table;
+    double             analytic_window;
+    bool               compute_analytics; // measure and log analytics for recv flows
+    bool               report_analytics;  // include analytic reports in message payload for all flows
+    MgenEvent::FlowStatus flow_status;    // keeps state for received MgenFlowCommands
     
     MgenPositionFunc*  get_position;
     const void*        get_position_data;
@@ -469,6 +559,7 @@ class Mgen
     bool               log_flush;
     bool               log_file_lock;
     bool               log_tx;
+    bool               log_rx;
     bool               log_open;
     bool               log_empty;
     bool               reuse;

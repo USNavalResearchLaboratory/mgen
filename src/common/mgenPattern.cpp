@@ -10,15 +10,16 @@
 #include <ctype.h>   // for toupper()
 
 MgenPattern::MgenPattern()
-  : interval_remainder(0.0),burst_pattern(NULL),unlimitedRate(false)
-#ifdef _HAVE_PCAP
+    : interval_remainder(0.0),burst_pattern(NULL),unlimitedRate(false),
+    flowPaused(false)
+#ifdef HAVE_PCAP
   ,pcap_device(NULL),
   file_type(INVALID_FILETYPE),repeat_count(-1)
-#endif //_HAVE_PCAP
+#endif //HAVE_PCAP
 {
-#ifdef _HAVE_PCAP
+#ifdef HAVE_PCAP
   clone_fname[0] = '\0';
-#endif//_HAVE_PCAP
+#endif//HAVE_PCAP
 }
 
 MgenPattern::~MgenPattern()
@@ -36,9 +37,9 @@ const StringMapper MgenPattern::TYPE_LIST[] =
     {"POISSON", POISSON},
     {"BURST", BURST},
     {"JITTER", JITTER},
-#ifdef _HAVE_PCAP
+#ifdef HAVE_PCAP
     {"CLONE", CLONE},
-#endif //_HAVE_PCAP
+#endif //HAVE_PCAP
     {"XXXX", INVALID_TYPE}   
 };
 
@@ -47,7 +48,7 @@ MgenPattern::Type MgenPattern::GetTypeFromString(const char* string)
 {
     // Make comparison case-insensitive
     char upperString[16];
-    unsigned int len = strlen(string);
+    size_t len = strlen(string);
     len = len < 15 ? len : 15;
     unsigned int i;
     for (i =0 ; i < len; i++)
@@ -87,7 +88,7 @@ MgenPattern::Burst MgenPattern::GetBurstTypeFromString(const char* string)
 {
     // Make comparison case-insensitive
     char upperString[16];
-    unsigned int len = strlen(string);
+    size_t len = strlen(string);
     len = len < 15 ? len : 15;
     unsigned int i;
     for (i =0 ; i < len; i++)
@@ -127,7 +128,7 @@ MgenPattern::Duration MgenPattern::GetDurationTypeFromString(const char* string)
 {
     // Make comparison case-insensitive
     char upperString[16];
-    unsigned int len = strlen(string);
+    size_t len = strlen(string);
     len = len < 15 ? len : 15;
     unsigned int i;
     for (i =0 ; i < len; i++)
@@ -156,7 +157,7 @@ MgenPattern::Duration MgenPattern::GetDurationTypeFromString(const char* string)
     }
 }  // end MgenPattern::GetDurationTypeFromString()
 
-#ifdef _HAVE_PCAP
+#ifdef HAVE_PCAP
 const StringMapper MgenPattern::CLONE_FILE_LIST[] =
   {
     {"TCPDUMP", TCPDUMP},
@@ -195,10 +196,11 @@ MgenPattern::FileType MgenPattern::GetFileTypeFromString(const char* string)
     }
 
 } // end MgenPattern::GetFileTypeFromString()
-#endif //_HAVE_PCAP
+#endif //HAVE_PCAP
 
 bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string, Protocol protocol)
 {
+    flowPaused = false;
     type = theType;
     switch (type)
     {
@@ -207,7 +209,7 @@ bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string, 
         {
 
             double aveRate;
-            char sizeText[256];
+            char sizeText[257];
             if (2 != sscanf(string, "%lf %256s", &aveRate, sizeText))
             {
                 DMSG(0, "MgenPattern::InitFromString(PERIODIC/POISSON) error: invalid parameters.\n");
@@ -257,6 +259,7 @@ bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string, 
             else
             {
 	            interval_ave = -1.0;
+                flowPaused = true;
             }
 	        if (UDP != protocol)
 		    {
@@ -282,7 +285,7 @@ bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string, 
         {
             double aveRate, jitterFraction;
             interval_remainder = 0.0;
-            char sizeText[256];
+            char sizeText[257];
             if (3 != sscanf(string, "%lf %256s %lf", &aveRate, sizeText, &jitterFraction))
             {
                 DMSG(0, "MgenPattern::InitFromString(JITTER) error: invalid parameters.\n");
@@ -336,6 +339,7 @@ bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string, 
             else
             {
                 interval_ave = -1.0;
+                flowPaused = true;
             }
             if (interval_ave > 0.0)
             {
@@ -495,7 +499,7 @@ bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string, 
             last_time.tv_sec = last_time.tv_usec = 0;
             break;
         }
-#ifdef _HAVE_PCAP
+#ifdef HAVE_PCAP
         case CLONE:
 	  {
 	    char fieldBuffer[Mgen::SCRIPT_LINE_MAX+1];
@@ -554,7 +558,7 @@ bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string, 
 	      }
 	    break;
 	  }
-#endif //_HAVE_PCAP
+#endif //HAVE_PCAP
         case INVALID_TYPE:
             DMSG(0, "MgenPattern::InitFromString() unsupported pattern type\n");
             ASSERT(0);
@@ -562,7 +566,7 @@ bool MgenPattern::InitFromString(MgenPattern::Type theType, const char* string, 
     }  // end switch(type)
     return true;
 }  // end MgenPattern::InitFromString()
-#ifdef _HAVE_PCAP
+#ifdef HAVE_PCAP
 bool MgenPattern::OpenPcapDevice()
 {
   char errbuf[PCAP_ERRBUF_SIZE+1];
@@ -615,7 +619,7 @@ double MgenPattern::RestartPcapRead(double& prevTime)
   return -1; // error
 
 } // end MgenPattern::RestartPcapRead()
-#endif // _HAVE_PCAP
+#endif // HAVE_PCAP
 
 double MgenPattern::GetPktInterval()
 { 
@@ -695,7 +699,7 @@ double MgenPattern::GetPktInterval()
         interval_remainder = burst_duration;
         return pktInterval;
     }
-#ifdef _HAVE_PCAP
+#ifdef HAVE_PCAP
     case CLONE:
       {
           // add switch on file type  ljt
@@ -760,7 +764,7 @@ double MgenPattern::GetPktInterval()
           return -1;
           break;
       }
-#endif //_HAVE_PCAP
+#endif //HAVE_PCAP
     case INVALID_TYPE:
         ASSERT(0);
         break;
@@ -781,9 +785,9 @@ unsigned int MgenPattern::GetPktSize()
                 return pkt_size_min;
             break;
         
-#ifdef _HAVE_PCAP
+#ifdef HAVE_PCAP
         case CLONE:
-#endif //_HAVE_PCAP
+#endif //HAVE_PCAP
             return pkt_size_min;
         case BURST:
             return burst_pattern->GetPktSize();
