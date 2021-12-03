@@ -392,7 +392,7 @@ class Controller:
             self.proc = None
         except:
             fp = open(os.devnull, 'w')  ;# redirect stderr to /dev/null to hide
-            self.proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=fp)
+            self.proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=fp, universal_newlines=True)
             fp.close()
             # Read the mgen stdout and find the "START event to confirm it 
             # has launched successfully before trying to connect to it
@@ -429,6 +429,9 @@ class Controller:
      # (Note the instance needs to be one we created)
     def __iter__(self):
         return self
+        
+    def __next__(self):
+        return self.next()
         
     def next(self):
         line = self.readline()
