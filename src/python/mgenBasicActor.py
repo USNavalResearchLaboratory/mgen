@@ -9,7 +9,8 @@ __copyright__   = ""
 
 import zerorpc
 import mgen
-import argparse, sys, os, datetime, signal
+import binascii
+import argparse, sys, os, signal
 
 global _HAVE_GPSPUB
 try:
@@ -60,7 +61,7 @@ class MgenActor(object):
             hasGps = False
         self.hasGps = hasGps
         if self.hasGps:
-            self.gpsKey = os.getcwd() +  '/gpsKey'
+            self.gpsKey = '{d}/gpsKey'.format(d=os.getcwd())
             self.gpsHandle = gpsPub.GPSPublishInit(self.gpsKey)
             self.sender = mgen.Controller(name,self.gpsKey)
             self.gpsLat=None
@@ -72,7 +73,7 @@ class MgenActor(object):
         # TODO: add a python context manager so we can shutdown?
         # gpsPub.GPSPublishShutdown(self.gpsHandle,self.gpsKey)
 
-    def send_sensor_payload(self, sensor_data, ip_addr, ip_port, interface):
+    def send_sensor_payload(self, sensor_data, ip_addr, ip_port, interface, flowid=1):
         ''' Send a binary-based sensor payload using MGEN
             
             RPC call to construct and send an mgen message with a binary 
@@ -104,14 +105,10 @@ class MgenActor(object):
             size = max_mgen + 54
         else:
             size = len(sensor_data) + 54
-        mgen_size = " per [1 {0}]" .format(unicode(str(size),'utf-8'))
-        mgenevent = "on 1 udp dst " + str(ip_addr) + "/" + str(ip_port)\
-                    + mgen_size\
-                    + " count 1 interface " + str(interface)\
-                    + " data [%s]" % sensor_data
+        mgenevent = "on {f} udp dst {a}/{p} per [1 {s}] count 1 interface {i} data [{d}]".format(f=flowid, a=ip_addr, p=ip_port, s=size, i=interface, d=sensor_data)
                                       
         self.sender.send_event(mgenevent)
-        print "Executed MGEN send !!"
+        print("Executed MGEN send !!")
         return mgenevent
 
     def send_text_payload(self, text, ip_addr, ip_port, interface, flowid):
@@ -145,14 +142,14 @@ class MgenActor(object):
         else:
             size = len(text) + 54
 
-        mgen_size = " per [1 {0}]" .format(unicode(str(size),'utf-8'))
-        mgenevent = "on " + str(flowid) + " udp dst " + str(ip_addr) + "/" + str(ip_port)\
-                    + mgen_size\
-                    + " count 1 interface " + str(interface)\
-                    + " data [{0}]" .format(text.encode('hex','strict').rstrip())
+        try:
+            enc_text = binascii.hexlify(text).decode()
+        except:
+            enc_text = binascii.hexlify(text.encode()).decode()
+        mgenevent = "on {f} udp dst {a}/{p} per [1 {s}] count 1 interface {i} data [{d}]".format(f=flowid, a=ip_addr, p=ip_port, s=size, i=interface, d=enc_text)
                                         
         self.sender.send_event(mgenevent)
-        print "Executed MGEN send !!"
+        print("Executed MGEN send !!")
         return mgenevent
 
     def send_event (self, mgen_event):
@@ -170,7 +167,7 @@ class MgenActor(object):
         '''
                             
         self.sender.send_event(mgen_event)
-        print "Executed MGEN send !!"
+        print("Executed MGEN send !!")
         return mgen_event
 
     def send_mgen_cmd(self, mgen_cmd):
@@ -188,7 +185,7 @@ class MgenActor(object):
         '''
                                         
         self.sender.send_command(mgen_cmd)
-        print "Sent MGEN command !!"
+        print("Sent MGEN command !!")
         return mgen_cmd
     
     def my_name(self):
@@ -224,11 +221,11 @@ class MgenActor(object):
                 self.gpsLon = float(lon)
                 self.gpsAlt = float(alt)
             except ValueError:
-                print "publish_gps_pos() error converting values"
+                print("publish_gps_pos() error converting values")
                 return
             gpsPub.GPSPublishPos(self.gpsHandle,self.gpsLat, self.gpsLon, self.gpsAlt)
         else:
-            print "publish_gps_pos() gps not enabled."
+            print("publish_gps_pos() gps not enabled.")
         return
 
     def get_gps_pos(self):
@@ -238,13 +235,13 @@ class MgenActor(object):
         
         '''
         if not self.hasGps:
-            print "get_gps_pos() gps not enabled."
+            print("get_gps_pos() gps not enabled.")
             return False
         else:
             return self.gpsLat,self.gpsLon,self.gpsAlt
 
 def shutdown(*args):
-    print "Shutting down"
+    print("Shutting down")
     sys.exit(0)
 
 def main():
@@ -269,7 +266,7 @@ def main():
     def usage(msg = None, err = 0):
         sys.stdout.write("\n")
         if msg:
-            sys.stdout.write(msg + "\n\n")
+            sys.stdout.write("{m}\n\n".format(m=msg))
         parser.print_help()
         sys.exit(err)
 
@@ -280,16 +277,15 @@ def main():
     args = parser.parse_args()
 
     if args.port < 2000 or args.port > 100000:
-        usage("invalid port: %s" % args.port)
+        usage("invalid port: {p}".format(p=args.port))
 
 
-    port=args.port
-    server_url = "tcp://" + args.addr + ":%s" % str(port)
-    print server_url
+    server_url = "tcp://{a}:{p}".format(a=args.addr, p=args.port)
+    print(server_url)
     hasGps = args.hasGps
     if _HAVE_GPSPUB is False:
         hasGps = False
-        print "_gpsPub not installed on this system, disabling gps support"
+        print("_gpsPub not installed on this system, disabling gps support")
     s = zerorpc.Server(MgenActor(args.name,hasGps))    
     s.bind(server_url)
     s.run()

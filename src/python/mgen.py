@@ -5,6 +5,7 @@ import sys
 import shlex
 import datetime
 import struct
+import binascii
 
 import warnings
 import functools
@@ -44,9 +45,9 @@ class gps:
 
 def get_payload_from_string(text):
     if len(text) > 255:
-        sys.stderr.write("get_payload_from_string() Error: Payload > 255: %s\n" % text)
+        sys.stderr.write("get_payload_from_string() Error: Payload > 255: {s}\n".format(s=text))
         return None
-    return text.encode('hex','strict').rstrip()
+    return binascii.unhexlify(text)
     
 @deprecated
 def GetPayloadFromString(text):
@@ -119,30 +120,28 @@ class Flow:
         if self.controller and self.is_valid():
             cmd = ""
             if (delay > 0.0):
-                cmd += str(delay) + " "
-            cmd += "on " + str(self.flow_id) 
-            cmd += " " + self.protocol + " dst " + str(self.dst_addr) + '/' + str(self.dst_port)
-            cmd += " " + str(self.pattern)
+                cmd += "{d} ".format(d=delay)
+            cmd += "on {n} {x} dst {a}/{p} {pat}".format(n=self.flow_id, x=self.protocol, a=self.dst_addr, p=self.dst_port, pat=self.pattern)
             if self.src_port is not None:
-                cmd += " src " + str(self.src_port)
+                cmd += " src {s}".format(s=self.src_port)
             if self.interface is not None:
-                cmd += " interface " + self.interface
+                cmd += " interface {i}".format(i=self.interface)
             if self.count is not None:
-                cmd += " count " + str(self.count)
+                cmd += " count {c}".format(c=self.count)
             if self.sequence is not None:
-                cmd += " sequence " + str(self.sequence)
+                cmd += " sequence {s}".format(s=self.sequence)
             if self.tos is not None:
-                cmd += " tos " + str(self.tos)
+                cmd += " tos {t}".format(t=self.tos)
             if self.ttl is not None:
-                cmd += " ttl " + str(self.ttl)
+                cmd += " ttl {t}".format(t=self.ttl)
             if self.data is not None:
-                cmd += " data [" + self.data + "]"
+                cmd += " data [{d}]".format(d=self.data)
             self.controller.send_event(cmd)
             self.active = True
                 
     def stop(self):
         if self.controller and self.active:
-            cmd = "off " + str(self.flow_id)
+            cmd = "off {n}".format(n=self.flow_id)
             self.controller.send_event(cmd)
             self.active = False   
             
@@ -176,77 +175,83 @@ class Flow:
         self.dst_addr = addr
         self.dst_port = port
         if self.active:
-            cmd = "mod %d dst %s/%d" % (self.flow_id, addr, port)
+            cmd = "mod {n} dst {a}/{p}".format(n=self.flow_id, a=addr, p=port)
             self.controller.send_event(cmd)
             
     def set_interface(self, iface):
         self.interface = iface
         if self.active:
-            cmd = "mod %d interface %s" % (self.flow_id, interface)
+            cmd = "mod {n} interface {i}".format(n=self.flow_id, i=interface)
             self.controller.send_event(cmd)
             
     def set_source(self, srcPort):
         self.src_port = srcPort
         if self.active:
-            cmd = "mod %d src %d" % (self.flow_id, srcPort)
+            cmd = "mod {n} src {s}".format(n=self.flow_id, s=srcPort)
             self.controller.send_event(cmd)
             
     def set_pattern(self, pattern):
         self.pattern = pattern
         if self.active:
-            cmd = "mod %d %s" % (self.flow_id, pattern)
+            cmd = "mod {n} {p}".format(n=self.flow_id, p=pattern)
             self.controller.send_event(cmd)
             
     def set_count(self, count):
         self.count = int(count)
         if self.active:
-            cmd = "mod %d count %d" % (self.flow_id, self.count)
+            cmd = "mod {n} count {c}".format(n=self.flow_id, c=self.count)
             self.controller.send_event(cmd)
             
     def set_sequence(self, sequence):
         self.sequence = int(sequence)
         if self.active:
-            cmd = "mod %d sequence %d" % (self.flow_id, self.sequence)
+            cmd = "mod {n} sequence {s}".format(n=self.flow_id, s=self.sequence)
             self.controller.send_event(cmd)
             
     def set_tos(self, tos):
         self.tos = tos
         if self.active:
-            cmd = "mod %d tos %s" % (self.flow_id, self.tos)
+            cmd = "mod {n} tos {t}".format(n=self.flow_id, t=self.tos)
             self.controller.send_event(cmd)
             
     def set_ttl(self, ttl):
         self.ttl = ttl
         if self.active:
-            cmd = "mod %d ttl %s" % (self.flow_id, self.ttl)
+            cmd = "mod {n} ttl {t}".format(n=self.flow_id, t=self.ttl)
             self.controller.send_event(cmd)
             
     # TBD - we could store the flow payload data more efficiently 
     #       as the raw data instead of hex-encoded 
     def set_text_payload(self, text):
-        self.data = text.encode('hex','strict').rstrip()
+        try:
+            self.data = binascii.hexlify(text).decode()
+        except:
+            self.data = binascii.hexlify(text.encode()).decode()
         if self.active:
-            cmd = "mod %d data [%s]" % (self.flow_id, self.data)
+            cmd = "mod {n} data [{d}]".format(n=self.flow_id, d=self.data)
             self.controller.send_event(cmd)
             
     def get_text_payload(self):
+        # not sure this is actually useful?
+        # gets what payload is currently set for, not what is received
         if self.data:
-            return self.data.decode('hex','strict')
+            return binascii.unhexlify(self.data)
         else:
             return None
             
     def set_binary_payload(self, buf):
-        self.data = binasci.hexlify(buf)
+        try:
+            self.data = binascii.hexlify(buf).decode()
+        except:
+            self.data = binascii.hexlify(buf.encode()).decode()
         if self.active:
-            cmd = "mod %d data [%s]" % (self.flow_id, self.data)
+            cmd = "mod {n} data [{d}]".format(n=self.flow_id, d=self.data)
             self.controller.send_event(cmd)
             
     def set_struct_payload(self, theStruct, *args):
         """ Uses Python struct module"""
-        self.data = theStruct.pack(*args).encode('hex','strict').rstrip()
-        if self.active:
-            cmd = "mod %d data [%s]" % (self.flow_id, self.data)
-            self.controller.send_event(cmd)
+        packed = theStruct.pack(*args)
+        self.set_binary_payload(packed)
 
 class Event:
     """ The mgen.Event class provides information on logged events
@@ -347,7 +352,7 @@ class Event:
                     self.gps = gps(field[1], field[2], field[3])
             elif ('data' == key):
                 length,data = value.split(':')
-                self.data = data.decode('hex','strict')
+                self.data = binascii.unhexlify(data)
                 self.data_length = length
       
     @deprecated          
@@ -370,9 +375,7 @@ class Controller:
         self.gpsKey = gpsKey
         args = ['mgen', 'flush']
         if instance is None:
-            pidHex = "%x" % os.getpid() 
-            idHex = "%x" % id(self) 
-            self.instance_name = 'mgen-' + pidHex + '-' + idHex 
+            self.instance_name = 'mgen-{p}-{i}'.format(p=os.getpid(), i=id(self))
         else:
             self.instance_name = instance
         
@@ -458,12 +461,12 @@ class Controller:
         valid MGEN script line. E.g., "listen udp 5000".  The event will be
         process immediately unless a time is given.
         """
-        cmd = "event " + event
+        cmd = "event {e}".format(e=event)
         self.mgen_pipe.Send(cmd)
         
     def get_sink_paths(self):
-        txPipeName = self.instance_name + "-txPipe"
-        rxPipeName = self.instance_name + "-rxPipe"
+        txPipeName = "{i}-txPipe".format(i=self.instance_name)
+        rxPipeName = "{i}-rxPipe".format(i=self.instance_name)
         txPipePath = os.path.join(tempfile.gettempdir(), txPipeName)
         rxPipePath = os.path.join(tempfile.gettempdir(), rxPipeName)
         return (txPipePath, rxPipePath)
@@ -483,8 +486,8 @@ class Controller:
             return
         os.mkfifo(txPipePath)
         os.mkfifo(rxPipePath)
-        self.send_command('sink %s' % txPipePath)
-        self.send_command('source %s' % rxPipePath)
+        self.send_command('sink {s}'.format(s=txPipePath))
+        self.send_command('source {s}'.format(s=rxPipePath))
         # This implements "cat txPipePath | sinkCmd > rxPipePath" to "wire up" our sinkCmd
         # (We use 'cat' since "tx_pipe" isn't ready until mgen sinks a flow to it.
         #  This lets the 'sinkCmd' do it's thing even if mgen is recv-only.)
