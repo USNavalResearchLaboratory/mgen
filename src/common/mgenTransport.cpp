@@ -361,7 +361,8 @@ void MgenTransport::LogEvent(LogEventType eventType, MgenMsg* theMsg, const stru
                                buffer, 
                                mgen.GetLogFlush(),
                                -1, 
-                               theTime);
+                               theTime,
+                               -1);
 
           // Don't we want rapr to get the message regardless of logging??
           // Could this possibly have been broken too? strange... ljt

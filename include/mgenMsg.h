@@ -171,7 +171,8 @@ class MgenMsg
                       UINT32*               alignedMsgBuffer,
                       bool                  flush,
                       int                   ttl,    // will be >= 0 when known
-                      const struct timeval& theTime);
+                      const struct timeval& theTime,
+                      int                   iplen);
 	bool LogSendEvent(FILE*                 logFile, 
                       bool                  logBinary, 
                       bool                  local_time,

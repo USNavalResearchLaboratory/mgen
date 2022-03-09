@@ -472,7 +472,7 @@ int main(int argc, char* argv[])
         }
 
         // Should we make "flush" true by default?
-        msg.LogRecvEvent(outfile, false, false, log_rx, false, true, (UINT32*)udpPkt.AccessPayload(), flush, ttl, hdr.ts);        
+        msg.LogRecvEvent(outfile, false, false, log_rx, false, true, (UINT32*)udpPkt.AccessPayload(), flush, ttl, hdr.ts, numBytes);        
     }  // end while (pcap_next())
     
     if (stdin != infile) fclose(infile);
