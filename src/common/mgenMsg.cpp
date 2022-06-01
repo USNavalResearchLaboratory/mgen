@@ -870,13 +870,13 @@ bool MgenMsg::LogTcpConnectionEvent(FILE*                     logFile,
             case ON_EVENT:
             {
                 Mgen::Log(logFile,"ON flow>%lu srcPort>%hu dst>%s/%hu ",
-                        flow_id,src_addr.GetPort(),addr.GetHostString(),addr.GetPort());
+                        flow_id, src_addr.GetPort() ,addr.GetHostString(), addr.GetPort());
                 break;
             }
             case CONNECT_EVENT:
             {
                 Mgen::Log(logFile,"CONNECT flow>%lu srcPort>%hu dst>%s/%hu ",
-                        flow_id,src_addr.GetPort(),addr.GetHostString(),addr.GetPort());
+                        flow_id, src_addr.GetPort(), addr.GetHostString(), addr.GetPort());
                 break;
             }
             case DISCONNECT_EVENT:

@@ -68,7 +68,6 @@ void SetAnalyticWindow(double windowSize)
         next->SetWindowSize(windowSize);
 }
 
-
 CmdType GetCmdType(const char* cmd)
 {
     if (!cmd) return CMD_INVALID;
@@ -378,7 +377,7 @@ int main(int argc, char* argv[])
             ipBufferBytes = ethPkt.GetBufferLength() - ethPkt.GetHeaderLength();
             ipLength = ethPkt.GetPayloadLength();
             ethPkt.GetSrcAddr(srcMac);
-            ethPkt.GetSrcAddr(dstMac);
+            ethPkt.GetDstAddr(dstMac);
         }
         ProtoPktIP ipPkt;
         ProtoAddress srcAddr, dstAddr;

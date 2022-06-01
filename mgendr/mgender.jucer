@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT name="mgender" projectType="guiapp" jucerVersion="5.4.7" bundleIdentifier="mil.navy.nrl.mgender"
+<JUCERPROJECT name="mgender" projectType="guiapp" bundleIdentifier="mil.navy.nrl.mgender"
               userNotes="Currently just an example Projucer project to illustrate build configurations for Protolib modules in conjunction with JUCE modules.  Eventually, a &quot;juceProtoExample&quot; application will be created.  This &quot;jucer&quot; file can serve as a template or starter for other JUCE/Protolib projects."
               defines="PROTO_DEBUG&#10;" headerPath=" ../../../include&#10;../../../protolib/include&#10;"
-              id="mgUm95">
+              id="mgUm95" displaySplashScreen="1" jucerFormatVersion="1">
   <MAINGROUP id="aqalQC" name="mgender">
     <GROUP id="{322793E0-17AE-20B6-D257-3346EC71CEE3}" name="Mgen">
       <FILE id="nEFpnU" name="mgen.cpp" compile="1" resource="0" file="../src/common/mgen.cpp"/>
@@ -71,7 +71,7 @@
     </GROUP>
   </MAINGROUP>
   <EXPORTFORMATS>
-    <XCODE_MAC targetFolder="Builds/MacOSX" extraDefs="MACOSX UNIX HAVE_IPV6 HAVE_ASSERT HAVE_GETLOGIN HAVE_FLOCK HAVE_DIRFD HAVE_PSELECT USE_SELECT _FILE_OFFSET_BITS=64"
+    <XCODE_MAC targetFolder="Builds/MacOSX" extraDefs="MACOSX UNIX HAVE_IPV6 HAVE_ASSERT HAVE_GETLOGIN HAVE_FLOCK HAVE_DIRFD HAVE_PSELECT USE_SELECT _FILE_OFFSET_BITS=64 JUCE_MODAL_LOOPS_PERMITTED=1"
                externalLibraries="xml2" smallIcon="pQQOpg" bigIcon="pQQOpg">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="1" name="Debug" headerPath="/usr/include/libxml2"/>
@@ -160,9 +160,9 @@
     </LINUX_MAKE>
     <ANDROIDSTUDIO targetFolder="Builds/Android" androidSDKPath="" androidNDKPath=""
                    extraDefs="ANDROID LINUX UNIX HAVE_IPV6 HAVE_DIRFD PROTO_DEBUG HAVE_ASSERT HAVE_GETLOGIN USE_SELECT _FILE_OFFSET_BITS=64 HAVE_OLD_SIGNALHANDLER HAVE_SCHED NO_SCM_RIGHTS"
-                   bigIcon="pQQOpg" smallIcon="pQQOpg" androidMinimumSDK="23">
+                   bigIcon="pQQOpg" smallIcon="pQQOpg" androidMinimumSDK="23" androidTargetSDK="30">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" androidArchitectures="armeabi-v7a x86"/>
+        <CONFIGURATION isDebug="1" name="Debug" androidArchitectures="x86_64"/>
         <CONFIGURATION isDebug="0" name="Release"/>
       </CONFIGURATIONS>
       <MODULEPATHS>

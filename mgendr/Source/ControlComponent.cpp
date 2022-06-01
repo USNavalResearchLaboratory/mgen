@@ -362,6 +362,7 @@ void ControlComponent::resized() {
     dboxpt.items.add(FlexItem(lwpp, lht, pattern_label));
     dboxpt.items.add(FlexItem(1, lht, pattern_box).withFlex(1.0));
     
+    
     FlexBox dboxpr;  // destination group pattern rate FlexBox
     dboxpr.alignContent = FlexBox::AlignContent::flexStart;
     dboxpr.flexDirection = FlexBox::Direction::column;
@@ -379,8 +380,9 @@ void ControlComponent::resized() {
     dboxps.alignItems = FlexBox::AlignItems::stretch;
     dboxps.flexWrap = FlexBox::Wrap::noWrap;
     int lwps = size_label.getFont().getStringWidth(pattern_label.getText());
-    dboxps.items.add(FlexItem(lwps, lht, size_label).withFlex(1));
-    dboxps.items.add(FlexItem(lwps, lht, size_text).withFlex(1));
+    dboxps.items.add(FlexItem(lwps, lht, size_label).withFlex(1.0));
+    dboxps.items.add(FlexItem(lwps, lht, size_text).withFlex(1.0));
+    
     
     // Pack pattern config components into a horizontal (row) flex box
     FlexBox dboxp;  // flex box for destination group patterm configuration components
@@ -389,9 +391,17 @@ void ControlComponent::resized() {
     dboxp.justifyContent = FlexBox::JustifyContent::flexStart;  // left-justified packing
     dboxp.alignItems = FlexBox::AlignItems::flexStart;
     dboxp.flexWrap = FlexBox::Wrap::noWrap;
-    dboxp.items.addArray({FlexItem(1, 2.5*lht, dboxpt).withFlex(1).withMargin(5),
+    /*dboxp.items.addArray({FlexItem(1, 2.5*lht, dboxpt).withFlex(1).withMargin(5),
                           FlexItem(1, 2.5*lht, dboxpr).withFlex(1).withMargin(5),
-                          FlexItem(1, 2.5*lht, dboxps).withFlex(1).withMargin(5)});
+                          FlexItem(1, 2.5*lht, dboxps).withFlex(1).withMargin(5)});*/
+    /*
+    dboxp.items.add(FlexItem(lwpp, 2.5*lht, dboxpt).withFlex(1.0));//.withMargin(5));
+    dboxp.items.add(FlexItem(lwpr, 2.5*lht, dboxpr).withFlex(1.0));//.withMargin(5));
+    dboxp.items.add(FlexItem(lwps, 2.5*lht, dboxps).withFlex(1.0));//.withMargin(5));
+    */
+    dboxp.items.add(FlexItem(1, 1, dboxpt).withFlex(1).withMargin(5));
+    dboxp.items.add(FlexItem(1, 1, dboxpr).withFlex(1).withMargin(5));
+    dboxp.items.add(FlexItem(1, 1, dboxps).withFlex(1).withMargin(5));
     
     FlexBox dboxd;  // Stack destination address and pattern config boxes
     dboxd.alignContent = FlexBox::AlignContent::flexStart;
@@ -401,8 +411,8 @@ void ControlComponent::resized() {
     dboxd.flexWrap = FlexBox::Wrap::noWrap;
     // note Margin(left, right, top, bottom)
     // note Margin(top, ?, ?
-    dboxd.items.addArray({FlexItem(getWidth() - 10, lht, dboxa).withMargin(FlexItem::Margin(15, 0, 0, 0)),
-                          FlexItem(1, 1, dboxp).withMargin(FlexItem::Margin(0, 0, 0, 10))});
+    dboxd.items.addArray({FlexItem(getWidth() - 10, 1, dboxa).withMargin(FlexItem::Margin(15, 0, 0, 0)),
+                          FlexItem(getWidth() - 10, 1, dboxp).withMargin(FlexItem::Margin(15, 0, 0, 0))});
     // 'dboxd' will get layed out later after dest_group layout size is determined
     
     box.items.add(FlexItem(getWidth(), lht*6, dest_group));

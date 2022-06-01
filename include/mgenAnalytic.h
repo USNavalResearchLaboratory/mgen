@@ -109,7 +109,7 @@ class MgenAnalytic : public ProtoQueue::Item
             {return report_start;}
         double GetReportDuration() const
             {return report_duration;}
-        unsigned int GetReportMessageCount() const
+        unsigned long GetReportMessageCount() const
             {return report_msg_count;}
         double GetReportRateAverage() const     // bytes/sec
             {return report_rate_ave;}
@@ -369,7 +369,7 @@ class MgenAnalytic : public ProtoQueue::Item
         bool                report_valid;
         ProtoTime           report_start;
         double              report_duration;
-        unsigned int        report_msg_count;
+        unsigned long       report_msg_count;
         double              report_rate_ave;  // bytes/sec
         double              report_loss_ave;
         double              report_latency_ave;
