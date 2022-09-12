@@ -47,7 +47,7 @@ const char* const CMD_LIST[] =
     "-trace",     // Prepends MGEN log lines with epoch time and MAC src/addr info
     "+rxlog",     // Turns on/off recv log info. For report messages only
     "-flush",     // flush writes to outfile
-    "+window",     // Sets analytic window
+    "+window",    // Sets analytic window
     NULL
 };
 
@@ -441,7 +441,7 @@ int main(int argc, char* argv[])
             fprintf(outfile, "edst>%s ", dstMac.GetHostString());
         }
         // TBD - Add option to log REPORT events only?  Embed MGEN analytic, too?
-        if(compute_analytics)
+        if (compute_analytics)
         {
             MgenAnalytic* analytic = analytic_table.FindFlow(msg.GetSrcAddr(), msg.GetDstAddr(), msg.GetFlowId());
             if (NULL == analytic)
