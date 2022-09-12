@@ -439,6 +439,7 @@ int main(int argc, char* argv[])
             fprintf(outfile, "%lu.%lu ", (unsigned long)hdr.ts.tv_sec, (unsigned long)hdr.ts.tv_usec);
             fprintf(outfile, "esrc>%s ", srcMac.GetHostString());
             fprintf(outfile, "edst>%s ", dstMac.GetHostString());
+            fprintf(outfile, "elen>%u ", numBytes);
         }
         // TBD - Add option to log REPORT events only?  Embed MGEN analytic, too?
         if (compute_analytics)
