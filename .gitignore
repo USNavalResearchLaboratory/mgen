@@ -3,6 +3,13 @@ makefiles/mgen
 makefiles/mpmgr
 makefiles/pcap2mgen
 
+# python generated files
+build
+src/python/mgen.egg-info
+py_gpspub/build
+py_gpspub/gpsPub.egg-info
+py_gpspub/*.so
+
 # build object files
 *.o
 *.a
