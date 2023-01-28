@@ -160,7 +160,7 @@
     </LINUX_MAKE>
     <ANDROIDSTUDIO targetFolder="Builds/Android" androidSDKPath="" androidNDKPath=""
                    extraDefs="ANDROID LINUX UNIX HAVE_IPV6 HAVE_DIRFD PROTO_DEBUG HAVE_ASSERT HAVE_GETLOGIN USE_SELECT _FILE_OFFSET_BITS=64 HAVE_OLD_SIGNALHANDLER HAVE_SCHED NO_SCM_RIGHTS"
-                   bigIcon="pQQOpg" smallIcon="pQQOpg" androidMinimumSDK="23" androidTargetSDK="30">
+                   bigIcon="pQQOpg" smallIcon="pQQOpg" androidMinimumSDK="31" androidTargetSDK="33">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="1" name="Debug" androidArchitectures="x86_64"/>
         <CONFIGURATION isDebug="0" name="Release"/>
