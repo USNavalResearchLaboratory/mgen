@@ -163,11 +163,11 @@ int main(int argc, char* argv[])
        
     while (1)
       {
-	if (count > 0 && (sent > count || count > 1000000000))
-	  {
-	    fprintf(stderr,"mgenBlast: sent %d packets... \n",sent);
-	    return -1;
-	  }
+	// if (count > 0 && (sent > count || count > 1000000000))
+	//   {
+	//     fprintf(stderr,"mgenBlast: sent %d packets... \n",sent);
+	//     return -1;
+	//   }
 	theMsg.SetSeqNum(seq_num++);
 	ProtoSystemTime(currentTime);
 	theMsg.SetTxTime(currentTime);

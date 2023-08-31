@@ -105,7 +105,8 @@ class MgenMsg
     MgenMsg();
 	~MgenMsg();
 	//MgenMsg& operator=(const MgenMsg&);
-    UINT16 Pack(UINT32* buffer, UINT16 bufferLen, bool includeChecksum, UINT32& tx_checksum);  
+    UINT16 Pack(UINT32* buffer, UINT16 bufferLen, bool includeChecksum, UINT32& tx_checksum);
+    UINT16 Pack(UINT32* buffer, UINT16 bufferLen, bool includeChecksum, UINT32& tx_checksum, bool alwaysFill);
     
     bool Unpack(UINT32* buffer, UINT16 bufferLen, bool forceChecksum,bool log_data);
 	static bool WriteChecksum(UINT32&   tx_checksum,
@@ -124,7 +125,7 @@ class MgenMsg
 	void ClearError() {msg_error = ERROR_NONE;}
     
     // (TBD) enforce minimum message len
-	void SetProtocol(Protocol theProtocol) {protocol = theProtocol;}
+	void SetProtocol(Protocol theProtocol) {buffer_changed = true; protocol = theProtocol;}
 	Protocol GetProtocol() {return protocol;};
     void SetVersion(UINT8 value) {version = value;}
     void SetFlag(MgenMsg::Flag theFlag) {flags |= theFlag;}
@@ -135,16 +136,19 @@ class MgenMsg
     void SetSeqNum(UINT32 seqNum) {seq_num = seqNum;}
     void SetTxTime(const struct timeval& txTime) {tx_time = txTime;}
     const struct timeval& GetTxTime() {return tx_time;}
-    void SetDstAddr(const ProtoAddress& dstAddr) {dst_addr = dstAddr;}
-    void SetSrcAddr(const ProtoAddress& srcAddr) {src_addr = srcAddr;}
+    void SetDstAddr(const ProtoAddress& dstAddr) {buffer_changed = true; dst_addr = dstAddr;}
+    void SetSrcAddr(const ProtoAddress& srcAddr) {buffer_changed = true; src_addr = srcAddr;}
     ProtoAddress& GetSrcAddr() {return src_addr;}
-    void SetHostAddr(const ProtoAddress& hostAddr) {host_addr = hostAddr;}
-    void SetGPSLatitude(double value) {latitude = value;}
-    void SetGPSLongitude(double value) {longitude = value;}
-    void SetGPSAltitude(INT32 value) {altitude = value;}
-    void SetGPSStatus(GPSStatus status) {gps_status = status;}
+    void SetHostAddr(const ProtoAddress& hostAddr) {buffer_changed = true; host_addr = hostAddr;}
+    void SetGPSLatitude(double value) {buffer_changed = true; latitude = value;}
+    void SetGPSLongitude(double value) {buffer_changed = true; longitude = value;}
+    void SetGPSAltitude(INT32 value) {buffer_changed = true; altitude = value;}
+    void SetGPSStatus(GPSStatus status) {buffer_changed = true; gps_status = status;}
     void SetPayload(PayloadType type, UINT32* buffer, UINT16 len)
     {
+        if(buffer != NULL) {
+            buffer_changed = true;
+        }
         payload_type = type;
         payload_data = buffer;
         payload_len = len;
@@ -235,6 +239,8 @@ class MgenMsg
     Protocol        protocol;
     Error           msg_error;
 	bool            compute_crc;
+    UINT8*          msg_buffer;
+    bool            buffer_changed;
     
     enum {FLAGS_OFFSET = 3};
 };  // end class MgenMsg    

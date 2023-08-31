@@ -295,7 +295,7 @@ bool MgenFlow::DoOnEvent(const MgenEvent* event)
     
     
     // Set up msg for logging
-    MgenMsg theMsg;
+    
     theMsg.SetFlowId(flow_id);
     struct timeval currentTime;
     ProtoSystemTime(currentTime);
@@ -398,6 +398,7 @@ bool MgenFlow::IsTransportChanging(const MgenEvent* event, UINT16 tmpSrcPort, Pr
 bool MgenFlow::DoModEvent(const MgenEvent* event)
 { 
     if (event->GetType() != MgenEvent::MOD) return false;
+    this->msgUpdateRequired = true;
     UINT16 tmpSrcPort = 0;
 
     // Get the flow's src port from the transport so we don't change it
@@ -431,8 +432,7 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
     if (pattern.FlowPaused()
         &&
         !IsTransportChanging(event, tmpSrcPort, tmpDstAddr))
-    {
-        MgenMsg theMsg;
+    {   
         theMsg.SetFlowId(flow_id); 
         theMsg.SetDstAddr(tmpDstAddr);
         ProtoSystemTime(currentTime);
@@ -450,7 +450,7 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
         // The flow was set to 0 packets a second [0 n]
         if (eventPattern.FlowPaused())
         {
-            MgenMsg theMsg;
+            
             theMsg.SetFlowId(flow_id); 
             theMsg.SetDstAddr(dst_addr); // Previous flow is being turned off
             ProtoSystemTime(currentTime);
@@ -509,7 +509,7 @@ bool MgenFlow::DoModEvent(const MgenEvent* event)
 
     //  old_transport->RemoveFlow(this);
 
-    MgenMsg theMsg;
+    
     theMsg.SetFlowId(flow_id); 
     theMsg.SetDstAddr(dst_addr);
     
@@ -845,7 +845,7 @@ void MgenFlow::StopFlow()
 
   if (flow_transport) 
     {
-        MgenMsg theMsg;
+        
         theMsg.SetFlowId(flow_id); 
         theMsg.SetDstAddr(dst_addr);
         struct timeval currentTime;
@@ -942,8 +942,10 @@ bool MgenFlow::SendMessage()
         return false;  
     }
 
-    MgenMsg theMsg;
-    theMsg.SetProtocol(protocol);
+
+    if(this->msgUpdateRequired) {
+        theMsg.SetProtocol(protocol);
+    }
     unsigned int len = pattern.GetPktSize();
     theMsg.SetMgenMsgLen(len);
     theMsg.SetMsgLen(len); // Is overridden with fragment size in pack() for tcp
@@ -963,177 +965,182 @@ bool MgenFlow::SendMessage()
     // sending data to the socket - for tcp in particular)
     theMsg.SetTxTime(currentTime);
 
-    theMsg.SetDstAddr(dst_addr);
-    ProtoAddress hostAddr = mgen.GetHostAddr();
-    if (hostAddr.IsValid())
-    {
-        
-        hostAddr.SetPort(flow_transport->GetSocketPort());
-        theMsg.SetHostAddr(hostAddr);
-    }
+    if(this->msgUpdateRequired) {
+        theMsg.SetDstAddr(dst_addr);
+        ProtoAddress hostAddr = mgen.GetHostAddr();
+        if (hostAddr.IsValid())
+        {
+            
+            hostAddr.SetPort(flow_transport->GetSocketPort());
+            theMsg.SetHostAddr(hostAddr);
+        }
 
-    ProtoAddress srcAddr;
-    srcAddr.SetPort(flow_transport->GetSocketPort());
-    theMsg.SetSrcAddr(srcAddr);
+        ProtoAddress srcAddr;
+        srcAddr.SetPort(flow_transport->GetSocketPort());
+        theMsg.SetSrcAddr(srcAddr);
 
-    // GPS info
-    theMsg.SetGPSStatus(MgenMsg::INVALID_GPS); 
-    theMsg.SetGPSLatitude(999);
-    theMsg.SetGPSLongitude(999); 
-    theMsg.SetGPSAltitude(-999);
-#ifdef HAVE_GPS
-    if (NULL != get_position)
-    {
+        // GPS info
+        theMsg.SetGPSStatus(MgenMsg::INVALID_GPS); 
+        theMsg.SetGPSLatitude(999);
+        theMsg.SetGPSLongitude(999); 
+        theMsg.SetGPSAltitude(-999);
+    #ifdef HAVE_GPS
+        if (NULL != get_position)
+        {
+            GPSPosition pos;
+            get_position(get_position_data, pos);
+            if (pos.xyvalid)
+            {
+                theMsg.SetGPSLatitude(pos.y);
+                theMsg.SetGPSLongitude(pos.x);
+                if (pos.zvalid)
+                theMsg.SetGPSAltitude((INT32)(pos.z+0.5));
+                if (pos.stale)
+                theMsg.SetGPSStatus(MgenMsg::STALE);
+                else
+                theMsg.SetGPSStatus(MgenMsg::CURRENT);
+            }
+        }
+    #endif // HAVE_GPS
+    #ifdef NEVER_EVER
+        // For Android, we have implemented a temporary hack that depends upon
+        // the freely available "GPSLogger" Android application.  This mgen
+        // code assumes that GPSLogger is configured to log (in text file format)
+        // to the file "sdcard/Android/data/com.mendhak.gpslogger/files/gpslogger.txt"
+        // If the file is not available or empty, a null GPS position is reported
         GPSPosition pos;
-        get_position(get_position_data, pos);
-        if (pos.xyvalid)
+        memset(&pos, 0, sizeof(GPSPosition));  // init to invalid (null) position
+        const char* cmd = "tail -1 /storage/sdcard0/Android/data/com.mendhak.gpslogger/files/gpslogger.txt";
+        FILE* filePtr = popen(cmd, "r");
+        if (NULL != filePtr)
         {
-            theMsg.SetGPSLatitude(pos.y);
-            theMsg.SetGPSLongitude(pos.x);
-            if (pos.zvalid)
-              theMsg.SetGPSAltitude((INT32)(pos.z+0.5));
-            if (pos.stale)
-              theMsg.SetGPSStatus(MgenMsg::STALE);
-            else
-              theMsg.SetGPSStatus(MgenMsg::CURRENT);
-        }
-    }
-#endif // HAVE_GPS
-#ifdef NEVER_EVER
-    // For Android, we have implemented a temporary hack that depends upon
-    // the freely available "GPSLogger" Android application.  This mgen
-    // code assumes that GPSLogger is configured to log (in text file format)
-    // to the file "sdcard/Android/data/com.mendhak.gpslogger/files/gpslogger.txt"
-    // If the file is not available or empty, a null GPS position is reported
-    GPSPosition pos;
-    memset(&pos, 0, sizeof(GPSPosition));  // init to invalid (null) position
-    const char* cmd = "tail -1 /storage/sdcard0/Android/data/com.mendhak.gpslogger/files/gpslogger.txt";
-    FILE* filePtr = popen(cmd, "r");
-    if (NULL != filePtr)
-    {
-        int year, month, day, hour, minute, second;
-        double lat,lon, alt;
-        if (9 == fscanf(filePtr, "%d-%d-%dT%d:%d:%dZ,%lf,%lf,%lf",
-                         &year, &month, &day, &hour, &minute, &second,
-                         &lat, &lon, &alt))
-        {
-            pos.x = lon;
-            pos.y = lat;
-            pos.z = alt;
-            pos.sys_time = currentTime;  // TBD - parse the logged time and see if not stale
-            pos.gps_time = currentTime;  // TBD - parse the logged time and see if not stale
-            pos.xyvalid = pos.zvalid = true;
-            pos.tvalid = pos.stale = false;
-            theMsg.SetGPSLatitude(pos.y);
-            theMsg.SetGPSLongitude(pos.x);
-            if (pos.zvalid)
-              theMsg.SetGPSAltitude((INT32)(pos.z+0.5));
-            if (pos.stale)
-              theMsg.SetGPSStatus(MgenMsg::STALE);
-            else
-              theMsg.SetGPSStatus(MgenMsg::CURRENT);
-        }
-        fclose(filePtr);
-    } 
-#endif  // ANDROID    
-    if (report_analytics || flow_command.IsSet())
-    {
-        analytic_reporter.Reset();  // resets iteration loop detector
-        ProtoTime reportTime(currentTime);
-        // sets MgenMsg::MGEN_DATA payload
-        // 1) How much space for reports do we have?
-        UINT16 headerLen = 4*11 + dst_addr.GetLength() + (hostAddr.IsValid() ? hostAddr.GetLength() : 0);
-        unsigned int space = (len < MAX_FRAG_SIZE) ? len : MAX_FRAG_SIZE;  // should this be protocol-dependent?
-        space =  (space > headerLen) ? (space - headerLen) : 0;
-        if (mgen_payload.Allocate(space))
-        {
-            char* bufPtr = (char*)mgen_payload.AccessPayloadBuffer();
-            UINT16 payloadLen = 0;
-            if (flow_command.IsSet())
+            int year, month, day, hour, minute, second;
+            double lat,lon, alt;
+            if (9 == fscanf(filePtr, "%d-%d-%dT%d:%d:%dZ,%lf,%lf,%lf",
+                            &year, &month, &day, &hour, &minute, &second,
+                            &lat, &lon, &alt))
             {
-                UINT16 cmdLength = flow_command.GetLength();
-                if (cmdLength <= space) 
-                {
-                    memcpy(bufPtr, flow_command.GetBuffer(), cmdLength);
-                    bufPtr += cmdLength;
-                    space -= cmdLength;
-                    payloadLen += cmdLength;
-                }
-                // TBD - else warn there was no room?
+                pos.x = lon;
+                pos.y = lat;
+                pos.z = alt;
+                pos.sys_time = currentTime;  // TBD - parse the logged time and see if not stale
+                pos.gps_time = currentTime;  // TBD - parse the logged time and see if not stale
+                pos.xyvalid = pos.zvalid = true;
+                pos.tvalid = pos.stale = false;
+                theMsg.SetGPSLatitude(pos.y);
+                theMsg.SetGPSLongitude(pos.x);
+                if (pos.zvalid)
+                theMsg.SetGPSAltitude((INT32)(pos.z+0.5));
+                if (pos.stale)
+                theMsg.SetGPSStatus(MgenMsg::STALE);
+                else
+                theMsg.SetGPSStatus(MgenMsg::CURRENT);
             }
-            while (space > 0)
+            fclose(filePtr);
+        } 
+    #endif  // ANDROID    
+        if (report_analytics || flow_command.IsSet())
+        {
+            analytic_reporter.Reset();  // resets iteration loop detector
+            ProtoTime reportTime(currentTime);
+            // sets MgenMsg::MGEN_DATA payload
+            // 1) How much space for reports do we have?
+            UINT16 headerLen = 4*11 + dst_addr.GetLength() + (hostAddr.IsValid() ? hostAddr.GetLength() : 0);
+            unsigned int space = (len < MAX_FRAG_SIZE) ? len : MAX_FRAG_SIZE;  // should this be protocol-dependent?
+            space =  (space > headerLen) ? (space - headerLen) : 0;
+            if (mgen_payload.Allocate(space))
             {
-                const MgenAnalytic::Report* report = analytic_reporter.PeekNextReport(reportTime);
-                if ((NULL == report) || (report->GetLength() > space)) break;
-                if (report_feedback)
+                char* bufPtr = (char*)mgen_payload.AccessPayloadBuffer();
+                UINT16 payloadLen = 0;
+                if (flow_command.IsSet())
                 {
-                    // Only include report(s) that are reciprocal to this flow
-                    // (i.e. where report src addr equals this flow's destination address)
-                    // Used for pointed feedback reporting
-                    ProtoAddress reportSrcAddr;
-                    report->GetSrcAddr(reportSrcAddr);
-                    if (!dst_addr.IsEqual(reportSrcAddr))
+                    UINT16 cmdLength = flow_command.GetLength();
+                    if (cmdLength <= space) 
                     {
-                        analytic_reporter.Advance();
-                        continue;
+                        memcpy(bufPtr, flow_command.GetBuffer(), cmdLength);
+                        bufPtr += cmdLength;
+                        space -= cmdLength;
+                        payloadLen += cmdLength;
                     }
+                    // TBD - else warn there was no room?
                 }
-                UINT16 reportLength = report->GetLength();
-                memcpy(bufPtr, (const char*)report->GetBuffer(), reportLength);
-                bufPtr += reportLength;
-                payloadLen += reportLength;
-                space -= reportLength;
-                analytic_reporter.Advance();
-            }
-            if (payloadLen > 0)
-            {
-                mgen_payload.SetLength(payloadLen);
-                theMsg.SetPayload(MgenMsg::MGEN_DATA, mgen_payload.AccessPayloadBuffer(), mgen_payload.GetLength());
-            }
-            else if (0 != user_payload.GetLength())
-            {
-                theMsg.SetPayload(MgenMsg::USER_DATA, user_payload.AccessPayloadBuffer(), user_payload.GetLength());
+                while (space > 0)
+                {
+                    const MgenAnalytic::Report* report = analytic_reporter.PeekNextReport(reportTime);
+                    if ((NULL == report) || (report->GetLength() > space)) break;
+                    if (report_feedback)
+                    {
+                        // Only include report(s) that are reciprocal to this flow
+                        // (i.e. where report src addr equals this flow's destination address)
+                        // Used for pointed feedback reporting
+                        ProtoAddress reportSrcAddr;
+                        report->GetSrcAddr(reportSrcAddr);
+                        if (!dst_addr.IsEqual(reportSrcAddr))
+                        {
+                            analytic_reporter.Advance();
+                            continue;
+                        }
+                    }
+                    UINT16 reportLength = report->GetLength();
+                    memcpy(bufPtr, (const char*)report->GetBuffer(), reportLength);
+                    bufPtr += reportLength;
+                    payloadLen += reportLength;
+                    space -= reportLength;
+                    analytic_reporter.Advance();
+                }
+                if (payloadLen > 0)
+                {
+                    mgen_payload.SetLength(payloadLen);
+                    theMsg.SetPayload(MgenMsg::MGEN_DATA, mgen_payload.AccessPayloadBuffer(), mgen_payload.GetLength());
+                }
+                else if (0 != user_payload.GetLength())
+                {
+                    theMsg.SetPayload(MgenMsg::USER_DATA, user_payload.AccessPayloadBuffer(), user_payload.GetLength());
+                }
+                else
+                {
+                    theMsg.SetPayload(MgenMsg::USER_DATA, NULL, 0);
+                }
             }
             else
             {
-                theMsg.SetPayload(MgenMsg::USER_DATA, NULL, 0);
+                PLOG(PL_ERROR, "MgenFlow::SendMessage() mgen_payload.Allocate() error: %s\n", GetErrorString());
             }
         }
+        else if (0 != user_payload.GetLength())
+        {
+            theMsg.SetPayload(MgenMsg::USER_DATA, user_payload.AccessPayloadBuffer(), user_payload.GetLength());
+        }
+    #ifdef HAVE_GPS
+        else if (NULL != payload_handle)
+        {
+            unsigned char payloadLen = 0;
+            GPSGetMemory(payload_handle, 0,(char*)&payloadLen, 1);
+            // The (UINT32*) cast here creates a warning but it's OK (trust me)
+            if (0 != payloadLen)
+            {
+                // Code to suppress alignment warning (but it's OK, trust me)
+                char* ptr1 = const_cast<char*>(GPSGetMemoryPtr(payload_handle,1));
+                UINT32* ptr2 = reinterpret_cast<UINT32*>(ptr1);
+                theMsg.SetPayload(MgenMsg::USER_DATA, ptr2, (UINT16)payloadLen);
+            }
+        }
+    #endif // HAVE_GPS
         else
         {
-            PLOG(PL_ERROR, "MgenFlow::SendMessage() mgen_payload.Allocate() error: %s\n", GetErrorString());
+            theMsg.SetPayload(MgenMsg::USER_DATA, NULL, 0);
         }
-    }
-    else if (0 != user_payload.GetLength())
-    {
-        theMsg.SetPayload(MgenMsg::USER_DATA, user_payload.AccessPayloadBuffer(), user_payload.GetLength());
-    }
-#ifdef HAVE_GPS
-    else if (NULL != payload_handle)
-    {
-        unsigned char payloadLen = 0;
-        GPSGetMemory(payload_handle, 0,(char*)&payloadLen, 1);
-        // The (UINT32*) cast here creates a warning but it's OK (trust me)
-        if (0 != payloadLen)
+        
+    #ifdef HAVE_IPV6
+        if (ProtoAddress::IPv6 == dst_addr.GetType())
         {
-            // Code to suppress alignment warning (but it's OK, trust me)
-            char* ptr1 = const_cast<char*>(GPSGetMemoryPtr(payload_handle,1));
-            UINT32* ptr2 = reinterpret_cast<UINT32*>(ptr1);
-            theMsg.SetPayload(MgenMsg::USER_DATA, ptr2, (UINT16)payloadLen);
+            flow_transport->SetFlowLabel(flow_label);
         }
+    #endif //HAVE_IPV6
+
+        this->msgUpdateRequired = false;
     }
-#endif // HAVE_GPS
-    else
-    {
-        theMsg.SetPayload(MgenMsg::USER_DATA, NULL, 0);
-    }
-    
-#ifdef HAVE_IPV6
-    if (ProtoAddress::IPv6 == dst_addr.GetType())
-    {
-        flow_transport->SetFlowLabel(flow_label);
-    }
-#endif //HAVE_IPV6
+
     // Send message, checking for error
     // (log only on success)
     MessageStatus result;
@@ -1227,7 +1234,7 @@ void MgenFlow::Reconnect()
         }
         struct timeval currentTime;
         ProtoSystemTime(currentTime);
-        MgenMsg theMsg;
+        
         theMsg.SetFlowId(flow_id);
         theMsg.SetDstAddr(dst_addr);
         flow_transport->LogEvent(RECONNECT_EVENT, &theMsg, currentTime);
@@ -1306,7 +1313,7 @@ bool MgenFlow::OnTxTimeout(ProtoTimer& /*theTimer*/)
         // for this flow, remove it from the pending queue.
         if (!old_transport->TransmittingFlow(flow_id))
           {
-              MgenMsg theMsg;
+              
               theMsg.SetFlowId(flow_id); 
               theMsg.SetDstAddr(orig_dst_addr);
               struct timeval currentTime;

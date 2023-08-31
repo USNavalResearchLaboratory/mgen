@@ -162,6 +162,7 @@ class MgenTransport
     MgenTransport*  prev;  
     MgenTransport*  next;  
   protected:	      
+    UINT32 txBuffer[MAX_SIZE];
     UINT16  srcPort;
     UINT16  dstPort;
     ProtoAddress    dstAddress;

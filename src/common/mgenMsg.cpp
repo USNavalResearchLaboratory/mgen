@@ -80,6 +80,13 @@ MgenMsg& MgenMsg::operator=(const MgenMsg& x)
 }
 */
 
+
+ UINT16 MgenMsg::Pack(UINT32* buffer, UINT16 bufferLen, bool includeChecksum, UINT32& tx_checksum, bool alwaysFill)
+ {
+    this->buffer_changed = alwaysFill;
+    return this->Pack(buffer, bufferLen, includeChecksum, tx_checksum);
+ }
+
 UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecksum, UINT32& tx_checksum)
 {
     char* buffer = (char*)alignedBuffer;
@@ -124,172 +131,175 @@ UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecks
     memcpy(buffer+len, &temp32, sizeof(INT32));
     len += sizeof(INT32);
     
-    // dst_port
-    temp16 = htons(dst_addr.GetPort());
-    memcpy(buffer+len, &temp16, sizeof(INT16));
-    len += sizeof(INT16);
-    // dst_addr fields
-    AddressType addrType;
-    switch (dst_addr.GetType())
-    {
-    case ProtoAddress::IPv4:
-      addrType = IPv4;
-      break;
-    case ProtoAddress::IPv6:
-      addrType = IPv6;
-      break;
-#ifdef SIMULATE
-    case ProtoAddress::SIM:
-      addrType = SIM;
-      break;
-#endif // SIMULATE
-    default:
-      DMSG(0, "MgenMsg::Pack() Error: unsupported address type\n");
-      return 0;
-    }
-    UINT8 addrLen = dst_addr.GetLength();
-    // dst_addr(type) 
-    buffer[len++] = (char)addrType;
-    // dst_addr(len)
-    buffer[len++] = (char)addrLen;    
-    // dst_addr(addr)
-    memcpy(buffer+len, dst_addr.GetRawHostAddress(), addrLen);
-    len += addrLen; 
-    
-    
-    // The fields below are optional and only
-    // packed if the msg_len permits
-    
-    // host_addr fields (not yet supported - TBD)
-    
-    switch (host_addr.GetType())
-    {
-    case ProtoAddress::IPv4:
-      addrType = IPv4;
-      break;
-    case ProtoAddress::IPv6:
-      addrType = IPv6;
-      break;
-#ifdef SIMULATE
-    case ProtoAddress::SIM:
-      addrType = SIM;
-      break;
-#endif // SIMULATE
-    default:
-      addrType = INVALID_ADDRESS; 
-    }
-    if (host_addr.IsValid())
-      addrLen = host_addr.GetLength();
-    else
-      addrLen = 0;
-
-    // Is there room for the host_port and host_addr?
-    if (msgLen >= (len + addrLen + 4))
-    {
-        // host_port
-        if (host_addr.IsValid())
-          temp16 = htons(host_addr.GetPort());
-        else
-          temp16 = 0;
+    if(this->buffer_changed) {
+        // dst_port
+        temp16 = htons(dst_addr.GetPort());
         memcpy(buffer+len, &temp16, sizeof(INT16));
         len += sizeof(INT16);
-        // host_addr(type)
+        // dst_addr fields
+        AddressType addrType;
+        switch (dst_addr.GetType())
+        {
+        case ProtoAddress::IPv4:
+        addrType = IPv4;
+        break;
+        case ProtoAddress::IPv6:
+        addrType = IPv6;
+        break;
+    #ifdef SIMULATE
+        case ProtoAddress::SIM:
+        addrType = SIM;
+        break;
+    #endif // SIMULATE
+        default:
+        DMSG(0, "MgenMsg::Pack() Error: unsupported address type\n");
+        return 0;
+        }
+        UINT8 addrLen = dst_addr.GetLength();
+        // dst_addr(type) 
         buffer[len++] = (char)addrType;
-        // host_addr(len)
-        buffer[len++] = (char)addrLen;
-        // host_addr(addr)
-        if (addrLen)
-          memcpy(buffer+len, host_addr.GetRawHostAddress(), addrLen);
-        len += addrLen;
-    }
-    else
-    {
-        if (msgLen < len)
+        // dst_addr(len)
+        buffer[len++] = (char)addrLen;    
+        // dst_addr(addr)
+        memcpy(buffer+len, dst_addr.GetRawHostAddress(), addrLen);
+        len += addrLen; 
+        
+        
+        // The fields below are optional and only
+        // packed if the msg_len permits
+        
+        // host_addr fields (not yet supported - TBD)
+        
+        switch (host_addr.GetType())
         {
-            DMSG(0, "MgenMsg::Pack() Error: minimum MGEN message size not met\n");
-            return 0;
+        case ProtoAddress::IPv4:
+        addrType = IPv4;
+        break;
+        case ProtoAddress::IPv6:
+        addrType = IPv6;
+        break;
+    #ifdef SIMULATE
+        case ProtoAddress::SIM:
+        addrType = SIM;
+        break;
+    #endif // SIMULATE
+        default:
+        addrType = INVALID_ADDRESS; 
         }
-        memset(buffer+len, 0, msgLen-len);  
-        packet_header_len = (UINT16)len;      
-        return msgLen;
-    } 
-    // GPS position information
-    // Is there room for the GPS info?
-    if (msgLen >= (len + 13))
-    {
-        // latitude
-        temp32 = htonl((UINT32)((latitude + 180.0)*60000.0));
-        memcpy(buffer+len, &temp32, sizeof(INT32));
-        len += sizeof(INT32);
-        // longitude
-        temp32 = htonl((UINT32)((longitude + 180.0)*60000.0));
-        memcpy(buffer+len, &temp32, sizeof(INT32));
-        len += sizeof(INT32);
-        // altitude
-        temp32 = htonl(altitude);
-        memcpy(buffer+len, &temp32, sizeof(INT32));
-        len += sizeof(INT32);
-        // status
-        buffer[len++] = (char) gps_status;
-    }
-    else
-    {
-        memset(buffer+len, 0, msgLen-len);
-        packet_header_len = (UINT16)len;      
-        return msgLen;    
-    }   
-    
-    if (msgLen >= (len+1))
-    {
-        buffer[len++] = (UINT8)payload_type;
-    }
-    else
-    {
-        packet_header_len = (UINT16)len;      
-        return msgLen;
-    }
-    if (msgLen >= (len+2))
-    {
-        UINT16 tmp16 = htons(payload_len);
-        memcpy(buffer+len, &tmp16, 2);
-        len += 2;
-    }
-    else
-    {
-        memset(buffer+len, 0, msgLen - len);
-        packet_header_len = (UINT16)len;      
-        return msgLen;
-    }
-    packet_header_len = (UINT16)len;  // everything _before_ the payload
-    if ((NULL != payload_data) && (msgLen >= (len+payload_len)))
-    {
-        // Copy whatever there is room for
-        memcpy(buffer+len, payload_data, payload_len);
-        len += payload_len;
-    }
-    else
-    {
-        memset(buffer+len-2, 0, 2);// zero payload_len
-    }
-    // Zero-fill rest of buffer
-    if (msgLen > len)
-    {
-#ifdef RANDOM_FILL
-        if (msgLen >= (2+len)) 
-        { 
-            //2 or more bytes filler
-            memset(buffer+len,0,2);
-            srand(time(NULL));
-            for (int fill=len+2;fill < msgLen;fill++)
-                memset(buffer+fill,rand(),1);
-        } //1 byte difference
-        else if (msgLen != len) 
+        if (addrType != INVALID_ADDRESS)
+        addrLen = host_addr.GetLength();
+        else
+        addrLen = 0;
+
+        // Is there room for the host_port and host_addr?
+        if (msgLen >= (len + addrLen + 4))
         {
-            memset(buffer+len,0,1);			  
+            // host_port
+            if (addrType != INVALID_ADDRESS)
+            temp16 = htons(host_addr.GetPort());
+            else
+            temp16 = 0;
+            memcpy(buffer+len, &temp16, sizeof(INT16));
+            len += sizeof(INT16);
+            // host_addr(type)
+            buffer[len++] = (char)addrType;
+            // host_addr(len)
+            buffer[len++] = (char)addrLen;
+            // host_addr(addr)
+            if (addrLen)
+            memcpy(buffer+len, host_addr.GetRawHostAddress(), addrLen);
+            len += addrLen;
         }
-#else
-        memset(buffer+len, 0, msgLen - len);
-#endif //RANDOM_FILL
+        else
+        {
+            if (msgLen < len)
+            {
+                DMSG(0, "MgenMsg::Pack() Error: minimum MGEN message size not met\n");
+                return 0;
+            }
+            // memset(buffer+len, 0, msgLen-len);
+            packet_header_len = (UINT16)len;      
+            return msgLen;
+        } 
+        // GPS position information
+        // Is there room for the GPS info?
+        if (msgLen >= (len + 13))
+        {
+            // latitude
+            temp32 = htonl((UINT32)((latitude + 180.0)*60000.0));
+            memcpy(buffer+len, &temp32, sizeof(INT32));
+            len += sizeof(INT32);
+            // longitude
+            temp32 = htonl((UINT32)((longitude + 180.0)*60000.0));
+            memcpy(buffer+len, &temp32, sizeof(INT32));
+            len += sizeof(INT32);
+            // altitude
+            temp32 = htonl(altitude);
+            memcpy(buffer+len, &temp32, sizeof(INT32));
+            len += sizeof(INT32);
+            // status
+            buffer[len++] = (char) gps_status;
+        }
+        else
+        {
+            // memset(buffer+len, 0, msgLen-len);
+            packet_header_len = (UINT16)len;      
+            return msgLen;    
+        }   
+        
+        if (msgLen >= (len+1))
+        {
+            buffer[len++] = (UINT8)payload_type;
+        }
+        else
+        {
+            packet_header_len = (UINT16)len;      
+            return msgLen;
+        }
+        if (msgLen >= (len+2))
+        {
+            UINT16 tmp16 = htons(payload_len);
+            memcpy(buffer+len, &tmp16, 2);
+            len += 2;
+        }
+        else
+        {
+            // memset(buffer+len, 0, msgLen - len);
+            packet_header_len = (UINT16)len;      
+            return msgLen;
+        }
+        packet_header_len = (UINT16)len;  // everything _before_ the payload
+        if ((NULL != payload_data) && (msgLen >= (len+payload_len)))
+        {
+            // Copy whatever there is room for
+            memcpy(buffer+len, payload_data, payload_len);
+            len += payload_len;
+        }
+        else
+        {
+            // memset(buffer+len-2, 0, 2);// zero payload_len
+        }
+        // Zero-fill rest of buffer
+        if (msgLen > len)
+        {
+    #ifdef RANDOM_FILL
+            if (msgLen >= (2+len)) 
+            { 
+                //2 or more bytes filler
+                memset(buffer+len,0,2);
+                srand(time(NULL));
+                for (int fill=len+2;fill < msgLen;fill++)
+                    memset(buffer+fill,rand(),1);
+            } //1 byte difference
+            else if (msgLen != len) 
+            {
+                memset(buffer+len,0,1);			  
+            }
+    #else
+            // memset(buffer+len, 0, msgLen - len);
+    #endif //RANDOM_FILL
+        }
+        this->buffer_changed = false;
     }
     if (includeChecksum)
     {
