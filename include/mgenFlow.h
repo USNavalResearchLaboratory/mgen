@@ -117,6 +117,7 @@ class MgenFlow
     void UpdateMessagesSent() { messages_sent++; }
 
   private:
+    bool msgUpdateRequired;
 	bool GetNextInterval();
     bool OnEventTimeout(ProtoTimer& theTimer);	
 	bool                    off_pending;
@@ -174,6 +175,7 @@ class MgenFlow
     MgenFlow*               next;  
     MgenFlow*               pending_next;
     MgenFlow*               pending_prev;
+    MgenMsg                 theMsg;
 };  // end class MgenFlow
 
 /**

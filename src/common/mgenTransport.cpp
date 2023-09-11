@@ -945,14 +945,15 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
             char* buffer = (char*)alignedBuffer;
             unsigned int len = MAX_SIZE;
             ProtoAddress srcAddr;
-            while (theSocket.RecvFrom((char*)buffer, len, srcAddr))
+            MgenMsg theMsg;
+            while (theSocket.RecvFrom((char*)buffer, len, srcAddr)) 
             {
                 if (len == 0) break;
                 if (mgen.GetLogFile() || mgen.ComputeAnalytics())
                 {
                     struct timeval currentTime;
                     ProtoSystemTime(currentTime);
-                    MgenMsg theMsg;
+                    
                     // the socket recvFrom gives us our srcAddr
                     theMsg.SetSrcAddr(srcAddr);
                     if (theMsg.Unpack(alignedBuffer, len, mgen.GetChecksumForce(), mgen.GetLogData()))
@@ -983,7 +984,7 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                             ProcessRecvMessage(theMsg, ProtoTime(currentTime));
                             if (mgen.ComputeAnalytics())
                                 mgen.UpdateRecvAnalytics(currentTime, &theMsg, UDP);
-                            if (mgen.GetLogFile())
+                            if (mgen.GetLogFile() && mgen.GetUDPOptimizationEnable())
                                 LogEvent(RECV_EVENT, &theMsg, currentTime, alignedBuffer);
                         }
                     }
@@ -1019,11 +1020,8 @@ MessageStatus MgenUdpTransport::SendMessage(MgenMsg& theMsg, const ProtoAddress&
     //struct timeval currentTime;
     //ProtoSystemTime(currentTime);
     //theMsg.SetTxTime(currentTime);
-    
-    UINT32 txBuffer[MAX_SIZE/4 + 1];
-    
 
-    unsigned int len = theMsg.Pack(txBuffer, theMsg.GetMsgLen(),mgen.GetChecksumEnable(),txChecksum);
+    unsigned int len = theMsg.Pack(txBuffer, theMsg.GetMsgLen(),mgen.GetChecksumEnable(),txChecksum, mgen.GetUDPOptimizationEnable());
     if (len == 0) 
       return MSG_SEND_FAILED; // no room
     
@@ -2188,6 +2186,7 @@ void MgenTransport::ProcessRecvMessage(MgenMsg& msg, const ProtoTime& theTime)
             bufferPtr += itemLen / sizeof(UINT32);
         }
     }
+    
 }  // end MgenTransport::ProcessRecvMessage()
 
 
