@@ -984,8 +984,8 @@ void MgenUdpTransport::OnEvent(ProtoSocket& theSocket, ProtoSocket::Event theEve
                             ProcessRecvMessage(theMsg, ProtoTime(currentTime));
                             if (mgen.ComputeAnalytics())
                                 mgen.UpdateRecvAnalytics(currentTime, &theMsg, UDP);
-                            // if (mgen.GetLogFile())
-                            //     LogEvent(RECV_EVENT, &theMsg, currentTime, alignedBuffer);
+                            if (mgen.GetLogFile() && mgen.GetUDPOptimizationEnable())
+                                LogEvent(RECV_EVENT, &theMsg, currentTime, alignedBuffer);
                         }
                     }
                     else 
