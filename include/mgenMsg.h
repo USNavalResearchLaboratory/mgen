@@ -106,7 +106,7 @@ class MgenMsg
 	~MgenMsg();
 	//MgenMsg& operator=(const MgenMsg&);
     UINT16 Pack(UINT32* buffer, UINT16 bufferLen, bool includeChecksum, UINT32& tx_checksum);
-    UINT16 Pack(UINT32* buffer, UINT16 bufferLen, bool includeChecksum, UINT32& tx_checksum, bool alwaysFill);
+    UINT16 Pack(UINT32* buffer, UINT16 bufferLen, bool includeChecksum, UINT32& tx_checksum, bool enableOpt);
     
     bool Unpack(UINT32* buffer, UINT16 bufferLen, bool forceChecksum,bool log_data);
 	static bool WriteChecksum(UINT32&   tx_checksum,
