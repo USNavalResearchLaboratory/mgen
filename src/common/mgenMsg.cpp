@@ -44,7 +44,8 @@ MgenMsg::MgenMsg()
     payload_len(0), payload_data(NULL),
     protocol(INVALID_PROTOCOL),
     msg_error(ERROR_NONE),
-    compute_crc(true)
+    compute_crc(true),
+    enable_opt(false)
 {
 
 }
@@ -81,9 +82,9 @@ MgenMsg& MgenMsg::operator=(const MgenMsg& x)
 */
 
 
- UINT16 MgenMsg::Pack(UINT32* buffer, UINT16 bufferLen, bool includeChecksum, UINT32& tx_checksum, bool alwaysFill)
+ UINT16 MgenMsg::Pack(UINT32* buffer, UINT16 bufferLen, bool includeChecksum, UINT32& tx_checksum, bool enableOpt)
  {
-    this->buffer_changed = alwaysFill;
+    this->enable_opt = enableOpt;
     return this->Pack(buffer, bufferLen, includeChecksum, tx_checksum);
  }
 
@@ -217,7 +218,7 @@ UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecks
                 DMSG(0, "MgenMsg::Pack() Error: minimum MGEN message size not met\n");
                 return 0;
             }
-            // memset(buffer+len, 0, msgLen-len);
+            memset(buffer+len, 0, msgLen-len);
             packet_header_len = (UINT16)len;      
             return msgLen;
         } 
@@ -242,7 +243,7 @@ UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecks
         }
         else
         {
-            // memset(buffer+len, 0, msgLen-len);
+            memset(buffer+len, 0, msgLen-len);
             packet_header_len = (UINT16)len;      
             return msgLen;    
         }   
@@ -264,7 +265,7 @@ UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecks
         }
         else
         {
-            // memset(buffer+len, 0, msgLen - len);
+            memset(buffer+len, 0, msgLen - len);
             packet_header_len = (UINT16)len;      
             return msgLen;
         }
@@ -277,7 +278,7 @@ UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecks
         }
         else
         {
-            // memset(buffer+len-2, 0, 2);// zero payload_len
+            memset(buffer+len-2, 0, 2);// zero payload_len
         }
         // Zero-fill rest of buffer
         if (msgLen > len)
@@ -296,10 +297,12 @@ UINT16 MgenMsg::Pack(UINT32* alignedBuffer, UINT16 bufferLen, bool includeChecks
                 memset(buffer+len,0,1);			  
             }
     #else
-            // memset(buffer+len, 0, msgLen - len);
+             memset(buffer+len, 0, msgLen - len);
     #endif //RANDOM_FILL
         }
-        this->buffer_changed = false;
+        if (this->enable_opt) {
+            this->buffer_changed = false;
+        }
     }
     if (includeChecksum)
     {

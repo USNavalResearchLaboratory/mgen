@@ -192,6 +192,7 @@ class Mgen
     bool GetChecksumForce() {return checksum_force;}
     bool GetLogData() {return log_data;}
     bool GetLogGpsData() {return log_gps_data;}
+    bool GetUDPOptimizationEnable() {return UDP_optimization_enable;}
     bool OpenLog(const char* path, bool append, bool binary);
     void CloseLog();
     void SetLogFile(FILE* filePtr);
@@ -282,6 +283,10 @@ class Mgen
     void SetLogGpsData(bool logGpsData)
     {
       log_gps_data = logGpsData;
+    }
+    void SetUDPOptimization(bool UDPOptimizationEnable) 
+    {
+      UDP_optimization_enable = UDPOptimizationEnable;
     }
     void ClearHostAddress()
     {
@@ -528,6 +533,7 @@ class Mgen
     
     bool               log_data;
     bool               log_gps_data;
+    bool               UDP_optimization_enable;
     ProtoAddress       host_addr;
     bool               checksum_enable;       
     

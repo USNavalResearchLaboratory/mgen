@@ -1137,8 +1137,9 @@ bool MgenFlow::SendMessage()
             flow_transport->SetFlowLabel(flow_label);
         }
     #endif //HAVE_IPV6
-
-        this->msgUpdateRequired = false;
+        if (mgen.GetUDPOptimizationEnable()) {
+            this->msgUpdateRequired = false;
+        }
     }
 
     // Send message, checking for error

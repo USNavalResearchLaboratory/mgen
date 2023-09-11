@@ -241,6 +241,7 @@ class MgenMsg
 	bool            compute_crc;
     UINT8*          msg_buffer;
     bool            buffer_changed;
+    bool            enable_opt;
     
     enum {FLAGS_OFFSET = 3};
 };  // end class MgenMsg    

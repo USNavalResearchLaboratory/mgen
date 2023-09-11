@@ -1021,7 +1021,7 @@ MessageStatus MgenUdpTransport::SendMessage(MgenMsg& theMsg, const ProtoAddress&
     //ProtoSystemTime(currentTime);
     //theMsg.SetTxTime(currentTime);
 
-    unsigned int len = theMsg.Pack(txBuffer, theMsg.GetMsgLen(),mgen.GetChecksumEnable(),txChecksum);
+    unsigned int len = theMsg.Pack(txBuffer, theMsg.GetMsgLen(),mgen.GetChecksumEnable(),txChecksum, mgen.GetUDPOptimizationEnable());
     if (len == 0) 
       return MSG_SEND_FAILED; // no room
     
