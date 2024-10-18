@@ -1135,11 +1135,11 @@ void MgenTcpTransport::ScheduleReconnect(ProtoSocket& theSocket)
         if (next->GetFlowTransport() && next->GetFlowTransport()->OwnsSocket(theSocket))
         {
             // First pause the flow
-            sprintf(cmd, "MOD %d PAUSE", next->GetFlowId());
+            sprintf(cmd, "MOD %u PAUSE", next->GetFlowId());
             mgen.ParseEvent(cmd, 0, true);
 
             // Then resume after delay
-            sprintf(cmd, "%x MOD %x RECONNECT", (unsigned int) GetRetryDelay(), next->GetFlowId());
+            sprintf(cmd, "%x MOD %u RECONNECT", (unsigned int) GetRetryDelay(), next->GetFlowId());
             mgen.ParseEvent(cmd, 0, true);
             
         }
