@@ -1139,7 +1139,7 @@ void MgenTcpTransport::ScheduleReconnect(ProtoSocket& theSocket)
             mgen.ParseEvent(cmd, 0, true);
 
             // Then resume after delay
-            sprintf(cmd, "%x MOD %u RECONNECT", (unsigned int) GetRetryDelay(), next->GetFlowId());
+            sprintf(cmd, "%u MOD %u RECONNECT", GetRetryDelay(), next->GetFlowId());
             mgen.ParseEvent(cmd, 0, true);
             
         }
