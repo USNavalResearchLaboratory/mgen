@@ -11,6 +11,7 @@ import zerorpc
 import mgen
 import binascii
 import argparse, sys, os, signal
+from functools import partial
 
 global _HAVE_GPSPUB
 try:
@@ -108,7 +109,7 @@ class MgenActor(object):
         mgenevent = "on {f} udp dst {a}/{p} per [1 {s}] count 1 interface {i} data [{d}]".format(f=flowid, a=ip_addr, p=ip_port, s=size, i=interface, d=sensor_data)
                                       
         self.sender.send_event(mgenevent)
-        print("Executed MGEN send !!")
+        print("Executed MGEN send > %s " %mgenevent)
         return mgenevent
 
     def send_text_payload(self, text, ip_addr, ip_port, interface, flowid):
@@ -149,7 +150,7 @@ class MgenActor(object):
         mgenevent = "on {f} udp dst {a}/{p} per [1 {s}] count 1 interface {i} data [{d}]".format(f=flowid, a=ip_addr, p=ip_port, s=size, i=interface, d=enc_text)
                                         
         self.sender.send_event(mgenevent)
-        print("Executed MGEN send !!")
+        print("Executed MGEN send > %s " %mgenevent)
         return mgenevent
 
     def send_event (self, mgen_event):
@@ -167,7 +168,7 @@ class MgenActor(object):
         '''
                             
         self.sender.send_event(mgen_event)
-        print("Executed MGEN send !!")
+        print("Executed MGEN send > %s " %mgen_event)
         return mgen_event
 
     def send_mgen_cmd(self, mgen_cmd):
@@ -185,7 +186,7 @@ class MgenActor(object):
         '''
                                         
         self.sender.send_command(mgen_cmd)
-        print("Sent MGEN command !!")
+        print("Sent MGEN command > %s " %mgen_cmd)
         return mgen_cmd
     
     def my_name(self):
@@ -240,8 +241,31 @@ class MgenActor(object):
         else:
             return self.gpsLat,self.gpsLon,self.gpsAlt
 
-def shutdown(*args):
-    print("Shutting down")
+
+    def shutdown(self):
+        ''' Function to shutdown actor and associated mgen instance
+            
+        :returns: name of Actor Class instance
+        :rtype: str 
+        
+        '''
+        print(f"Stopping mgen instance {self.name} and shutting down")
+        try:
+            if self.hasGps:
+                gpsPub.GPSPublishShutdown(self.gpsHandle,self.gpsKey)
+
+            self.sender.shutdown()
+
+        except Exception as e:
+            print(f"Warning: could not send stop command: {e}")
+        sys.exit(0)
+
+        
+
+def handle_shutdown(signum, frame, actor):
+    print("Shutting down mgenActor and instance")
+    actor.shutdown()
+    print("Server shutting down")
     sys.exit(0)
 
 def main():
@@ -270,23 +294,25 @@ def main():
         parser.print_help()
         sys.exit(err)
 
-    signal.signal(signal.SIGINT, shutdown)
-    signal.signal(signal.SIGTERM, shutdown)
-
     # parse command line options
     args = parser.parse_args()
-
-    if args.port < 2000 or args.port > 100000:
-        usage("invalid port: {p}".format(p=args.port))
-
-
-    server_url = "tcp://{a}:{p}".format(a=args.addr, p=args.port)
-    print(server_url)
     hasGps = args.hasGps
     if _HAVE_GPSPUB is False:
         hasGps = False
         print("_gpsPub not installed on this system, disabling gps support")
-    s = zerorpc.Server(MgenActor(args.name,hasGps))    
+
+    if args.port < 2000 or args.port > 100000:
+        usage("invalid port: {p}".format(p=args.port))
+
+    actor = MgenActor(args.name, hasGps)
+
+    signal.signal(signal.SIGINT, partial(handle_shutdown, actor=actor))
+    signal.signal(signal.SIGTERM, partial(handle_shutdown, actor=actor))
+
+
+    server_url = "tcp://{a}:{p}".format(a=args.addr, p=args.port)
+    print(server_url)
+    s = zerorpc.Server(actor)    
     s.bind(server_url)
     s.run()
 
