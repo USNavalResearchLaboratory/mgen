@@ -34,11 +34,11 @@ class BurgerMenuHeader  : public Component
         SidePanel&  sidePanel;
         Label       titleLabel;
         ShapeButton burgerButton;
-        
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BurgerMenuHeader)
 };  // end class BurgerMenuHeader
 #endif // USE_BURGER_MENU
-    
+
 class ControlComponent    : public Component,
                             public Button::Listener,
                             public ComboBox::Listener,
@@ -48,32 +48,32 @@ class ControlComponent    : public Component,
     public:
         ControlComponent(class MgenderApp& theApp);
         ~ControlComponent();
-        
+
         void paint (Graphics&) override;
         void resized() override;
         void buttonClicked(Button* buttonThatWasClicked) override;
-    
+
         void comboBoxChanged(ComboBox* comboBoxThatHasChanged) override;
-    
+
         void textEditorTextChanged(TextEditor &) override {}
         void textEditorReturnKeyPressed(TextEditor &editor) override;
         void textEditorEscapeKeyPressed(TextEditor &editor) override
             {textEditorReturnKeyPressed(editor);}
         void textEditorFocusLost(TextEditor &editor) override
             {textEditorReturnKeyPressed(editor);}
-    
+
         void handleAsyncUpdate() override;
-        
+
         void SetInterfaceText(const String& ifaceName)
             {iface_text.setText(ifaceName);}
-    
+
         void SetReportContent(const String& theContent);  // to be called by mgen thread only
         void SetReportContentDirect(const String& theContent)
             {report_text.setText(theContent);}
         void UpdateProbeAddress();
         bool StartProbing();
         void OnUpdateProbeAddress();
-    
+
         // Binary resources:
         static const char*  mgenLogo_png;
         static const int    mgenLogo_pngSize;
@@ -87,7 +87,7 @@ class ControlComponent    : public Component,
         BurgerMenuComponent         burger_menu;
         SidePanel                   menu_panel {"Menu", 300, false};
         BurgerMenuHeader            menu_header{menu_panel};
-#endif // USE_BURGER_MENU    
+#endif // USE_BURGER_MENU
         ImageButton                 logo_butn;
         GroupComponent              dest_group;
         TextEditor                  addr_text;
@@ -115,12 +115,12 @@ class ControlComponent    : public Component,
         FlexBox                     flow_box;
         FlexBox                     report_box;
         FlexBox                     control_box;
-        
+
         String                      report_content;
         bool                        report_content_pending;
         bool                        probe_addr_update_pending;
         CriticalSection             update_lock;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ControlComponent)
-                
+
 };  // end class ControlComponent

@@ -1,0 +1,8 @@
+*	text=auto
+*.bat	text=crlf
+*.dsp	text=crlf
+*.sln	text=crlf
+*.vcp	text=crlf
+*.vcproj	text=crlf
+*.vcw	text=crlf
+*.vcxproj	text=crlf

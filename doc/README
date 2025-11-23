@@ -2,7 +2,7 @@ Generating doxygen output on Windows:
 
 1. Make sure the doc/doxy-config file points to the correct location
    of graphwiz's "dot" exectuable for your system. (DOT_PATH variable)
-2. Load the doxygen configuration file (doc/doxy-config) into the 
+2. Load the doxygen configuration file (doc/doxy-config) into the
    doxygen wizard.
 3. Start, output will be put in /doc/html.
 
@@ -18,14 +18,14 @@ How to document classes:
 
 /**
  * @class ClassName
- * 
+ *
  * @brief Enter a brief description of the
- * class, the first sentence 
+ * class, the first sentence
  * will be included in the brief description.
  *
  * Anything after the first sentence, and included
  * in the "@class" block will be part of the
- * detailed description, available from 
+ * detailed description, available from
  * the doxygen class file.
  *
  * The "@brief" description will be used to
@@ -38,7 +38,7 @@ How to document functions:
 /**
  *
  * @brief Description of the function.  Will appear before function
- * definition.  Don't really need "@brief" as JAVADOC_AUTOBRIEF is 
+ * definition.  Don't really need "@brief" as JAVADOC_AUTOBRIEF is
  * turned on.
  *
  * @param Defailed parameter text, if needed.  Will appear in
@@ -63,7 +63,7 @@ to no, use the @callgraph/@callergraph commands.
 
 4. @sa "See also" alias.
    @note "Note" alias
-   @exception 
+   @exception
    @class
    @param
    @return
@@ -78,7 +78,7 @@ to no, use the @callgraph/@callergraph commands.
 INPUT = ../common
 
 #Add protolib to the doxygen output
-#INPUT += ../../protolib/common 
+#INPUT += ../../protolib/common
 
 #To add files
 #INPUT += ../../protolib/common/protoApp.h ../../protolib/common/protoApp.cpp
