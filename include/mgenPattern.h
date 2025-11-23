@@ -28,19 +28,19 @@ class MgenPattern
     public:
         MgenPattern();
         ~MgenPattern();
-#ifdef HAVE_PCAP	
+#ifdef HAVE_PCAP
         enum Type {INVALID_TYPE, PERIODIC, POISSON, BURST, JITTER, CLONE};
 	enum FileType {INVALID_FILETYPE, TCPDUMP};
 	static const StringMapper CLONE_FILE_LIST[];
 	static FileType GetFileTypeFromString(const char* string);
 #else
-        enum Type {INVALID_TYPE, PERIODIC, POISSON, BURST, JITTER};    
+        enum Type {INVALID_TYPE, PERIODIC, POISSON, BURST, JITTER};
 #endif
     static Type GetTypeFromString(const char* string);
 
     bool InitFromString(MgenPattern::Type theType, const char* string,Protocol protocol);
-                
-    double GetPktInterval();        
+
+    double GetPktInterval();
     double GetIntervalAve() {return interval_ave;}
     unsigned int GetPktSize();
     void InvalidatePattern() {type = INVALID_TYPE;};
@@ -51,31 +51,31 @@ class MgenPattern
 	bool ReadingPcapFile() {return pcap_device;}
 #endif
   private:
-        static const StringMapper TYPE_LIST[]; 
-        enum Burst {INVALID_BURST, REGULAR, RANDOM};  
+        static const StringMapper TYPE_LIST[];
+        enum Burst {INVALID_BURST, REGULAR, RANDOM};
         static const StringMapper BURST_LIST[];
         static Burst GetBurstTypeFromString(const char* string);
-        enum Duration {INVALID_DURATION, FIXED, EXPONENTIAL};  
-        static const StringMapper DURATION_LIST[];   
+        enum Duration {INVALID_DURATION, FIXED, EXPONENTIAL};
+        static const StringMapper DURATION_LIST[];
         static Duration GetDurationTypeFromString(const char* string);
-        
+
         static double UniformRand(double min, double max)
         {
             double range = max - min;
-            return (((((double)rand()) * range) / ((double)RAND_MAX)) + min); 
+            return (((((double)rand()) * range) / ((double)RAND_MAX)) + min);
         }
         static unsigned int UniformRandUnsigned(unsigned int min, unsigned int max)
         {
             unsigned int range = max - min + 1;
             return ((unsigned int)rand() % range + min);
         }
-         
+
         static double ExponentialRand(double mean)
         {
 //           return (-(log(1.0 - ( ((double)rand())/((double)RAND_MAX)) )) * mean);
              return(-log(((double)rand())/((double)RAND_MAX))*mean);
         }
-#ifdef HAVE_PCAP	
+#ifdef HAVE_PCAP
         double RestartPcapRead(double &prevTime);
         bool OpenPcapDevice();
 #endif

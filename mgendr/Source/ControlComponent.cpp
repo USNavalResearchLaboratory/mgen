@@ -16,7 +16,7 @@
 
 #ifdef USE_BURGER_MENU
 BurgerMenuHeader::BurgerMenuHeader (SidePanel& sp)
-    : sidePanel(sp), titleLabel("titleLabel", "mgendr"), 
+    : sidePanel(sp), titleLabel("titleLabel", "mgendr"),
       burgerButton("burgerButton", Colours::lightgrey, Colours::lightgrey, Colours::white)
 
 {
@@ -72,7 +72,7 @@ ControlComponent::ControlComponent(class MgenderApp& theApp)
 {
     // In your constructor, you should add any child components, and
     // initialise any special settings that your component needs.
-    
+
 #ifdef USE_BURGER_MENU
     burger_menu.setModel(&theApp);
     addAndMakeVisible(&menu_header);
@@ -81,7 +81,7 @@ ControlComponent::ControlComponent(class MgenderApp& theApp)
     addAndMakeVisible(&menu_bar);
 #endif // if/else USE_BURGER_MENU
     Colour groupLabelColor(0xff00ff00);
-    
+
     // Our gratuitous MGEN logo button component
     logo_butn.setButtonText(TRANS("nuthin'"));
     logo_butn.addListener(this);
@@ -97,7 +97,7 @@ ControlComponent::ControlComponent(class MgenderApp& theApp)
     dest_group.setColour(GroupComponent::outlineColourId, groupLabelColor);
     dest_group.setColour(GroupComponent::textColourId, groupLabelColor);
     addAndMakeVisible(&dest_group);
-    
+
     //addr_label.reset(new Label("addr_label", TRANS("Address:")));
     addr_label.setText(TRANS("Addr:"), dontSendNotification);
     addr_label.setFont(Font(12.00f, Font::plain).withTypefaceStyle("Regular"));
@@ -107,7 +107,7 @@ ControlComponent::ControlComponent(class MgenderApp& theApp)
     addr_label.setColour(TextEditor::backgroundColourId, Colour(0x00000000));
     //addr_label.setBounds(16,(0 + proportionOfHeight(0.2000f)) + 24, 64, 32);
     dest_group.addAndMakeVisible(&addr_label);
-    
+
     //addr_text.reset(new TextEditor("addr_text"));
     addr_text.setMultiLine(false);
     addr_text.setReturnKeyStartsNewLine(false);
@@ -126,8 +126,8 @@ ControlComponent::ControlComponent(class MgenderApp& theApp)
     port_label.setEditable(false, false, false);
     port_label.setColour(TextEditor::textColourId, Colours::white);
     port_label.setColour(TextEditor::backgroundColourId, Colour(0x00000000));
-    dest_group.addAndMakeVisible(&port_label);   
-    
+    dest_group.addAndMakeVisible(&port_label);
+
     //port_text.reset(new TextEditor("port_text"));
     port_text.setMultiLine(false);
     port_text.setReturnKeyStartsNewLine(false);
@@ -139,7 +139,7 @@ ControlComponent::ControlComponent(class MgenderApp& theApp)
     port_text.setKeyboardType(TextInputTarget::numericKeyboard);
     port_text.addListener(this);
     dest_group.addAndMakeVisible(&port_text);
-    
+
     //iface_label.reset(new Label("iface_label", TRANS("Port:")));
     iface_label.setText(TRANS("Interface:"), dontSendNotification);
     iface_label.setFont(Font(12.00f, Font::plain).withTypefaceStyle("Regular"));
@@ -147,8 +147,8 @@ ControlComponent::ControlComponent(class MgenderApp& theApp)
     iface_label.setEditable(false, false, false);
     iface_label.setColour(TextEditor::textColourId, Colours::white);
     iface_label.setColour(TextEditor::backgroundColourId, Colour(0x00000000));
-    dest_group.addAndMakeVisible(&iface_label);   
-    
+    dest_group.addAndMakeVisible(&iface_label);
+
     //iface_text.reset(new TextEditor("iface_text"));
     iface_text.setMultiLine(false);
     iface_text.setReturnKeyStartsNewLine(false);
@@ -160,7 +160,7 @@ ControlComponent::ControlComponent(class MgenderApp& theApp)
     iface_text.setKeyboardType(TextInputTarget::numericKeyboard);
     iface_text.addListener(this);
     dest_group.addAndMakeVisible(&iface_text);
-         
+
     //pattern_label.reset(new Label("pattern_label", TRANS("Message Pattern:")));
     pattern_label.setText(TRANS("Message Pattern:"), dontSendNotification);
     pattern_label.setFont(Font(12.00f, Font::plain).withTypefaceStyle("Regular"));
@@ -191,7 +191,7 @@ ControlComponent::ControlComponent(class MgenderApp& theApp)
     rate_label.setColour(TextEditor::textColourId, Colours::white);
     rate_label.setColour(TextEditor::backgroundColourId, Colour(0x00000000));
     dest_group.addAndMakeVisible(&rate_label);
-    
+
     // rate_text.reset(new TextEditor("rate_text"));
     rate_text.setTooltip(TRANS("messages per second"));
     rate_text.setMultiLine(false);
@@ -214,7 +214,7 @@ ControlComponent::ControlComponent(class MgenderApp& theApp)
     size_label.setColour(TextEditor::textColourId, Colours::white);
     size_label.setColour(TextEditor::backgroundColourId, Colour(0x00000000));
     dest_group.addAndMakeVisible(&size_label);
-    
+
     //size_text.reset(new TextEditor("size_text"));
     size_text.setMultiLine(false);
     size_text.setReturnKeyStartsNewLine(false);
@@ -227,12 +227,12 @@ ControlComponent::ControlComponent(class MgenderApp& theApp)
     size_text.addListener(this);
     dest_group.addAndMakeVisible(&size_text);
     //size_label.attachToComponent(&size_text, false);
-    
+
     report_group.setText(TRANS("Flow Reports:"));
     report_group.setColour(GroupComponent::outlineColourId, groupLabelColor);
     report_group.setColour(GroupComponent::textColourId, groupLabelColor);
     addAndMakeVisible(&report_group);
-    
+
     //report_text.reset(new TextEditor("new text editor"));
     report_text.setMultiLine(true);
     report_text.setReturnKeyStartsNewLine(false);
@@ -243,7 +243,7 @@ ControlComponent::ControlComponent(class MgenderApp& theApp)
     report_text.setText(String());
     //report_text.setScrollToShowCursor(false);
     report_group.addAndMakeVisible(&report_text);
-    
+
     Colour bkColor = getLookAndFeel().findColour(ResizableWindow::backgroundColourId);
     start_butn.setButtonText(TRANS("Start Probe"));
     start_butn.addListener(this);
@@ -252,7 +252,7 @@ ControlComponent::ControlComponent(class MgenderApp& theApp)
     start_butn.setColour(TextButton::buttonColourId, groupLabelColor);
     start_butn.setColour(TextButton::buttonOnColourId, Colour(0xff008000));
     addAndMakeVisible(&start_butn);
-    
+
     stop_butn.setButtonText(TRANS("Stop Probe"));
     stop_butn.addListener(this);
     stop_butn.setColour(TextButton::textColourOffId, bkColor);
@@ -260,7 +260,7 @@ ControlComponent::ControlComponent(class MgenderApp& theApp)
     stop_butn.setColour(TextButton::buttonColourId, groupLabelColor);
     stop_butn.setColour(TextButton::buttonOnColourId, Colour(0xff008000));
     addAndMakeVisible(&stop_butn);
-    
+
     auto_toggle.setButtonText(TRANS("Auto Adjust Rate"));
     auto_toggle.addListener(this);
     auto_toggle.setColour(ToggleButton::tickColourId, groupLabelColor);
@@ -269,11 +269,11 @@ ControlComponent::ControlComponent(class MgenderApp& theApp)
     addAndMakeVisible(&auto_toggle);
     auto_toggle.setEnabled(false);  // not functional yet
 
-#ifdef USE_BURGER_MENU       
+#ifdef USE_BURGER_MENU
     // We add this last so it ends up on top
     addAndMakeVisible(&menu_panel);
 #endif // USE_BURGER_MENU
-     
+
     setSize(420, 500);
 }
 
@@ -298,15 +298,15 @@ void ControlComponent::resized() {
 
     // Load our FlexBoxes with our GUI elements
     int usedHeight = 0;
-    
+
 #ifdef USE_BURGER_MENU
     box.items.add(FlexItem(getWidth(), 24, menu_header));
 #else
     box.items.add(FlexItem(getWidth(), 24, menu_bar));
 #endif  // if/else USE_BURGER_MENU
-    
+
     usedHeight += 24;
-    
+
 #ifdef JUCE_ANDROID
     Desktop::DisplayOrientation orient = Desktop::getInstance().getCurrentOrientation();
     bool isPortrait = (Desktop::upright == orient) || (Desktop::upsideDown == orient);
@@ -321,9 +321,9 @@ void ControlComponent::resized() {
         box.items.add(FlexItem(getWidth(), 64, logo_butn));
         usedHeight += 64;
     }
-    
+
     int hr = getHeight() - usedHeight;  // height remaining minus MGEN logo
-    
+
     // TBD - shoudl we even use a flex box for the address/pattern probe "destination"
     // group since it will be of fixed (non-flexed) height when all is said and done???
     FlexBox dboxa;  // flex box for dest addr/port configuration components
@@ -332,7 +332,7 @@ void ControlComponent::resized() {
     dboxa.justifyContent = FlexBox::JustifyContent::flexStart;  // left-justified packing
     dboxa.alignItems = FlexBox::AlignItems::flexStart;
     dboxa.flexWrap = FlexBox::Wrap::noWrap;
-    
+
     // Compute height (and width) for address components
     int lht = 1.25*addr_label.getFont().getHeight();
     int lwa = 1.25*addr_label.getFont().getStringWidth(addr_label.getText());
@@ -350,7 +350,7 @@ void ControlComponent::resized() {
     dboxa.items.add(FlexItem(edw, 1.25*lht, port_text));//.withMaxWidth(lwa));
     dboxa.items.add(FlexItem(lwi, 1.25*lht, iface_label).withMargin(FlexItem::Margin(0, 0, 0, 5)));//.withMaxWidth(lwp));
     dboxa.items.add(FlexItem(edw, 1.25*lht, iface_text));//.withMaxWidth(lwa));*/
-    
+
     // Flex boxes that stack flow parameter label/control component pairs of 'pattern', 'rate', and 'size'
     FlexBox dboxpt;  // destination group pattern tyoe FlexBox
     dboxpt.alignContent = FlexBox::AlignContent::flexStart;
@@ -361,8 +361,8 @@ void ControlComponent::resized() {
     int lwpp = pattern_label.getFont().getStringWidth(pattern_label.getText());
     dboxpt.items.add(FlexItem(lwpp, lht, pattern_label));
     dboxpt.items.add(FlexItem(1, lht, pattern_box).withFlex(1.0));
-    
-    
+
+
     FlexBox dboxpr;  // destination group pattern rate FlexBox
     dboxpr.alignContent = FlexBox::AlignContent::flexStart;
     dboxpr.flexDirection = FlexBox::Direction::column;
@@ -372,7 +372,7 @@ void ControlComponent::resized() {
     int lwpr = rate_label.getFont().getStringWidth(pattern_label.getText());
     dboxpr.items.add(FlexItem(lwpr, lht, rate_label));
     dboxpr.items.add(FlexItem(lwpr, lht, rate_text));
-   
+
     FlexBox dboxps;   // destination group pattern size FlexBox
     dboxps.alignContent = FlexBox::AlignContent::flexStart;
     dboxps.flexDirection = FlexBox::Direction::column;
@@ -382,8 +382,8 @@ void ControlComponent::resized() {
     int lwps = size_label.getFont().getStringWidth(pattern_label.getText());
     dboxps.items.add(FlexItem(lwps, lht, size_label).withFlex(1.0));
     dboxps.items.add(FlexItem(lwps, lht, size_text).withFlex(1.0));
-    
-    
+
+
     // Pack pattern config components into a horizontal (row) flex box
     FlexBox dboxp;  // flex box for destination group patterm configuration components
     dboxp.alignContent = FlexBox::AlignContent::flexStart;
@@ -402,7 +402,7 @@ void ControlComponent::resized() {
     dboxp.items.add(FlexItem(1, 1, dboxpt).withFlex(1).withMargin(5));
     dboxp.items.add(FlexItem(1, 1, dboxpr).withFlex(1).withMargin(5));
     dboxp.items.add(FlexItem(1, 1, dboxps).withFlex(1).withMargin(5));
-    
+
     FlexBox dboxd;  // Stack destination address and pattern config boxes
     dboxd.alignContent = FlexBox::AlignContent::flexStart;
     dboxd.flexDirection = FlexBox::Direction::column;
@@ -414,10 +414,10 @@ void ControlComponent::resized() {
     dboxd.items.addArray({FlexItem(getWidth() - 10, 1, dboxa).withMargin(FlexItem::Margin(15, 0, 0, 0)),
                           FlexItem(getWidth() - 10, 1, dboxp).withMargin(FlexItem::Margin(15, 0, 0, 0))});
     // 'dboxd' will get layed out later after dest_group layout size is determined
-    
+
     box.items.add(FlexItem(getWidth(), lht*6, dest_group));
     box.items.add(FlexItem(getWidth(), 0.8*(hr - lht*6),report_group));
-    
+
     FlexBox cbox;  // 'control' box with start/stop buttons in a horizontal row
     cbox.alignContent = FlexBox::AlignContent::flexStart;
     cbox.flexDirection = FlexBox::Direction::row;
@@ -427,14 +427,14 @@ void ControlComponent::resized() {
     int butnHt = 2*Font().getHeight();
     cbox.items.add(FlexItem(0.3*getWidth(), butnHt, start_butn).withMargin(5));
     cbox.items.add(FlexItem(0.3*getWidth(), butnHt, stop_butn).withMargin(5));
-    
+
     box.items.add(FlexItem(getWidth(), butnHt, cbox).withMargin(0));
-    
+
     int aw = 2*Font().getStringWidth(auto_toggle.getButtonText());
     box.items.add(FlexItem(aw, butnHt, auto_toggle).withMaxWidth(aw).withMargin(5));
-    
+
     box.performLayout(getLocalBounds());
-    
+
     dboxd.performLayout(dest_group.getLocalBounds().reduced(5));
     report_text.setBounds(report_group.getLocalBounds().reduced(15));
 }
@@ -443,7 +443,7 @@ void ControlComponent::buttonClicked(Button* buttonThatWasClicked)
 {
     //[UserbuttonClicked_Pre]
     //[/UserbuttonClicked_Pre]
-    
+
     if (buttonThatWasClicked == &logo_butn)
     {
         //[UserButtonCode_logo_butn] -- add your button handler code here..
@@ -493,14 +493,14 @@ void ControlComponent::comboBoxChanged(ComboBox* comboBoxThatHasChanged)
 {
     //[UsercomboBoxChanged_Pre]
     //[/UsercomboBoxChanged_Pre]
-    
+
     if(comboBoxThatHasChanged == &pattern_box)
     {
         // If probing is active, update probing parameters
         // (TBD - add code to check for actual param change?)
         if (mgender.IsProbing()) StartProbing();
     }
-    
+
     //[UsercomboBoxChanged_Post]
     //[/UsercomboBoxChanged_Post]
 }
@@ -529,7 +529,7 @@ void ControlComponent::textEditorReturnKeyPressed(TextEditor& editor)
         }
         int portNum = port_text.getText().getIntValue();
         if ((portNum >= 0) && (portNum <= 65535))
-        {   
+        {
             // Only post "listening" changed alert when germane information is changed
             probeAddr.SetPort(portNum);
             // Note a zero value disables probe listening and sending
@@ -647,7 +647,7 @@ bool ControlComponent::StartProbing()
         AlertWindow::showMessageBox(AlertWindow::WarningIcon, String("mgender"), warn);
 #endif  // if/else ANDROID
         return false;
-    } 
+    }
     probeAddr.SetPort(mgender.GetProbeAddress().GetPort());
     const char* pattern = pattern_box.getText().toRawUTF8();
     double rate = rate_text.getText().getFloatValue();
@@ -687,9 +687,9 @@ bool ControlComponent::StartProbing()
         return false;
     }
     return true;
-    
+
 }  // end ControlComponent::StartProbing()
-        
+
 // JUCER_RESOURCE: mgenLogo_png, 2520, "../Resources/mgenLogo.png"
 static const unsigned char resource_ControlComponent_mgenLogo_png[] = { 137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,64,0,0,0,64,8,6,0,0,0,170,105,113,222,0,0,0,9,112,72,89,115,0,0,11,19,0,0,11,19,
     1,0,154,156,24,0,0,0,2,73,68,65,84,120,218,253,27,117,142,0,0,9,124,73,68,65,84,229,251,45,112,235,216,21,199,1,152,154,85,80,176,102,43,246,196,106,88,177,53,91,177,39,248,204,214,44,98,49,140,89,196,

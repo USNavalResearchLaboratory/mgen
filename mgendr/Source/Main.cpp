@@ -21,8 +21,8 @@ int MgenderApp::DoMgenLogEvent(FILE*, const char* format, ...)
     return result;
 }  // end MgenderApp::DoMgenLog()
 
-MgenderApp::MgenderApp() 
-: mgen(GetTimerMgr(), GetSocketNotifier()), 
+MgenderApp::MgenderApp()
+: mgen(GetTimerMgr(), GetSocketNotifier()),
   probe_src_port(0), next_feedback_flow_id(PROBE_FLOW_ID + 1),
   filter_feedback(true), dynamic_probe_addr(false),
   active_chooser(nullptr), event_index(0)
@@ -48,7 +48,7 @@ MgenderApp::~MgenderApp()
 }
 
 bool MgenderApp::ProcessCommandLine()
-{    
+{
     StringArray argv = getCommandLineParameterArray();
     unsigned int argc = argv.size();
     // Group command line arguments into MgenApp or Mgen commands
@@ -56,7 +56,7 @@ bool MgenderApp::ProcessCommandLine()
     // Parse command line
     int i = 0;
     while (i < argc)
-    {     
+    {
         Mgen::CmdType cmdType = Mgen::GetCmdType(argv[i].toRawUTF8());
         switch (cmdType)
         {
@@ -88,7 +88,7 @@ bool MgenderApp::ProcessCommandLine()
                     AlertWindow::showMessageBoxAsync(AlertWindow::WarningIcon, String("mgender"), warn);
 #else
                     AlertWindow::showMessageBox(AlertWindow::WarningIcon, String("mgender"), warn);
-#endif  // if/else ANDROID     
+#endif  // if/else ANDROID
                     return false;
                 }
                 i++;
@@ -103,8 +103,8 @@ bool MgenderApp::ProcessCommandLine()
                     AlertWindow::showMessageBoxAsync(AlertWindow::WarningIcon, String("mgender"), warn);
 #else
                     AlertWindow::showMessageBox(AlertWindow::WarningIcon, String("mgender"), warn);
-#endif  // if/else ANDROID      
-                    return false;                 
+#endif  // if/else ANDROID
+                    return false;
                 }
                 if (!mgen.OnCommand(mgen.GetCommandFromString(argv[i].toRawUTF8()), argv[i+1].toRawUTF8()))
                 {
@@ -113,14 +113,14 @@ bool MgenderApp::ProcessCommandLine()
                     AlertWindow::showMessageBoxAsync(AlertWindow::WarningIcon, String("mgender"), warn);
 #else
                     AlertWindow::showMessageBox(AlertWindow::WarningIcon, String("mgender"), warn);
-#endif  // if/else ANDROID     
+#endif  // if/else ANDROID
                     return false;
                 }
                 i += 2;
                 break;
             }
         }
-    }  
+    }
     return true;
 }  // end MgenderApp::ProcessCommandLine()
 
@@ -162,7 +162,7 @@ void MgenderApp::getCommandInfo(CommandID commandID, ApplicationCommandInfo& res
 #ifndef JUCE_ANDROID
     if ('\0' != shortcut)
         result.addDefaultKeypress(shortcut, ModifierKeys::commandModifier);
-#endif // !JUCE_ANDROID    
+#endif // !JUCE_ANDROID
 
 }  // end MgenderApp::getCommandInfo()
 
@@ -193,7 +193,7 @@ bool MgenderApp::perform(const InvocationInfo& info)
     }
     return true;
 }  // end MgenderApp::perform()
-         
+
 StringArray MgenderApp::getMenuBarNames()
 {
     return StringArray(String("File"), String("Options"), String("About"));
@@ -221,7 +221,7 @@ PopupMenu MgenderApp::getMenuForIndex(int menuIndex, const String &menuName)
         default:
             break;
     }
-    return menu; 
+    return menu;
 }  // end  MgenderApp::getMenuForIndex()
 
 void MgenderApp::menuItemSelected(int menuItemID, int menuIndex)
@@ -246,11 +246,11 @@ void MgenderApp::ShowAppInfo()
 
 void MgenderApp::LoadScriptFile()
 {
-    
+
     FileChooser* fileChooser = new FileChooser(String("mgender"), File::getCurrentWorkingDirectory(), String("*"));
     ASSERT(nullptr == active_chooser);
     active_chooser = fileChooser;
-    int flags = FileBrowserComponent::openMode | FileBrowserComponent::canSelectFiles; 
+    int flags = FileBrowserComponent::openMode | FileBrowserComponent::canSelectFiles;
     fileChooser->launchAsync(flags,
         [this](const FileChooser& fc)
         {
@@ -265,23 +265,23 @@ void MgenderApp::LoadScriptFile()
                     AlertWindow::showMessageBoxAsync(AlertWindow::WarningIcon, String("mgender"), warn);
 #else
                     AlertWindow::showMessageBox(AlertWindow::WarningIcon, String("mgender"), warn);
-#endif  // if/else ANDROID        
+#endif  // if/else ANDROID
                 }
                 dispatcher.ResumeThread();
             }
             delete &fc;
             active_chooser = nullptr;
-        });        
+        });
 }  // end MgenderApp::LoadScriptFile()
 
 void MgenderApp::SetLogFile()
 {
-    
+
     FileChooser* fileChooser = new FileChooser(String("mgender"), File::getCurrentWorkingDirectory(), String("*"));
     ASSERT(nullptr == active_chooser);
     active_chooser = fileChooser;
-    int flags = FileBrowserComponent::saveMode | FileBrowserComponent::canSelectFiles; 
-    fileChooser->launchAsync(flags,  
+    int flags = FileBrowserComponent::saveMode | FileBrowserComponent::canSelectFiles;
+    fileChooser->launchAsync(flags,
         [this](const FileChooser& fc)
         {
             if (fc.getResults().size() > 0)
@@ -295,7 +295,7 @@ void MgenderApp::SetLogFile()
                     AlertWindow::showMessageBoxAsync(AlertWindow::WarningIcon, String("mgender"), warn);
 #else
                     AlertWindow::showMessageBox(AlertWindow::WarningIcon, String("mgender"), warn);
-#endif  // if/else ANDROID        
+#endif  // if/else ANDROID
                 }
                 dispatcher.ResumeThread();
             }
@@ -333,7 +333,7 @@ void MgenderApp::initialise(const String& commandLine)
     prune_timer.SetRepeat(-1.0);
     dispatcher.GetDispatcher().ActivateTimer(prune_timer);
     dispatcher.ResumeThread();
-    
+
 }  // end mgenderApp::initialise()
 
 void MgenderApp::shutdown()
@@ -410,7 +410,7 @@ bool MgenderApp::SetProbeAddress(const ProtoAddress& probeAddr, const char* ifac
             if (!mgen.ProcessDrecEvent(drecEvent))
                 PLOG(PL_WARN, "MgendrApp::SetProbeAddress() warning: Multicast leave failure?!\n");
         }
-        
+
         if (probeAddr.IsMulticast())
         {
             if (NULL != ifaceName)
@@ -423,7 +423,7 @@ bool MgenderApp::SetProbeAddress(const ProtoAddress& probeAddr, const char* ifac
             {
                 PLOG(PL_ERROR, "MgendrApp::SetProbeAddress error: unable to join multicast group!\n");
                 return false;
-            }    
+            }
         }
     }
     // Update probe_addr/port and iface_name in any case since one of them has changed
@@ -435,7 +435,7 @@ bool MgenderApp::SetProbeAddress(const ProtoAddress& probeAddr, const char* ifac
     return true;  // probing was disabled
 }  // end MgenderApp::SetProbeAddress()
 
-bool MgenderApp::StartProbing(const ProtoAddress&   probeAddr, 
+bool MgenderApp::StartProbing(const ProtoAddress&   probeAddr,
                               const char*           pattern,
                               double                rate,
                               unsigned int          size,
@@ -498,7 +498,7 @@ void MgenderApp::StopProbing()
         drecEvent.InitFromString(eventText);
         mgen.ProcessDrecEvent(drecEvent);
         probe_src_port = 0;
-    }    
+    }
     dispatcher.ResumeThread();
 }  // end MgenderApp::StopProbing()
 
@@ -524,7 +524,7 @@ void MgenderApp::OnMgenLogEvent(const char* text)
        if ((NULL != ptr) || (0 == space))
        {
             if ((NULL != ptr) && (0 == space))
-               index = ptr - text + 1; // advance to next line  
+               index = ptr - text + 1; // advance to next line
             // Process and reset our 'event_buffer'
             //ProtoTokenator tk(event_buffer);
             //const char* eventType = tk.GetNextItem();  // skip first field (timestamp)
@@ -535,17 +535,17 @@ void MgenderApp::OnMgenLogEvent(const char* text)
                 if (mml.lockWasGained())
                     ctrl_window->AppendReportContent(event_buffer);
             }*/
-            event_index = 0; 
+            event_index = 0;
        }
    }
 }  // end MgenderApp::OnMgenLogEvent()
 
 
 MgenderApp::Report::Report(Protocol                       theProtocol,
-                          const ProtoAddress&             srcAddr,      
-                          const ProtoAddress&             dstAddr,      
-                          UINT32                          flowId,       
-                          const ProtoAddress*             reporterAddr) 
+                          const ProtoAddress&             srcAddr,
+                          const ProtoAddress&             dstAddr,
+                          UINT32                          flowId,
+                          const ProtoAddress*             reporterAddr)
   : feedback_id(0)
 {
     report_keysize = BuildKey(report_key, MAX_KEY, theProtocol, srcAddr, dstAddr, flowId, reporterAddr);
@@ -566,12 +566,12 @@ MgenderApp::Report::~Report()
 unsigned int MgenderApp::Report::BuildKey(char*                          buffer,
                                           unsigned int                   buflen,
                                           Protocol                       theProtocol,
-                                          const ProtoAddress&            srcAddr,      
-                                          const ProtoAddress&            dstAddr,      
-                                          UINT32                         flowId,       
-                                          const ProtoAddress*            reporterAddr) 
+                                          const ProtoAddress&            srcAddr,
+                                          const ProtoAddress&            dstAddr,
+                                          UINT32                         flowId,
+                                          const ProtoAddress*            reporterAddr)
 {
-    // TBD - we could be more efficient and encode the address type 
+    // TBD - we could be more efficient and encode the address type
     //       info into the "report_key" and pull these from the key
     //       instead of keeping separate member variables
     if (buflen < MAX_KEY)
@@ -604,15 +604,15 @@ unsigned int MgenderApp::Report::BuildKey(char*                          buffer,
     return (index << 3);
 }  // end MgenderApp::Report::BuildKey()
 
-bool MgenderApp::Report::Update(const ProtoTime&            theTime, 
-                                const MgenAnalytic::Report& report, 
+bool MgenderApp::Report::Update(const ProtoTime&            theTime,
+                                const MgenAnalytic::Report& report,
                                 const ProtoTime&            sentTime)
 {
     if (reporter_addr.IsValid())
     {
         // Make sure it's not a duplicate of the current report
-        // (and not an older one) 
-        
+        // (and not an older one)
+
         ProtoTime newEnd = sentTime - report.GetWindowOffset();
         ProtoTime newStart = newEnd - report.GetWindowSize();
         ProtoTime oldEnd = report_time - report_offset;
@@ -636,24 +636,24 @@ bool MgenderApp::Report::Update(const ProtoTime&            theTime,
     report_time = sentTime;
     update_time = theTime;
     return true;
-            
+
 }  // end MgenderApp::Report::Update()
 
 MgenderApp::Report* MgenderApp::ReportTable::FindReport(Protocol                       theProtocol,
-                                                        const ProtoAddress&            srcAddr,      
-                                                        const ProtoAddress&            dstAddr,      
-                                                        UINT32                         flowId,       
-                                                        const ProtoAddress*            reporterAddr) 
+                                                        const ProtoAddress&            srcAddr,
+                                                        const ProtoAddress&            dstAddr,
+                                                        UINT32                         flowId,
+                                                        const ProtoAddress*            reporterAddr)
 {
     char key[Report::MAX_KEY];
-    unsigned int keysize = 
-        Report::BuildKey(key, Report::MAX_KEY, theProtocol, srcAddr, dstAddr, flowId, reporterAddr); 
+    unsigned int keysize =
+        Report::BuildKey(key, Report::MAX_KEY, theProtocol, srcAddr, dstAddr, flowId, reporterAddr);
     return Find(key, keysize);
 }  // end MgenderApp::ReportTable::FindReport()
 
 
 // MgenController method implementations
-void MgenderApp::OnUpdateReport(const ProtoTime&              theTime, 
+void MgenderApp::OnUpdateReport(const ProtoTime&              theTime,
                                 const MgenAnalytic::Report&   localReport)
 {
     ProtoAddress srcAddr, dstAddr;
@@ -699,14 +699,14 @@ void MgenderApp::OnUpdateReport(const ProtoTime&              theTime,
         if (PROBE_FLOW_ID == report->GetFlowId())
         {
             // This is a new probing flow from a remote, so set up
-            // a reciprocal feedback flow. 
+            // a reciprocal feedback flow.
             char eventString[256];
             UINT32 feedbackId = next_feedback_flow_id;
             const ProtoAddress& reportSrcAddr = report->GetSrcAddr();
             // Send 5 feedback message per averaging window for robust feedback
             double feedbackRate = 5.0 / (mgen.GetAnalyticWindow());
             sprintf(eventString, "on %u udp dst %s/%hu periodic [%lf 96] feedback",
-                        feedbackId, reportSrcAddr.GetHostString(), 
+                        feedbackId, reportSrcAddr.GetHostString(),
                         reportSrcAddr.GetPort(), feedbackRate);
             MgenEvent event;
             event.InitFromString(eventString);
@@ -715,7 +715,7 @@ void MgenderApp::OnUpdateReport(const ProtoTime&              theTime,
             {
                 // TBD - we could keep trying until we find a flow id that works?
                 report->SetFeedbackId(next_feedback_flow_id++);
-            }            
+            }
             else
             {
                 PLOG(PL_ERROR, "MgenderApp::OnUpdateReport() error: unable to initiate feedback\n");
@@ -733,7 +733,7 @@ void MgenderApp::OnUpdateReport(const ProtoTime&              theTime,
     PruneFlowReports(theTime);
 }  // end MgenderApp::OnUpdateReport()
 
-void MgenderApp::OnRecvReport(const ProtoTime&              theTime, 
+void MgenderApp::OnRecvReport(const ProtoTime&              theTime,
                               const MgenAnalytic::Report&   recvReport,
                               const ProtoAddress&           senderAddr,
                               const ProtoTime&              sentTime)
@@ -787,7 +787,7 @@ void MgenderApp::OnRecvReport(const ProtoTime&              theTime,
         report_list.Append(*report);
         AppendReportContent(*report, theTime);
     }
-    
+
     if (dynamic_probe_addr &&
         probe_addr.IsUnicast() &&
         report->GetDstAddr().IsEqual(probe_addr) &&
@@ -799,7 +799,7 @@ void MgenderApp::OnRecvReport(const ProtoTime&              theTime,
         SetProbeAddress(probeAddr, GetInterface());
         ctrl_window->OnUpdateProbeAddress();
     }
-    
+
     PruneFlowReports(theTime);
 }  // end MgenderApp::OnRecvReport()
 
@@ -820,7 +820,7 @@ void MgenderApp::PruneFlowReports(const ProtoTime& theTime)
     while (NULL != (nextReport = iterator.GetNextItem()))
     {
         double age = theTime - nextReport->GetUpdateTime();
-        if (age > ageMax) 
+        if (age > ageMax)
         {
             RemoveFlowReport(*nextReport);
             mgen.RemoveAnalytic(nextReport->GetProtocol(),
@@ -830,7 +830,7 @@ void MgenderApp::PruneFlowReports(const ProtoTime& theTime)
             delete nextReport;
             report_flow_count -= 1;
         }
-    }    
+    }
 }  //  end MgenderApp::PruneFlowReports()
 
 void MgenderApp::RemoveFlowReport(Report& report)
@@ -849,7 +849,7 @@ void MgenderApp::RemoveFlowReport(Report& report)
         }
         // Conserve feedback flow id a little if possible
         if (report.GetFeedbackId() == (next_feedback_flow_id - 1))
-            next_feedback_flow_id -= 1;  
+            next_feedback_flow_id -= 1;
         report.SetFeedbackId(0);
     }
 }  // end MgenderApp::RemoveFlowReport()
@@ -858,7 +858,7 @@ void MgenderApp::RemoveFlowReport(Report& report)
 void MgenderApp::AppendReportContent(Report& report, const ProtoTime& theTime)
 {
     int64 msec = theTime.sec()*1.0e+03 + theTime.usec()*1.0e-03;
-    Time juceTime(msec);    
+    Time juceTime(msec);
     if (report_lines.size() >= MAX_REPORT_LINES)
             report_lines.remove(0);
     // Append line to report_lines string array
@@ -894,7 +894,7 @@ void MgenderApp::AppendReportContent(Report& report, const ProtoTime& theTime)
     //    ctrl_window->SetReportContentDirect(report_lines.joinIntoString(StringRef("\n\n")));
     // This invokes the ControlComponent AsyncUpdate for thread safety
     ctrl_window->SetReportContent(report_lines.joinIntoString(StringRef("\n\n")));
-    
+
 }  // end MgenderApp::AppendReportContent()
 
 ///////////////////////////////////////////////////
@@ -902,16 +902,16 @@ void MgenderApp::AppendReportContent(Report& report, const ProtoTime& theTime)
 // a "juceProtoApp" base class
 
 MgenderApp::MainWindow::MainWindow(String name, ControlComponent* theControl)
- : DocumentWindow(name, 
+ : DocumentWindow(name,
                   Desktop:: getInstance()
                     .getDefaultLookAndFeel()
                         .findColour(ResizableWindow::backgroundColourId),
                   DocumentWindow::allButtons)
 {
-    setUsingNativeTitleBar(true); 
-    setResizable(true, false);  
+    setUsingNativeTitleBar(true);
+    setResizable(true, false);
 #ifdef LINUX
-    Image mgenIcon = ImageCache::getFromMemory(ControlComponent::mgenLogo_png, 
+    Image mgenIcon = ImageCache::getFromMemory(ControlComponent::mgenLogo_png,
                                                ControlComponent::mgenLogo_pngSize);
     setIcon(mgenIcon);
     ComponentPeer* peer = getPeer();
@@ -919,10 +919,10 @@ MgenderApp::MainWindow::MainWindow(String name, ControlComponent* theControl)
         peer->setIcon(mgenIcon);
 #endif // LINUX
     centreWithSize(getWidth(), getHeight());
-    setContentOwned(theControl, true);   
+    setContentOwned(theControl, true);
     setVisible (true);
 #ifdef ANDROID
-    setFullScreen(true);    
+    setFullScreen(true);
 #endif // ANDROID
 }
 
