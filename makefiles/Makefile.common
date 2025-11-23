@@ -14,14 +14,16 @@ UNIX = ../makefiles
 
 INCLUDES = $(SYSTEM_INCLUDES) -I$(UNIX) -I$(INCLUDE) -I$(PROTOLIB)/include
 
-CFLAGS = -g -DPROTO_DEBUG -DHAVE_GPS -DUNIX -Wall -Wcast-align -fPIC $(SYSTEM_HAVES) $(INCLUDES) $(ADDED_CFLAGS)
+# Uncomment this to enable libpcap support
+#SYSTEM_HAVES += -DHAVE_PCAP
+#SYSTEM_LIBS += -lpcap
 
-#CFLAGS = -g -fno-inline -DHAVE_PCAP -DPROTO_DEBUG -DHAVE_GPS -DUNIX -Wall -Wcast-align -pedantic  -fPIC $(SYSTEM_HAVES) $(INCLUDES) 
+CFLAGS = -g -Wall -Wcast-align -DPROTO_DEBUG -fPIC $(SYSTEM_HAVES) $(INCLUDES) $(ADDED_CFLAGS)
+#CFLAGS += -Wpedantic -DHAVE_GPS -fno-inline
 
 LDFLAGS = $(SYSTEM_LDFLAGS)
 
 LIBS = $(SYSTEM_LIBS) -lm 
-#LIBS = $(SYSTEM_LIBS) -lm -lpcap
 
 TARGETS = mgen mpmgr 
 
