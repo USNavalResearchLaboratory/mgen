@@ -3,21 +3,18 @@
 #
 
 
-# Note this Makefile sets the -DHAVE_PCAP macro which requires
-# that libpcap support
-
 # 1) System specific additional libraries, include paths, etc
 #    (Where to find X11 libraries, etc)
 #
-# Use libpcap installed by Xcode
+# Uncomment this if libpcap is installed by Xcode
 #SYSTEM_INCLUDES = -I/opt/local/include
 #SYSTEM_LDFLAGS = 
+#
+# Uncomment this if libpcap is installed from tcpdump.org
+#SYSTEM_INCLUDES = -I/usr/local/include
+#SYSTEM_LDFLAGS = -L/usr/local/lib
 
-# Use libpcap installed from tcpdump.org
-SYSTEM_INCLUDES = -I/usr/local/include
-SYSTEM_LDFLAGS = -L/usr/local/lib
-
-SYSTEM_LIBS = -lresolv -lpthread -lpcap
+SYSTEM_LIBS = -lresolv -lpthread
 
 # 2) System specific capabilities
 # Must choose appropriate for the following:
@@ -45,7 +42,7 @@ SYSTEM_LIBS = -lresolv -lpthread -lpcap
 # (We export these for other Makefiles as needed)
 #
 
-export SYSTEM_HAVES = -DHAVE_PCAP -DHAVE_IPV6 -DMACOSX -DHAVE_ASSERT -DHAVE_GETLOGIN \
+export SYSTEM_HAVES = -DMACOSX -DHAVE_IPV6 -DHAVE_ASSERT -DHAVE_GETLOGIN \
 -DHAVE_FLOCK -DHAVE_DIRFD $(DNETSEC) -DUSE_SELECT -DSOCKLEN_T=int
 
 SYSTEM = macosx
